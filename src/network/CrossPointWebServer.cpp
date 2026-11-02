@@ -43,6 +43,7 @@
 #include "util/FontFamilyLabel.h"
 #include "util/ReaderStatusBarJson.h"
 #include "util/StringUtils.h"
+#include "util/TaskWatchdog.h"
 
 namespace {
 // Folders/files to hide from the web interface file browser.
@@ -745,7 +746,8 @@ bool CrossPointWebServer::scanFiles(const char* path, const FileVisitor visitor,
     }
 
     file.close();
-    yield();  // Yield to allow WiFi and other tasks to process during long scans
+    resetTaskWatchdogIfSubscribed();  // Reset watchdog to prevent timeout on large directories
+    yield();                          // Yield to allow WiFi and other tasks to process during long scans
     file = root.openNextFile();
   }
   const bool complete = !FsHelpers::directoryIterationFailed(root);
@@ -831,6 +833,7 @@ void CrossPointWebServer::handleFileListData() const {
           if (context.batchLen + required > BATCH_CAPACITY) {
             context.server->sendContent(context.batch, context.batchLen);
             context.batchLen = 0;
+            resetTaskWatchdogIfSubscribed();
           }
           if (context.seenFirst) context.batch[context.batchLen++] = ',';
           memcpy(context.batch + context.batchLen, context.output, written);
@@ -838,6 +841,7 @@ void CrossPointWebServer::handleFileListData() const {
         } else {
           if (context.seenFirst) context.server->sendContent(",");
           context.server->sendContent(context.output);
+          resetTaskWatchdogIfSubscribed();
         }
         context.seenFirst = true;
       },
@@ -928,6 +932,7 @@ void CrossPointWebServer::handleDownload() const {
         break;
       }
       totalWritten += wrote;
+      resetTaskWatchdogIfSubscribed();
     }
   }
 #ifndef SIMULATOR
@@ -941,7 +946,9 @@ static unsigned long uploadStartTime = 0;
 
 static bool flushUploadBuffer(CrossPointWebServer::UploadState& state) {
   if (state.bufferPos > 0 && state.file) {
+    resetTaskWatchdogIfSubscribed();  // Reset watchdog before potentially slow SD write
     const size_t written = state.file.write(state.buffer.data(), state.bufferPos);
+    resetTaskWatchdogIfSubscribed();  // Reset watchdog after SD write
 
     if (written != state.bufferPos) {
       LOG_DBG("WEB", "[UPLOAD] Buffer flush failed: expected %d, wrote %d", state.bufferPos, written);
@@ -2200,6 +2207,7 @@ void CrossPointWebServer::onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* 
         return;
       }
       size_t written = wsUploadFile.write(payload, length);
+      resetTaskWatchdogIfSubscribed();
 
       if (written != length) {
         abortWsUpload("WS");
@@ -2418,7 +2426,9 @@ void CrossPointWebServer::handleFontUploadData() {
         remaining -= chunk;
 
         if (fontUpload.bufferPos >= FontUploadState::BUFFER_SIZE) {
+          resetTaskWatchdogIfSubscribed();
           fontUpload.file.write(fontUpload.buffer.data(), fontUpload.bufferPos);
+          resetTaskWatchdogIfSubscribed();
           fontUpload.bytesWritten += fontUpload.bufferPos;
           fontUpload.bufferPos = 0;
         }

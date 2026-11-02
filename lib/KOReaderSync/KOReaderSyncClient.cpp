@@ -23,6 +23,7 @@
 
 #include "KOReaderCredentialStore.h"
 #include "Memory.h"
+#include "../../src/network/WifiPowerSaveGuard.h"
 
 #if !defined(SIMULATOR) && defined(FREEINK_WOLFSSL_DEBUG)
 // With FREEINK_WOLFSSL_DEBUG, wolfSSL is built with DEBUG_WOLFSSL, whose Arduino
@@ -174,6 +175,8 @@ KOReaderSyncClient::Error KOReaderSyncClient::authenticate() {
   const std::string url = KOREADER_STORE.getBaseUrl() + "/users/auth";
   LOG_DBG("KOSync", "Authenticating: %s (heap: %u)", url.c_str(), (unsigned)ESP.getFreeHeap());
   if (insufficientHeap()) return LOW_MEMORY;
+  WifiPowerSaveGuard wifiPowerSaveGuard;
+  (void)wifiPowerSaveGuard;
 
 #ifdef SIMULATOR
   HTTPClient http;
@@ -294,6 +297,8 @@ KOReaderSyncClient::Error KOReaderSyncClient::createUser() {
   const std::string url = KOREADER_STORE.getBaseUrl() + "/users/create";
   LOG_DBG("KOSync", "Creating account: %s (heap: %u)", url.c_str(), (unsigned)ESP.getFreeHeap());
   if (insufficientHeap()) return LOW_MEMORY;
+  WifiPowerSaveGuard wifiPowerSaveGuard;
+  (void)wifiPowerSaveGuard;
 
   JsonDocument doc;
   doc["username"] = KOREADER_STORE.getUsername();
@@ -333,6 +338,8 @@ KOReaderSyncClient::Error KOReaderSyncClient::getProgress(const std::string& doc
   const std::string url = KOREADER_STORE.getBaseUrl() + "/syncs/progress/" + documentHash;
   LOG_DBG("KOSync", "Getting progress: %s (heap: %u)", url.c_str(), (unsigned)ESP.getFreeHeap());
   if (insufficientHeap()) return LOW_MEMORY;
+  WifiPowerSaveGuard wifiPowerSaveGuard;
+  (void)wifiPowerSaveGuard;
 
 #ifdef SIMULATOR
   HTTPClient http;
@@ -488,6 +495,8 @@ KOReaderSyncClient::Error KOReaderSyncClient::updateProgress(const KOReaderProgr
   const std::string url = KOREADER_STORE.getBaseUrl() + "/syncs/progress";
   LOG_DBG("KOSync", "Updating progress: %s (heap: %u)", url.c_str(), (unsigned)ESP.getFreeHeap());
   if (insufficientHeap()) return LOW_MEMORY;
+  WifiPowerSaveGuard wifiPowerSaveGuard;
+  (void)wifiPowerSaveGuard;
 
   // Build JSON body
   JsonDocument doc;

@@ -15,6 +15,7 @@
 #include "CrossPointSettings.h"
 #include "activities/boot_sleep/ImageFolderIndex.h"
 #include "util/BookCacheUtils.h"
+#include "util/TaskWatchdog.h"
 
 namespace {
 constexpr const char* HIDDEN_ITEMS[] = {"System Volume Information", "XTCache"};
@@ -101,6 +102,7 @@ void WebDAVHandler::raw(WebServer& server, const String& uri, HTTPRaw& raw) {
   } else if (raw.status == RAW_WRITE) {
     if (_putFile && _putOk) {
       size_t written = _putFile.write(raw.buf, raw.currentSize);
+      resetTaskWatchdogIfSubscribed();
       if (written != raw.currentSize) {
         _putOk = false;
       }
@@ -268,6 +270,7 @@ void WebDAVHandler::handlePropfind(WebServer& s) {
       }
 
       file.close();
+      resetTaskWatchdogIfSubscribed();
       yield();
       file = root.openNextFile();
     }
@@ -682,6 +685,7 @@ void WebDAVHandler::handleCopy(WebServer& s) {
     int bytesRead = srcFile.read(buf.get(), COPY_BUFFER_SIZE);
     if (bytesRead <= 0) break;
     size_t written = dstFile.write(buf.get(), bytesRead);
+    resetTaskWatchdogIfSubscribed();
     if (written != (size_t)bytesRead) {
       copyOk = false;
       break;

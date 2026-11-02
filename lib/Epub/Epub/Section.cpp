@@ -16,6 +16,7 @@
 #include "SectionPageIndexSerialization.h"
 #include "hyphenation/Hyphenator.h"
 #include "parsers/ChapterHtmlSlimParser.h"
+#include "../../../src/util/TaskWatchdog.h"
 
 namespace {
 constexpr uint32_t SECTION_CACHE_MAGIC = 0x535843FF;  // bytes: 0xFF, "CXS"
@@ -148,6 +149,7 @@ uint32_t Section::onPageComplete(std::unique_ptr<Page> page) {
     LOG_ERR("SCT", "Failed to serialize page %d", builtPageCount_);
     return 0;
   }
+  resetTaskWatchdogIfSubscribed();
 
   protectedImageUnits_ += imageUnits;
   builtPageCount_++;
@@ -642,6 +644,7 @@ bool Section::createSectionFile(const ReaderRenderSpec& spec, const std::functio
     success = visitor.beginParse();
   }
   while (success && !cancelled) {
+    resetTaskWatchdogIfSubscribed();
     if (cancelBuild()) {
       visitor.abortParse();
       cancelled = true;
@@ -994,6 +997,7 @@ bool Section::buildSomeMore(const int maxPages) {
   // would otherwise turn one "small" chunk into a blocking rebuild of the whole watermark.
   const int startCount = builtPageCount_;
   for (;;) {
+    resetTaskWatchdogIfSubscribed();
     const auto status = build_->parser->parseStep();
     lastImagesWereSuppressed_ = lastImagesWereSuppressed_ || build_->parser->wasLowMemoryFallbackTriggered();
     lastLayoutAbortedForLowMemory_ = lastLayoutAbortedForLowMemory_ || build_->parser->wasLowMemoryAbortTriggered();
