@@ -1651,6 +1651,8 @@ bool Epub::seedOptimizerImageCache(const std::string& itemHref, const int expect
 
 bool Epub::ensureOptimizerImageIndex() {
   if (optimizerIndexReady) return true;
+  if (optimizerIndexChecked) return false;
+  optimizerIndexChecked = true;
   optimizerLastHit = {};
   const size_t length = strlen(kOptimizerManifestPath);
   ZipFile::EntryTarget target{ZipFile::fnvHash64(kOptimizerManifestPath, length), static_cast<uint16_t>(length), 0,
@@ -1762,6 +1764,8 @@ bool Epub::ensureOptimizerImageIndex() {
 }
 
 bool Epub::loadXLocations() {
+  if (xLocationsLoaded) return true;
+  if (xLocationsChecked) return false;
   locationSpine.reset();
   locationSpineCount = 0;
   locationChapterGroups.reset();
@@ -1787,6 +1791,7 @@ bool Epub::loadXLocations() {
   if (spineCount <= 0) {
     return false;
   }
+  xLocationsChecked = true;
 
   size_t manifestSize = 0;
   if (!getItemSize(kXLocationsPath, &manifestSize)) {

@@ -1,7 +1,7 @@
 # 🐰 CrossImple
 
 [![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossInkplusPet?style=flat-square)](https://github.com/3r1pm4V/CrossInkplusPet/releases)
-[![Version](https://img.shields.io/badge/Version-v0.12-orange?style=flat-square)](https://github.com/3r1pm4V/CrossInkplusPet/releases)
+[![Version](https://img.shields.io/badge/Version-v0.13-orange?style=flat-square)](https://github.com/3r1pm4V/CrossInkplusPet/releases)
 [![Device](https://img.shields.io/badge/Devices-Xteink%20X3%20%7C%20X4%20Classic%20%7C%20X4%20Pro-blue?style=flat-square)](#-thiết-bị-hỗ-trợ-supported-devices)
 [![Base](https://img.shields.io/badge/Base-CrossInk%20v1.6.1-brightgreen?style=flat-square)](https://github.com/uxjulia/CrossInk)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -13,6 +13,21 @@
 ---
 
 ## 📝 Nhật ký thay đổi (Changelog)
+
+### Phiên bản v0.13
+* **Tăng tốc độ mở sách EPUB & giải nén ZIP (Đồng bộ lõi CrossPoint mới nhất):**
+  * **Tối ưu `ZipFile` & giảm áp lực Stack:** Loại bỏ bộ đệm 512 byte trên stack (`CdReader`), thay bằng đọc header 46 byte kết hợp lọc nhanh theo độ dài tên tệp (`nameLen == targetLen`) và bổ sung bộ nhớ đệm 1-entry (`lastLookup`) giúp cặp thao tác kiểm tra kích thước + giải nén không phải quét lại Central Directory lần thứ hai.
+  * **Cơ chế Negative Cache cho EPUB (`Epub.cpp`):** Bổ sung cờ ghi nhớ trạng thái kiểm tra `optimizerIndexChecked` và `xLocationsChecked`, ngăn việc quét lại toàn bộ ZIP Central Directory ở mỗi lần chuyển chương đối với các tệp EPUB tiêu chuẩn.
+* **Tăng tốc độ thức dậy (Wake) & đi vào chế độ ngủ (Sleep):**
+  * **Gộp thao tác ghi trạng thái khi Wake (`main.cpp`):** Gộp nhiều lần ghi `APP_STATE.saveToFile()` xuống thẻ nhớ SD khi thức dậy thành 1 lần duy nhất sau khi hoàn tất vẽ màn hình, đồng thời bỏ qua quét thư mục `bootscreens` khi đã ghim sẵn ảnh khởi động yêu thích.
+  * **Tắt máy tức thì trên Xteink X3 (`SleepActivity.cpp`):** Bỏ qua bước nháy màn hình vẽ hộp thoại `"Entering Sleep..."` khi ảnh ngủ hoặc bìa sách đã có sẵn trong bộ nhớ đệm, rút ngắn ~350–450ms thời gian tắt máy.
+  * **Đồng bộ chốt nguồn Deep Sleep trên ESP32-C3 (`HalPowerManager.cpp`):** Bổ sung `gpio_hold_dis(latch)` trước khi hạ chân `latch` xuống mức `LOW`, đảm bảo mạch giữ nguồn ngắt/mở sạch sẽ giữa các chu kỳ ngủ sâu.
+* **Gia cố độ an toàn đa luồng (Dual-Core ESP32-S3) & Bảo vệ thẻ nhớ SD:**
+  * **Khóa luồng `BookMetadataCache` (`BookMetadataCache.cpp`):** Bổ sung `std::mutex sizeWindowLock` và sửa công thức biên cửa sổ `sizeWindow`, triệt tiêu hoàn toàn nguy cơ xung đột dữ liệu (data race) giữa luồng vẽ màn hình (Core 0) và luồng chính (Core 1) trên X4 Classic và X4 Pro.
+  * **Bảo vệ bảng FAT trên thẻ nhớ SD (`0003-sync-fat-before-data-cache.patch`):** Luôn đồng bộ `m_fatCache` xuống thẻ nhớ trước `m_cache`, ngăn ngừa lỗi hỏng cấu trúc tệp khi mất nguồn đột ngột.
+  * **Tách biệt Cache SDK theo từng kiến trúc chip (`patch_pioarduino_cache.py` & Dọn sạch 16 tệp tàn dư cũ):** Cô lập hoàn toàn thư viện tĩnh `.a` giữa `esp32c3` (X3) và `esp32s3` (X4 Classic / X4 Pro), loại bỏ 1.280 dòng mã thừa còn sót lại.
+
+---
 
 ### Phiên bản v0.12
 * **Nâng cấp thuật toán Dithering & Độ tương phản E-Ink:**
@@ -56,9 +71,9 @@
 
 | Thiết bị | Vi điều khiển (MCU) | Màn hình | Điều khiển | Tên file Firmware xuất ra |
 |---|---|---|---|---|
-| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.12.bin` |
-| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.12.bin` |
-| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.12.bin` |
+| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.13.bin` |
+| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.13.bin` |
+| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.13.bin` |
 
 ---
 
@@ -74,9 +89,9 @@
 
 ### Cách 1: Nâng cấp trực tiếp qua Thẻ nhớ SD (Khuyên dùng)
 1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossInkplusPet/releases):
-   * Với **Xteink X3**: tải `crossimple_x3_v0.12.bin`
-   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.12.bin`
-   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.12.bin`
+   * Với **Xteink X3**: tải `crossimple_x3_v0.13.bin`
+   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.13.bin`
+   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.13.bin`
 2. Chép file `.bin` vào thư mục gốc của thẻ MicroSD (định dạng FAT32).
 3. Bật máy đọc sách, mở mục **Quản lý tệp (File Browser)**, chọn file `.bin` vừa chép và nhấn **Xác nhận (Confirm)**.
 4. Máy sẽ tự động kiểm tra chip ESP32, tag phần cứng, tính toàn vẹn SHA256 và tiến hành flash an toàn. Sau khi hoàn tất máy sẽ tự khởi động lại.
@@ -106,15 +121,15 @@ cd CrossInkplusPet
 
 # 1. Biên dịch cho Xteink X3 (ESP32-C3)
 pio run -e default
-# File xuất ra: crossimple_x3_v0.12.bin
+# File xuất ra: crossimple_x3_v0.13.bin
 
 # 2. Biên dịch cho Xteink X4 Classic (ESP32-S3)
 pio run -e x4-classic
-# File xuất ra: crossimple_x4-classic_v0.12.bin
+# File xuất ra: crossimple_x4-classic_v0.13.bin
 
 # 3. Biên dịch cho Xteink X4 Pro (ESP32-S3 Touch + Frontlight)
 pio run -e x4-pro
-# File xuất ra: crossimple_x4-pro_v0.12.bin
+# File xuất ra: crossimple_x4-pro_v0.13.bin
 ```
 
 ---

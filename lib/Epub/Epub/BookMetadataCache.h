@@ -84,7 +84,7 @@ class BookMetadataCache {
   bool useSpineHrefIndex = false;
   bool lowMemoryFailure = false;
 
-  static constexpr uint16_t LARGE_SPINE_THRESHOLD = 300;
+  static constexpr uint16_t LARGE_SPINE_THRESHOLD = 32;
 
   // FNV-1a 64-bit hash function
   static uint64_t fnvHash64(const std::string& s) {
@@ -100,7 +100,6 @@ class BookMetadataCache {
   uint32_t writeTocEntry(HalFile& file, const TocEntry& entry) const;
   SpineEntry readSpineEntry(HalFile& file) const;
   TocEntry readTocEntry(HalFile& file) const;
-  void cacheSpineCumulativeSizes();
 
  public:
   BookMetadata coreMetadata;

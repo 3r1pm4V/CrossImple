@@ -75,6 +75,7 @@ class Epub {
   mutable std::unique_ptr<PxcV2Workspace> optimizerWorkspace;
   uint16_t optimizerIndexCount = 0;
   bool optimizerIndexReady = false;
+  bool optimizerIndexChecked = false;
   bool findOptimizerImage(const std::string& itemHref) const;
   std::unique_ptr<LocationChapterGroupEntry[]> locationChapterGroups;
   size_t locationChapterGroupCount = 0;
@@ -89,6 +90,7 @@ class Epub {
   uint32_t totalReferencePages = 0;
   bool referencePagesUseCharacters = false;
   bool xLocationsLoaded = false;
+  bool xLocationsChecked = false;
   OpenFailure lastLoadFailure = OpenFailure::None;
   bool sourceSpineMapDeclared = false;
   enum class CssParseStatus : uint8_t {

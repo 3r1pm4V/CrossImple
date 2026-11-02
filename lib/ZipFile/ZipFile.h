@@ -109,6 +109,11 @@ class ZipFile {
   uint32_t lastCentralDirPos = 0;
   bool lastCentralDirPosValid = false;
 
+  // One-entry cache for the common getInflatedFileSize() -> readFile*() pair.
+  std::string lastLookupName;
+  FileStatSlim lastLookup = {};
+  bool lastLookupValid = false;
+
   bool loadFileStatSlim(const char* filename, FileStatSlim* fileStat);
   long getDataOffset(const FileStatSlim& fileStat);
   bool loadZipDetails();

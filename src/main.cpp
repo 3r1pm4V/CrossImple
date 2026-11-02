@@ -1401,12 +1401,19 @@ void setup() {
   // skips the panel-clearing pass and the X3 initial-full-sync arming (see
   // HalDisplay::begin), so the first paint is FAST_REFRESH (~500ms) over the
   // retained frame and input dispatches against a visible UI.
+  bool stateDirty = false;
+  const auto flushStateIfNeeded = [&stateDirty]() {
+    if (stateDirty) {
+      APP_STATE.saveToFile();
+      stateDirty = false;
+    }
+  };
   if (APP_STATE.quickLockResumePending) {
     // A timeout wake starts an unlocked session. Keep this separate from the
     // persisted short Power-button wake policy used before settings load.
     APP_STATE.quickLockResumePending = false;
     APP_STATE.quickLockRestoreFrontlight = false;
-    APP_STATE.saveToFile();
+    stateDirty = true;
   }
   // A boot-screen folder or an explicitly selected BMP opts a reader into
   // seeing its boot image after a power-button wake as well as a cold boot.
@@ -1414,11 +1421,13 @@ void setup() {
   bool hasBootScreenDirectory = false;
   bool hasPinnedBootScreen = false;
   if (SETTINGS.customBootscreenEnabled && isSleepWake && !APP_STATE.showBootScreen) {
-    std::string bootScreenDirectory;
-    hasBootScreenDirectory = ImageFolderIndex::resolveBootScreenDirectory(bootScreenDirectory);
     hasPinnedBootScreen = !APP_STATE.favoriteBootImagePath.empty() &&
                           FsHelpers::hasBmpExtension(APP_STATE.favoriteBootImagePath) &&
                           Storage.exists(APP_STATE.favoriteBootImagePath.c_str());
+    if (!hasPinnedBootScreen) {
+      std::string bootScreenDirectory;
+      hasBootScreenDirectory = ImageFolderIndex::resolveBootScreenDirectory(bootScreenDirectory);
+    }
   }
   const bool skipSplashOnWake =
       isSleepWake && !APP_STATE.showBootScreen && !hasBootScreenDirectory && !hasPinnedBootScreen;
@@ -1451,10 +1460,10 @@ void setup() {
       break;
     case BootResume::SplashlessWake:
       // One-shot flag: re-arm the splash for the next ordinary boot. Save
-      // before any painting so a hang in the blocking paint path can't strand
-      // us in a splashless-with-no-frame loop on the next boot.
+      // before any blocking paint path so a hang can't strand us in a
+      // splashless-with-no-frame loop on the next boot.
       APP_STATE.showBootScreen = true;
-      APP_STATE.saveToFile();
+      stateDirty = true;
       if (shouldRestoreSleepFrame && loadSleepFrameBuffer()) {
         if (gpio.deviceIsX3()) {
           // begin() clears the X3 controller RAM. Restore the saved frame as
@@ -1475,11 +1484,13 @@ void setup() {
         // The frame passed the size preflight but could not be read after display
         // setup. Do one clean, device-specific recovery rather than painting
         // differentially against an invalid controller baseline.
+        flushStateIfNeeded();
         LOG_ERR("BOOT", "Quick Resume frame load failed; rebuilding UC8279 X3 display baseline");
         Storage.remove(SLEEP_FRAME_FILE);
         renderer.clearScreen();
         renderer.displayBuffer(HalDisplay::HALF_REFRESH);
       } else if (shouldClearX4WakeGhosting() && SETTINGS.fadingFix != 0) {
+        flushStateIfNeeded();
         LOG_INF("BOOT", "X4 wake: clearing retained sleep image with half refresh");
         renderer.clearScreen();
         renderer.displayBuffer(HalDisplay::HALF_REFRESH);
@@ -1491,8 +1502,17 @@ void setup() {
       }
       break;
     case BootResume::Splash:
+      flushStateIfNeeded();
       activityManager.goToBoot();
       break;
+  }
+
+  const bool bootToReaderFromState =
+      !recoveryFirmwareMode && !rebootedFromPanic && resume != BootResume::Network && resume != BootResume::Silent &&
+      !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader &&
+      !mappedInputManager.isPressed(MappedInputManager::Button::Back) && APP_STATE.readerActivityLoadCount == 0;
+  if (!bootToReaderFromState) {
+    flushStateIfNeeded();
   }
 
   if (recoveryFirmwareMode) {
@@ -1580,6 +1600,7 @@ void setup() {
     const auto path = APP_STATE.openEpubPath;
     APP_STATE.openEpubPath = "";
     APP_STATE.readerActivityLoadCount++;
+    stateDirty = false;
     APP_STATE.saveToFile();
     activityManager.goToReader(path, false, allowFastInitialReaderRefresh);
   }

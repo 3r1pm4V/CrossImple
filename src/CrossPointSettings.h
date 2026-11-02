@@ -444,9 +444,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t sleepScreenCoverMode = FIT;
   // Sleep screen cover filter
   uint8_t sleepScreenCoverFilter = NO_FILTER;
-  char sleepImagePath[128] = {0};
-  uint8_t temperatureUnit = 0; // 0: C, 1: F
-  uint8_t weatherCity = 0;
   // Status bar settings (statusBar retained for migration only)
   uint8_t statusBar = FULL;
   uint8_t statusBarChapterPageCount = 1;

@@ -543,8 +543,21 @@ void SleepActivity::onEnter() {
 
   // X4 Pro and X4 Classic share a panel that can retain this high-contrast
   // transient update beneath the final OEM-style sleep refresh. Render only
-  // the final sleep frame on that panel family.
-  const bool showSleepPopup = !BoardConfig::isX4Pro() && !CROSSINK_APP_DEVICE_X4CLASSIC;
+  // the final sleep frame on that panel family. On X3, only show the popup when
+  // the sleep screen must decode an uncached cover image from the EPUB/ZIP.
+  bool sleepRequiresUncachedCoverDecode = false;
+  if (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER ||
+      (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM && APP_STATE.lastSleepFromReader)) {
+    if (!recentBookPath.empty()) {
+      const bool absolute = renderer.supportsAbsoluteGrayscale() &&
+                            SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::NO_FILTER;
+      const bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
+      sleepRequiresUncachedCoverDecode =
+          SleepCoverAssets::cachedCoverPathFor(recentBookPath, cropped, absolute).empty();
+    }
+  }
+  const bool showSleepPopup =
+      !BoardConfig::isX4Pro() && !CROSSINK_APP_DEVICE_X4CLASSIC && sleepRequiresUncachedCoverDecode;
   // Show the popup in the orientation that was visible before reader exit restores
   // global settings. Reset to portrait afterwards so sleep screen layout stays unchanged.
   if (APP_STATE.lastSleepFromReader) {
