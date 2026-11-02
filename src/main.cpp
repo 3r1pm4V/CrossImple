@@ -121,6 +121,7 @@ inline esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_
 #include "util/FrontlightSchedule.h"
 #include "util/ScreenshotUtil.h"
 #include "util/SleepWakePolicy.h"
+#include "util/TaskWatchdog.h"
 
 GfxRenderer renderer(display);
 MappedInputManager mappedInputManager(gpio, renderer);
@@ -1626,6 +1627,7 @@ void setup() {
 }
 
 void loop() {
+  markWatchdogMainLoopTick();
   static unsigned long maxLoopDuration = 0;
   const unsigned long loopStartTime = millis();
   static unsigned long lastMemPrint = 0;

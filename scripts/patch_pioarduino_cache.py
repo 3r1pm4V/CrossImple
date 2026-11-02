@@ -17,6 +17,11 @@ if "--self-test" in sys.argv:
 Import("env")  # noqa: F821 -- provided by PlatformIO
 
 platform = env.PioPlatform()
+platform_py = Path(platform.get_dir()) / "platform.py"
+if platform_py.is_file():
+    p_src = platform_py.read_text(encoding="utf-8")
+    if '"tool-scons",\n' in p_src:
+        platform_py.write_text(p_src.replace('    "tool-scons",\n', ""), encoding="utf-8")
 builder = Path(platform.get_dir()) / "builder" / "frameworks" / "arduino.py"
 source = builder.read_text(encoding="utf-8")
 # The package already stores libraries per chip; only its cache-presence check is global.

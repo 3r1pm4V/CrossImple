@@ -162,9 +162,24 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
   // wake source. On the ESP32-C3 that overwrites the power pin's sleep input
   // configuration, so short presses can be missed. Isolate first, then restore
   // and arm the board-configured power pin immediately before sleeping.
-  freeink::PowerManager::waitForPowerButtonRelease();
+  // Ported from paperpaw-main (sleeping.rs: HELD_MS = 10000, button_released()):
+  // bound the release wait to 10s so a jammed button in a case does not spin
+  // the CPU forever or trigger an immediate deep-sleep wake loop.
+  const bool powerReleased = freeink::PowerManager::waitForPowerButtonRelease();
   esp_sleep_config_gpio_isolate();
-  freeink::PowerManager::armPowerButtonWakeup();
+  if (powerReleased) {
+    freeink::PowerManager::armPowerButtonWakeup();
+  }
+#if SOC_PM_SUPPORT_EXT1_WAKEUP
+  else {
+    const int8_t pin = BoardConfig::ACTIVE.input.power;
+    if (pin >= 0) {
+      const bool activeHigh = BoardConfig::ACTIVE.input.powerActiveHigh;
+      pinMode(pin, activeHigh ? INPUT_PULLDOWN : INPUT_PULLUP);
+      freeink::PowerManager::armWakeOnPins(1ULL << pin, /*wakeLow=*/activeHigh);
+    }
+  }
+#endif
   gpio_deep_sleep_hold_en();
   esp_deep_sleep_start();
 }
