@@ -1,4 +1,5 @@
 #include "SleepCoverAssets.h"
+#include "components/CustomCoverResolver.h"
 
 #include <Epub.h>
 #include <FsHelpers.h>
@@ -71,6 +72,10 @@ bool prepareFullCoverForPath(const std::string& bookPath, const bool cropped, co
                              bool imageLevels) {
   if (bookPath.empty()) {
     return false;
+  }
+  const std::string customCover = CustomCoverResolver::resolveCustomCoverBmpPath(bookPath);
+  if (!customCover.empty()) {
+    return true;
   }
 
   if (FsHelpers::hasEpubExtension(bookPath)) {
@@ -164,6 +169,10 @@ std::string reusableCoverPathFor(const std::string& bookPath) {
 }
 
 std::string cachedCoverPathFor(const std::string& bookPath, const bool cropped, bool imageLevels) {
+  const std::string customCover = CustomCoverResolver::resolveCustomCoverBmpPath(bookPath);
+  if (!customCover.empty() && fileExists(customCover)) {
+    return customCover;
+  }
   std::string coverPath;
   if (FsHelpers::hasEpubExtension(bookPath)) {
     coverPath = Epub(bookPath, "/.crosspoint").getCoverBmpPath(cropped, imageLevels);

@@ -1,6 +1,8 @@
 #include "OtaUpdateActivity.h"
 
 #include <GfxRenderer.h>
+#include "HalGPIO.h"
+#include <HalPowerManager.h>
 #include <I18n.h>
 #include <WiFi.h>
 
@@ -200,6 +202,18 @@ void OtaUpdateActivity::render(RenderLock&&) {
 }
 
 void OtaUpdateActivity::runUpdateInstall() {
+  const uint16_t batteryPct = powerManager.getBatteryPercentage();
+  const bool onUsb = gpio.isUsbConnected();
+  if (batteryPct < 25 && !onUsb) {
+    LOG_ERR("OTA", "Battery too low for OTA update: %u%% (USB=%d)", static_cast<unsigned>(batteryPct), onUsb ? 1 : 0);
+    {
+      RenderLock lock(*this);
+      failureMessage = StrId::STR_BATTERY;
+      state = FAILED;
+    }
+    requestUpdate(true);
+    return;
+  }
   {
     RenderLock lock(*this);
     failureMessage = StrId::STR_UPDATE_FAILED;

@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 #include <GfxRenderer.h>
+#include "HalGPIO.h"
+#include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
@@ -84,6 +86,17 @@ void SdFirmwareUpdateActivity::onPickerResult(const ActivityResult& result) {
 }
 
 bool SdFirmwareUpdateActivity::validateFirmware() {
+  const uint16_t batteryPct = powerManager.getBatteryPercentage();
+  const bool onUsb = gpio.isUsbConnected();
+  if (batteryPct < 25 && !onUsb) {
+    LOG_ERR("FW", "Battery too low for firmware update: %u%% (USB=%d)", static_cast<unsigned>(batteryPct), onUsb ? 1 : 0);
+    if (I18n::getInstance().getLanguage() == Language::VI) {
+      errorMessage = "Pin quá yếu (< 25%). Vui lòng cắm sạc để nạp firmware!";
+    } else {
+      errorMessage = "Battery too low (< 25%). Please connect charger to flash!";
+    }
+    return false;
+  }
   HalFile file;
   if (!Storage.openFileForRead("FW", firmwarePath.c_str(), file) || !file) {
     errorMessage = tr(STR_FIRMWARE_FILE_OPEN_FAILED);

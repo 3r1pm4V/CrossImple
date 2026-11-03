@@ -214,7 +214,8 @@ for size in ${UI_FONT_SIZES[@]}; do
     hebrew_path="../builtinFonts/source/IBMPlexSansHebrew/IBMPlexSansHebrew-${style}.ttf"
     arabic_path="../builtinFonts/source/NotoSansArabic/NotoSansArabic-${style}.ttf"
     output_path="../builtinFonts/${font_name}.h"
-    python fontconvert.py $font_name $size $font_path $hebrew_path $arabic_path \
+    lexica_path="../builtinFonts/source/LexicaUltralegible/LexicaUltralegible-${style}.ttf"
+    python fontconvert.py $font_name $size $lexica_path $font_path $hebrew_path $arabic_path \
       --additional-intervals 0x05D0,0x05EA "${ARABIC_INTERVALS[@]}" > $output_path
     echo "Generated $output_path"
   done
@@ -223,6 +224,7 @@ done
 # Small UI Font - Inter
 
 python fontconvert.py inter_8_regular 8 \
+  ../builtinFonts/source/LexicaUltralegible/LexicaUltralegible-Regular.ttf \
   ../builtinFonts/source/Inter/Inter-Regular.ttf \
   ../builtinFonts/source/IBMPlexSansHebrew/IBMPlexSansHebrew-Regular.ttf \
   ../builtinFonts/source/NotoSansArabic/NotoSansArabic-Regular.ttf \

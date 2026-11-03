@@ -1,4 +1,5 @@
 #include "HomeActivity.h"
+#include "components/CustomCoverResolver.h"
 
 #include <Bitmap.h>
 #include <Epub.h>
@@ -204,10 +205,16 @@ bool hasThumbnailPlaceholder(const std::string& coverBmpPath) {
 
 std::string getReusableCoverPath(const RecentBook& book) {
   if (FsHelpers::hasEpubExtension(book.path)) {
-    return Epub(book.path, "/.crosspoint").getThumbBmpPath();
+    const std::string thumb = Epub(book.path, "/.crosspoint").getThumbBmpPath();
+    if (!thumb.empty()) return thumb;
   }
   if (FsHelpers::hasXtcExtension(book.path)) {
-    return Xtc(book.path, "/.crosspoint").getThumbBmpPath();
+    const std::string thumb = Xtc(book.path, "/.crosspoint").getThumbBmpPath();
+    if (!thumb.empty()) return thumb;
+  }
+  const std::string customCover = CustomCoverResolver::resolveCustomCoverBmpPath(book.path);
+  if (!customCover.empty()) {
+    return customCover;
   }
   return book.coverBmpPath;
 }
@@ -586,6 +593,9 @@ void HomeActivity::loadCoverGridThumbnails() {
       } else if (FsHelpers::hasXtcExtension(book.path)) {
         auto xtc = makeUniqueNoThrow<Xtc>(book.path, "/.crosspoint");
         if (xtc) book.coverBmpPath = xtc->getThumbBmpPath();
+      }
+      if (book.coverBmpPath.empty()) {
+        book.coverBmpPath = CustomCoverResolver::resolveCustomCoverBmpPath(book.path, width, height);
       }
     }
     const std::string thumbPath = UITheme::getCoverThumbPath(book.coverBmpPath, width, height, false);
