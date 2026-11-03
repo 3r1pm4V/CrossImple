@@ -39,6 +39,18 @@
 
 ## 📝 Nhật ký thay đổi (Changelog)
 
+### Phiên bản v0.16
+* **Nâng cấp Font UI hệ thống sang Lexica Ultralegible (100% tiếng Việt chuẩn, chống nhòe mực E-ink)** *(Nguồn: `lexica-fonts/lexica-ultralegible`)*:
+  * Thay thế font UI gốc sang bộ font Lexica Ultralegible (fork cải tiến tiếng Việt của Atkinson Hyperlegible), hỗ trợ trọn vẹn 100% ký tự có dấu thanh tổ hợp, dấu 2 tầng và nguyên âm có râu. Phân biệt rõ ràng các cặp ký tự dễ nhầm lẫn (`I`/`l`/`1`, `0`/`O`), tăng khoảng mở chữ để chống hiện tượng loang mực (dot gain) trên màn hình E-ink.
+* **Chốt bảo vệ nguồn điện khi nạp Firmware (Battery Guard < 25%)** *(Nguồn: `crosslink-master` & tối ưu bởi `CrossImple`)*:
+  * Tự động kiểm tra mức pin trước khi nạp qua thẻ SD (`SdFirmwareUpdateActivity`) hoặc qua mạng OTA (`OtaUpdateActivity`). Nếu pin dưới 25% và không cắm sạc USB (`!gpio.isUsbConnected()`), hệ thống sẽ lập tức chặn nạp và cảnh báo người dùng nhằm ngăn ngừa triệt để nguy cơ sập nguồn gây hard-brick chip flash.
+* **Bộ nhận diện bìa ngoài cho sách TXT & EPUB (Custom Cover Resolver)** *(Nguồn: `crosslink-master` & tối ưu bởi `CrossImple`)*:
+  * Tự động phát hiện và hiển thị ảnh bìa ngoài (`.jpg`, `.png`, `.bmp`) cho file TXT và file EPUB thiếu bìa gốc từ thư mục chứa sách hoặc từ `/.crosspoint/custom_cover/<TenSach>.*` trên cả màn hình Home (lưới bìa sách) và màn hình Sleep Cover.
+* **Tối ưu RAM kỷ lục 19.8% (64,744 bytes / 327,680 bytes)** *(Nguồn: `CrossImple Custom`)*:
+  * Triển khai `CustomCoverResolver` dạng pure stateless static resolver (zero heap, không chiếm giữ RAM nền), duy trì trọn vẹn dung lượng RAM trống tối đa cho ESP32-C3 / Xteink X3.
+
+---
+
 ### Phiên bản v0.15
 * **Tinh chỉnh bảng xung 4 mức xám `GrayTone::Middle` cho màn SSD1677 (X4 / X4 Classic)** *(Nguồn: `paperpaw-main` — `crates/paperpaw-x4/src/display.rs`)*:
   * Hiệu chỉnh 4 byte pha kéo sáng trung gian trong bảng xung `lut_factory_quality` (`Ssd1677Luts.h`: `lut[11..12] = 0x60, 0x80` và `lut[21..22] = 0x40, 0x80`), giảm pha kéo sáng trắng của mức xám đậm từ 2 frame xuống 1 frame và mức xám nhạt từ 4 frame xuống 3 frame (giữ nguyên tổng 50 frame và áp chuẩn OTP của hãng). Giúp ảnh bìa sách và màn hình chờ 4 mức xám trên X4 / X4 Classic có chiều sâu và độ tương phản rõ nét hơn mà không tốn thêm pin hay RAM.
@@ -196,19 +208,6 @@ pio run -e x4-classic -e x4-pro
 | **Quay lại (Back)** | Tiếp tục đọc cuốn sách gần nhất | Thoát sách / Quay lại menu trước |
 
 ---
-
-## 📜 Lịch sử Phiên bản (Changelog)
-
-### [v0.16] - 2026-11-03
-* **Font Lexica Ultralegible:** Nâng cấp font UI hệ thống sang Lexica Ultralegible với 100% tiếng Việt chuẩn, chữ rõ nét, chống mỏi mắt và khắc phục triệt để hiện tượng nhòe mực E-ink.
-* **Battery Guard:** Chặn nạp firmware khi pin dưới 25% mà không cắm cáp sạc USB, bảo vệ máy an toàn 100% trước nguy cơ brick.
-* **Custom Cover Resolver:** Hỗ trợ nạp ảnh bìa ngoài từ thẻ nhớ cho file TXT và EPUB thiếu bìa.
-* **Tối ưu RAM:** Duy trì mức tiêu thụ RAM tĩnh chỉ 19.8% trên chip ESP32-C3 / Xteink X3.
-
-### [v0.15] - 2026-11-02
-* Bảng xung 4 mức xám `GrayTone::Middle` cho màn hình SSD1677 từ PaperPaw.
-* Trần thời gian tối đa Task Watchdog (`MAX_WDT_WORK_MS = 15m`).
-* Chốt chống kẹt nút nguồn trước khi vào Deep Sleep (`DEFAULT_RELEASE_WAIT_MS = 10s`).
 
 ## 📄 Bản quyền & Lời cảm ơn (Credits)
 
