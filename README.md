@@ -1,7 +1,7 @@
 # 🐰 CrossImple
 
-[![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossInkplusPet?style=flat-square)](https://github.com/3r1pm4V/CrossInkplusPet/releases)
-[![Version](https://img.shields.io/badge/Version-v0.15-orange?style=flat-square)](https://github.com/3r1pm4V/CrossInkplusPet/releases)
+[![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossImple?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
+[![Version](https://img.shields.io/badge/Version-v0.16-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
 [![Device](https://img.shields.io/badge/Devices-Xteink%20X3%20%7C%20X4%20Classic%20%7C%20X4%20Pro-blue?style=flat-square)](#-thiết-bị-hỗ-trợ-supported-devices)
 [![Base](https://img.shields.io/badge/Base-CrossInk%20v1.6.1-brightgreen?style=flat-square)](https://github.com/uxjulia/CrossInk)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -16,6 +16,9 @@
 
 | Nhóm tính năng / Module | Nguồn gốc mã nguồn (Source Repository) | Tệp tiêu biểu |
 |---|---|---|
+| **Bộ Font UI hệ thống Lexica Ultralegible (Đầy đủ 100% tiếng Việt, nét chữ sắc nét chống nhòe mực E-ink)** | **[Lexica Ultralegible](https://github.com/lexica-fonts/lexica-ultralegible)** (Fork Atkinson Hyperlegible, OFL-1.1) | `lib/EpdFont/builtinFonts/` |
+| **Chốt bảo vệ nguồn điện khi nạp Firmware (`Battery Guard < 25%` chống brick)** | **CrossLink** / **CrossImple** | `src/activities/settings/SdFirmwareUpdateActivity.cpp`, `src/activities/settings/OtaUpdateActivity.cpp` |
+| **Bộ nhận diện bìa ngoài cho sách TXT & EPUB (`CustomCoverResolver`)** | **CrossLink** / **CrossImple** | `src/components/CustomCoverResolver.cpp`, `src/activities/home/HomeActivity.cpp`, `src/activities/boot_sleep/SleepCoverAssets.cpp` |
 | **Nền tảng trình đọc EPUB / XTC / TXT, Scalable TTF Fonts, Focus Reading, Guide Dots, KOReader Sync, Web UI, Calibre Wireless, OPDS** | **[CrossInk v1.6.1](https://github.com/uxjulia/CrossInk)** (`uxjulia/CrossInk`) | `lib/Epub/`, `lib/GfxRenderer/`, `lib/KOReaderSync/`, `src/activities/reader/` |
 | **Tinh chỉnh bảng xung 4 mức xám `GrayTone::Middle` cho màn SSD1677 (`lut_factory_quality`)** | **PaperPaw** (`paperpaw-main` — `crates/paperpaw-x4/src/display.rs`) | `freeink-sdk/libs/display/FreeInkDisplay/src/lut/Ssd1677Luts.h` |
 | **Trần thời gian tối đa cho Task Watchdog (`MAX_WDT_WORK_MS = 15m`) chống treo vòng lặp FAT vô hạn** | **PaperPaw** (`paperpaw-main` — `shells/xteink/src/power.rs`) | `src/util/TaskWatchdog.h`, `src/main.cpp` |
@@ -118,9 +121,9 @@
 
 | Thiết bị | Vi điều khiển (MCU) | Màn hình | Điều khiển | Tên file Firmware xuất ra |
 |---|---|---|---|---|
-| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.15.bin` |
-| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.15.bin` |
-| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.15.bin` |
+| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.16.bin` |
+| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.16.bin` |
+| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.16.bin` |
 
 ---
 
@@ -135,10 +138,10 @@
 ## 📥 Hướng dẫn Cài đặt & Flash Firmware
 
 ### Cách 1: Nâng cấp trực tiếp qua Thẻ nhớ SD (Khuyên dùng)
-1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossInkplusPet/releases):
-   * Với **Xteink X3**: tải `crossimple_x3_v0.15.bin`
-   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.15.bin`
-   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.15.bin`
+1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossImple/releases):
+   * Với **Xteink X3**: tải `crossimple_x3_v0.16.bin`
+   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.16.bin`
+   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.16.bin`
 2. Chép file `.bin` vào thư mục gốc của thẻ MicroSD (định dạng FAT32).
 3. Bật máy đọc sách, mở mục **Quản lý tệp (File Browser)**, chọn file `.bin` vừa chép và nhấn **Xác nhận (Confirm)**.
 4. Máy sẽ tự động kiểm tra chip ESP32, tag phần cứng, tính toàn vẹn SHA256 và tiến hành flash an toàn. Sau khi hoàn tất máy sẽ tự khởi động lại.
@@ -165,8 +168,8 @@ pio run -e x4-classic --target upload
 
 ```bash
 # Clone repository
-git clone --recurse-submodules https://github.com/3r1pm4V/CrossInkplusPet.git
-cd CrossInkplusPet
+git clone --recurse-submodules https://github.com/3r1pm4V/CrossImple.git
+cd CrossImple
 
 # Cách 1 (Khuyên dùng): Tự động chạy tách biệt 2 luồng (Luồng 1: X3 -> Luồng 2: X4 Classic & X4 Pro)
 python scripts/build_all.py --export-bin
@@ -174,11 +177,11 @@ python scripts/build_all.py --export-bin
 # Cách 2: Chạy thủ công từng luồng riêng biệt
 # Luồng 1 — Biên dịch riêng cho Xteink X3 (ESP32-C3)
 pio run -e default
-# File xuất ra: crossimple_x3_v0.15.bin
+# File xuất ra: crossimple_x3_v0.16.bin
 
 # Luồng 2 — Biên dịch cho dòng Xteink X4 (ESP32-S3)
 pio run -e x4-classic -e x4-pro
-# File xuất ra: crossimple_x4-classic_v0.15.bin, crossimple_x4-pro_v0.15.bin
+# File xuất ra: crossimple_x4-classic_v0.16.bin, crossimple_x4-pro_v0.16.bin
 ```
 
 ---
@@ -193,6 +196,19 @@ pio run -e x4-classic -e x4-pro
 | **Quay lại (Back)** | Tiếp tục đọc cuốn sách gần nhất | Thoát sách / Quay lại menu trước |
 
 ---
+
+## 📜 Lịch sử Phiên bản (Changelog)
+
+### [v0.16] - 2026-11-03
+* **Font Lexica Ultralegible:** Nâng cấp font UI hệ thống sang Lexica Ultralegible với 100% tiếng Việt chuẩn, chữ rõ nét, chống mỏi mắt và khắc phục triệt để hiện tượng nhòe mực E-ink.
+* **Battery Guard:** Chặn nạp firmware khi pin dưới 25% mà không cắm cáp sạc USB, bảo vệ máy an toàn 100% trước nguy cơ brick.
+* **Custom Cover Resolver:** Hỗ trợ nạp ảnh bìa ngoài từ thẻ nhớ cho file TXT và EPUB thiếu bìa.
+* **Tối ưu RAM:** Duy trì mức tiêu thụ RAM tĩnh chỉ 19.8% trên chip ESP32-C3 / Xteink X3.
+
+### [v0.15] - 2026-11-02
+* Bảng xung 4 mức xám `GrayTone::Middle` cho màn hình SSD1677 từ PaperPaw.
+* Trần thời gian tối đa Task Watchdog (`MAX_WDT_WORK_MS = 15m`).
+* Chốt chống kẹt nút nguồn trước khi vào Deep Sleep (`DEFAULT_RELEASE_WAIT_MS = 10s`).
 
 ## 📄 Bản quyền & Lời cảm ơn (Credits)
 

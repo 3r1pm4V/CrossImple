@@ -1,3 +1,14 @@
+## [v0.16] - 2026-11-03
+
+### Added
+- **Nâng cấp Font UI hệ thống sang Lexica Ultralegible**: Tích hợp bộ font Lexica Ultralegible (bản fork mở rộng tiếng Việt của Atkinson Hyperlegible) với đầy đủ 100% ký tự có dấu thanh tổ hợp, dấu 2 tầng và nguyên âm có râu. Phân biệt rõ ràng các cặp ký tự dễ nhầm lẫn (I/l/1, 0/O), tăng khoảng mở chữ để chống hiện tượng loang mực (dot gain) trên màn hình E-ink.
+- **Chốt bảo vệ nguồn điện khi nạp Firmware (Battery Guard)**: Tự động kiểm tra mức pin trước khi nạp qua thẻ SD (`SdFirmwareUpdateActivity`) hoặc qua mạng OTA (`OtaUpdateActivity`). Nếu pin < 25% và không cắm sạc USB, hệ thống sẽ chặn nạp và cảnh báo người dùng nhằm ngăn ngừa triệt để nguy cơ sập nguồn gây hard-brick chip flash.
+- **Bộ nhận diện bìa ngoài (Custom Cover Resolver)**: Tự động phát hiện và gán ảnh bìa ngoài cho sách TXT và EPUB thiếu bìa gốc từ thư mục cùng cấp (`<TenSach>.jpg/.png/.bmp`) hoặc `/.crosspoint/custom_cover/<TenSach>.*` (tự động chuyển đổi và lưu bộ đệm thumbnail 1-bit nhanh).
+
+### Changed
+- Cập nhật định danh kho lưu trữ chính thức sang **[CrossImple](https://github.com/3r1pm4V/CrossImple)**.
+- Tối ưu hóa bộ giải quyết bìa dạng zero-heap, duy trì kỷ lục RAM siêu nhẹ **19.8% (64,744 bytes)** trên ESP32-C3 / X3.
+
 ## [v1.6.1] - 2026-10-03
 
 ### Added
