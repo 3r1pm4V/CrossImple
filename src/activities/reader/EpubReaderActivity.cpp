@@ -48,6 +48,7 @@
 #include "EpubReaderFootnotesActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
 #include "EpubReaderUtils.h"
+#include "FilenameFontSystem.h"
 #include "GlobalActions.h"
 #include "HyphenationPackStore.h"
 #include "KOReaderCredentialStore.h"
@@ -55,6 +56,7 @@
 #include "LookedUpWordsActivity.h"
 #include "MappedInputManager.h"
 #include "NearbyBookPositionSyncActivity.h"
+#endif
 #include "PageWordGeometry.h"
 #include "ProgressMapper.h"
 #include "QrDisplayActivity.h"
@@ -344,6 +346,7 @@ ReaderRenderSpec readerRenderSpecForProfile(const int fontId, const uint16_t vie
   if (!spec.embeddedStyle) spec.publisherFonts = PublisherFonts::Off;
 #if CROSSINK_SCALABLE_FONTS
   if (spec.publisherFonts != PublisherFonts::Off) spec.publisherFontSignature = bookFontSystem.signature();
+  spec.publisherFontSignature ^= filenameFontSystem.fingerprint();
 #endif
   spec.focusReadingEnabled = profile.focusReadingEnabled;
   spec.guideReadingEnabled = profile.guideReadingEnabled;
@@ -974,9 +977,6 @@ ReaderViewportLayout computeReaderViewportLayout(GfxRenderer& renderer, const bo
     layout.marginTop =
         std::max(layout.marginTop, header.y + header.height + static_cast<int>(SETTINGS.screenMarginVertical));
   }
-#else
-  (void)showFootnoteHeader;
-#endif
 
   layout.marginBottom += ReaderUtils::getReaderFooterReservedHeight(renderer, automaticPageTurnActive);
 
@@ -4471,6 +4471,7 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuAction action, const 
       if (replacementResume) APP_STATE.setPendingOverlayResume(*replacementResume);
       pauseReadingPaceTimer("nearby_position_sync");
       activityManager.replaceActivity(std::move(syncActivity));
+#endif
       break;
     }
     case EpubReaderMenuAction::BOOKMARK_TOGGLE: {
@@ -8167,11 +8168,6 @@ void EpubReaderActivity::renderStatusBar() const {
   if (activeFootnotePreview) {
     // The touch header owns the preview title; keep the footer from repeating it.
   }
-#else
-  if (activeFootnotePreview && uses(ReaderStatusBarItem::TitleChapter)) {
-    chapterTitle = tr(STR_FOOTNOTES);
-  }
-#endif
   else if (uses(ReaderStatusBarItem::TitleChapter)) {
     chapterTitle = tr(STR_UNNAMED);
     int titleSpineIndex = currentSpineIndex;
@@ -8263,6 +8259,7 @@ void EpubReaderActivity::refreshChapterGroupEstimate(const uint16_t viewportWidt
   mix(SETTINGS.hyphenationEnabled ? Hyphenator::patternIdentity(epub->getLanguage()) : 0u);
   mix(SETTINGS.embeddedStyle);
   mix(SETTINGS.publisherFonts);
+  mix(filenameFontSystem.fingerprint());
   mix(SETTINGS.imageRendering);
   mix(SETTINGS.focusReadingEnabled);
   mix(SETTINGS.guideReadingEnabled);

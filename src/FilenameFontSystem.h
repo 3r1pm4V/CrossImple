@@ -43,6 +43,7 @@ class FilenameFontSystem {
   std::unique_ptr<HalScalableFont> regular_, bold_;
   std::string regularPath_, boldPath_;
   FontLoadError lastError_ = FontLoadError::None;
+  FontLoadError scanFamilyInDir(const char* baseDir, const char* name, SdCardFontFamilyInfo& family);
   FontLoadError scanFamily(const char* name, SdCardFontFamilyInfo& family);
 #endif
 };

@@ -124,6 +124,11 @@ class GfxRenderer {
 
   // Explicit filename-only font ids, with built-in glyphs as the primary face.
   std::map<int, int> filenameFontMap_;
+  static constexpr uint8_t MIN_READER_FALLBACK_PT = 8;
+  static constexpr uint8_t MAX_READER_FALLBACK_PT = 44;
+  static constexpr size_t READER_FALLBACK_SLOTS = MAX_READER_FALLBACK_PT - MIN_READER_FALLBACK_PT + 1;
+  const EpdFont* readerFallbackRegular_[READER_FALLBACK_SLOTS] = {};
+  const EpdFont* readerFallbackBold_[READER_FALLBACK_SLOTS] = {};
 
   void renderChar(const EpdFontFamily& fontFamily, uint32_t cp, int* x, int* y, bool pixelState,
                   EpdFontFamily::Style style) const;
@@ -188,6 +193,7 @@ class GfxRenderer {
   // the same composites. Clear all borrowed pointers before releasing faces.
   int filenameFontId(int primaryFontId) const;
   bool setFilenameFallback(int primaryFontId, int compositeFontId, const EpdFont* regular, const EpdFont* bold);
+  void setReaderFallbackSize(uint8_t points, const EpdFont* regular, const EpdFont* bold);
   void clearFilenameFallbacks();
   // Ensure SD card font glyph data is loaded for the given text. Called from layout code
   // (which holds a const GfxRenderer&) before measuring word widths. Safe to call on non-SD fonts (no-op).

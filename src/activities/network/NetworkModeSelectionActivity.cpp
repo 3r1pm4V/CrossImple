@@ -41,16 +41,6 @@ constexpr MenuEntry MENU_ENTRIES[] = {
 #if CROSSINK_APP_CAP_USB_DRIVE
     {NetworkMode::USB_DRIVE, StrId::STR_USB_DRIVE, StrId::STR_USB_DRIVE_DESC, UIIcon::Transfer, MenuSection::None},
 #endif
-    {NetworkMode::SYNC_BOOKS, StrId::STR_SYNC_BOOKS, StrId::STR_SYNC_BOOKS_DESC, UIIcon::Transfer,
-     MenuSection::SyncServer},
-    {NetworkMode::SYNC_READING_STATS, StrId::STR_SYNC_READING_STATS, StrId::STR_SYNC_READING_STATS_DESC, UIIcon::Chart,
-     MenuSection::SyncServer},
-    {NetworkMode::SYNC_CLIPPINGS, StrId::STR_SYNC_CLIPPINGS, StrId::STR_SYNC_CLIPPINGS_DESC, UIIcon::BookmarkIcon,
-     MenuSection::SyncServer},
-    {NetworkMode::NEARBY_BOOK_RECEIVE, StrId::STR_RECEIVE_NEARBY_BOOK, StrId::STR_RECEIVE_NEARBY_BOOK_DESC,
-     UIIcon::Transfer, MenuSection::Nearby},
-    {NetworkMode::NEARBY_STATS_SYNC, StrId::STR_NEARBY_STATS_SYNC, StrId::STR_NEARBY_STATS_SYNC_DESC, UIIcon::Transfer,
-     MenuSection::Nearby},
 };
 constexpr int MENU_ENTRY_COUNT = sizeof(MENU_ENTRIES) / sizeof(MENU_ENTRIES[0]);
 static_assert(MENU_ENTRY_COUNT <= NetworkModeSelectionActivity::MAX_MENU_ROWS, "Raise MAX_MENU_ROWS");

@@ -841,7 +841,7 @@ void HomeActivity::onEnter() {
 
   Activity::onEnter();
 
-  hasPlugins = SETTINGS.pluginsEnabled != 0;
+  hasPlugins = false;
   if (UITheme::hasCoverGridHome()) {
     coverGridUi = makeUniqueNoThrow<CoverGridHomeUi>(renderer);
     if (!coverGridUi) LOG_ERR("HOME", "Cannot allocate cover grid UI; using standard Home");

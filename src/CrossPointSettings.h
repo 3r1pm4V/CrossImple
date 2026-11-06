@@ -683,7 +683,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Move epub to /Read/ folder on SD card when marked as finished (0 = disabled, 1 = enabled)
   uint8_t moveFinishedToReadFolder = 0;
   // Automatically write a dated global reading-stats backup before sleep when an RTC is available (0 = off, 1 = on).
-  uint8_t autoBackupStats = 1;
+  uint8_t autoBackupStats = 0;
   // Idle threshold for reading stats, stored in 10-second units to fit uint8_t.
   uint8_t readingIdleTimeThresholdUnits = 30;
   // Image rendering mode in EPUB reader

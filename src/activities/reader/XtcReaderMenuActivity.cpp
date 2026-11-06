@@ -56,7 +56,6 @@ std::vector<XtcReaderMenuActivity::MenuItem> XtcReaderMenuActivity::buildMenuIte
   if (globalStatsEnabled && bookStatsEnabled)
     menuItems.push_back({MenuAction::DELETE_STATS, StrId::STR_DELETE_BOOK_STATS});
   menuItems.push_back({MenuAction::DELETE_CACHE, StrId::STR_DELETE_CACHE});
-  menuItems.push_back({MenuAction::SEND_NEARBY_BOOK, StrId::STR_SEND_NEARBY_BOOK});
   if (hasTouch) {
     menuItems.push_back({MenuAction::DISABLE_TOUCHSCREEN, StrId::STR_DISABLE_TOUCHSCREEN});
   }

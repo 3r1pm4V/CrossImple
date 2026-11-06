@@ -70,6 +70,8 @@ class EpdFontFamily {
 
   const EpdFont* fallbackRegular = nullptr;
   const EpdFont* fallbackBold = nullptr;
+
+ public:
   const EpdFont* getFallbackFont(Style style) const {
     return (style & BOLD) && fallbackBold ? fallbackBold : fallbackRegular;
   }

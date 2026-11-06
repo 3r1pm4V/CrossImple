@@ -19,13 +19,22 @@ FilenameFontSystem filenameFontSystem;
 
 void FilenameFontSystem::invalidateForPath(const char* path) {
   if (!path) return;
-  const size_t length = std::strlen(FONT_DIR);
-  if (strncasecmp(path, FONT_DIR, length) == 0 && (path[length] == '/' || path[length] == '\0')) invalidate();
+  static constexpr const char* dirs[] = {FONT_DIR, "/.fonts", "/fonts"};
+  for (const char* dir : dirs) {
+    const size_t length = std::strlen(dir);
+    if (strncasecmp(path, dir, length) == 0 && (path[length] == '/' || path[length] == '\0')) {
+      invalidate();
+      return;
+    }
+  }
 }
 
 #if CROSSINK_SCALABLE_FONTS
 namespace {
 constexpr size_t MaxFamilies = 64;
+constexpr const char* ExtraFontDirs[] = {"/.fonts", "/fonts"};
+constexpr uint8_t MinReaderPoints = 8;
+constexpr uint8_t MaxReaderPoints = 44;
 struct ScanScratch {
   char directory[128];
   char path[256];
@@ -38,7 +47,7 @@ bool validFamilyName(const char* name) {
 }
 }  // namespace
 
-FontLoadError FilenameFontSystem::scanFamily(const char* name, SdCardFontFamilyInfo& family) {
+FontLoadError FilenameFontSystem::scanFamilyInDir(const char* baseDir, const char* name, SdCardFontFamilyInfo& family) {
   if (!validFamilyName(name)) return FontLoadError::InvalidFamily;
   // Cold-path scratch (~600 bytes) is too large for the render-task stack. One
   // fallible allocation is reused across every entry in the selected directory.
@@ -47,7 +56,7 @@ FontLoadError FilenameFontSystem::scanFamily(const char* name, SdCardFontFamilyI
     LOG_ERR("FNFONT", "Cannot allocate font scan scratch");
     return FontLoadError::Memory;
   }
-  std::snprintf(scratch->directory, sizeof(scratch->directory), "%s/%s", FONT_DIR, name);
+  std::snprintf(scratch->directory, sizeof(scratch->directory), "%s/%s", baseDir, name);
   HalFile dir = Storage.open(scratch->directory);
   if (!dir || !dir.isDirectory()) {
     const auto error = dir.allocationFailed() ? FontLoadError::Memory : FontLoadError::Read;
@@ -129,55 +138,100 @@ FontLoadError FilenameFontSystem::scanFamily(const char* name, SdCardFontFamilyI
   return error != FontLoadError::NoFont ? error : candidate ? FontLoadError::InvalidFamily : FontLoadError::NoFont;
 }
 
+FontLoadError FilenameFontSystem::scanFamily(const char* name, SdCardFontFamilyInfo& family) {
+  const FontLoadError err = scanFamilyInDir(FONT_DIR, name, family);
+  if (err != FontLoadError::Read) return err;
+  for (const char* extraDir : ExtraFontDirs) {
+    SdCardFontFamilyInfo extraFamily;
+    const FontLoadError extraErr = scanFamilyInDir(extraDir, name, extraFamily);
+    if (extraErr == FontLoadError::None || extraErr == FontLoadError::Memory) {
+      family = std::move(extraFamily);
+      return extraErr;
+    }
+  }
+  return err;
+}
+
 bool FilenameFontSystem::discover(std::vector<Family>& families) {
   families.clear();
   lastError_ = FontLoadError::None;
   ScalableFontAccess access;
-  HalFile root = Storage.open(FONT_DIR);
-  if (!root) {
-    const bool failed = root.allocationFailed();
-    if (failed) lastError_ = FontLoadError::Memory;
-    root.close();
-    return !failed;
-  }
-  if (!root.isDirectory()) {
-    lastError_ = FontLoadError::Read;
-    root.close();
-    return false;
-  }
   families.reserve(MaxFamilies + 1);  // The picker prepends its None option.
   char name[64] = {};
   bool failed = false;
-  while (true) {
-    HalFile entry = root.openNextFile();
-    if (!entry) {
-      failed = root.allocationFailed() || entry.allocationFailed();
-      if (failed) lastError_ = FontLoadError::Memory;
-      entry.close();
-      break;
+  HalFile root = Storage.open(FONT_DIR);
+  if (!root) {
+    if (root.allocationFailed()) {
+      lastError_ = FontLoadError::Memory;
+      root.close();
+      return false;
     }
-    const bool directory = entry.isDirectory();
-    const size_t length = entry.getName(name, sizeof(name));
-    entry.close();
-    if (!directory || length >= sizeof(name) - 1 || !validFamilyName(name)) continue;
-    if (families.size() == MaxFamilies) {
-      LOG_ERR("FNFONT", "Too many filename font families (limit=%u)", unsigned(MaxFamilies));
-      failed = true;
+    root.close();
+  } else {
+    if (!root.isDirectory()) {
       lastError_ = FontLoadError::Read;
-      break;
+      root.close();
+      return false;
     }
-    SdCardFontFamilyInfo family;
-    const auto error = scanFamily(name, family);
-    if (error != FontLoadError::NoFont) families.push_back({name, error});
+    while (true) {
+      HalFile entry = root.openNextFile();
+      if (!entry) {
+        failed = root.allocationFailed() || entry.allocationFailed();
+        if (failed) lastError_ = FontLoadError::Memory;
+        entry.close();
+        break;
+      }
+      const bool directory = entry.isDirectory();
+      const size_t length = entry.getName(name, sizeof(name));
+      entry.close();
+      if (!directory || length >= sizeof(name) - 1 || !validFamilyName(name)) continue;
+      if (families.size() == MaxFamilies) {
+        LOG_ERR("FNFONT", "Too many filename font families (limit=%u)", unsigned(MaxFamilies));
+        failed = true;
+        lastError_ = FontLoadError::Read;
+        break;
+      }
+      SdCardFontFamilyInfo family;
+      const auto error = scanFamilyInDir(FONT_DIR, name, family);
+      if (error != FontLoadError::NoFont) families.push_back({name, error});
+    }
+    failed = failed || FsHelpers::directoryIterationFailed(root);
+    root.close();
+    if (failed) {
+      if (lastError_ == FontLoadError::None) lastError_ = FontLoadError::Read;
+      LOG_ERR("FNFONT", "Cannot discover filename fonts");
+      families.clear();
+      return false;
+    }
   }
-  failed = failed || FsHelpers::directoryIterationFailed(root);
-  root.close();
-  if (failed) {
-    if (lastError_ == FontLoadError::None) lastError_ = FontLoadError::Read;
-    LOG_ERR("FNFONT", "Cannot discover filename fonts");
-    families.clear();
-    return false;
+
+  for (const char* extraDir : ExtraFontDirs) {
+    if (!Storage.exists(extraDir)) continue;
+    HalFile extraRoot = Storage.open(extraDir);
+    if (!extraRoot || !extraRoot.isDirectory()) {
+      extraRoot.close();
+      continue;
+    }
+    while (families.size() < MaxFamilies) {
+      HalFile entry = extraRoot.openNextFile();
+      if (!entry) {
+        entry.close();
+        break;
+      }
+      const bool directory = entry.isDirectory();
+      const size_t length = entry.getName(name, sizeof(name));
+      entry.close();
+      if (!directory || length >= sizeof(name) - 1 || !validFamilyName(name)) continue;
+      if (std::any_of(families.begin(), families.end(), [&](const Family& f) { return f.name == name; })) continue;
+      SdCardFontFamilyInfo family;
+      const auto error = scanFamilyInDir(extraDir, name, family);
+      if (error == FontLoadError::None) {
+        families.push_back({name, FontLoadError::None});
+      }
+    }
+    extraRoot.close();
   }
+
   std::sort(families.begin(), families.end(), [](const Family& a, const Family& b) { return a.name < b.name; });
   return true;
 }
@@ -258,6 +312,12 @@ bool FilenameFontSystem::ensureLoaded(GfxRenderer& renderer) {
       lastError_ = error;
       return false;
     }
+  }
+  for (uint8_t pt = MinReaderPoints; pt <= MaxReaderPoints; ++pt) {
+    const auto regular = regular_->atSize(pt);
+    if (!regular) continue;
+    const auto bold = bold_ ? bold_->atSize(pt) : nullptr;
+    renderer.setReaderFallbackSize(pt, regular, bold ? bold : regular);
   }
   LOG_INF("FNFONT", "Loaded filename fallback %s (%s)", wanted, bold_ ? "regular/bold" : "regular");
 #endif

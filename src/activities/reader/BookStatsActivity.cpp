@@ -376,7 +376,7 @@ bool BookStatsActivity::selectEditFieldFromTouchTarget(const int touchTarget) {
   return true;
 }
 
-bool BookStatsActivity::canSyncReadingStats() const { return ReadingSyncUpload::canSyncReadingStats(); }
+bool BookStatsActivity::canSyncReadingStats() const { return false; }
 
 void BookStatsActivity::startSyncReadingStats() {
   // Ask here so Cancel returns to these stats instead of an already-closed reader.

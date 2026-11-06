@@ -39,6 +39,12 @@ int32_t resolveSdCardAdvanceFP(const SdCardFont& sdFont, const EpdFontFamily& fo
   // spaces keep the metadata-only fast path rather than loading glyph bitmaps.
   if (syntheticGlyph::isSpaceFallback(cp) && !font.hasCodepoint(cp, style)) return font.getSpaceAdvanceX(cp, style);
 
+  const EpdFont* primary = font.getFont(style);
+  if (primary && !primary->hasCodepoint(cp) && font.getFallbackFont(style)) {
+    const EpdGlyph* fallbackGlyph = font.getGlyph(cp, style);
+    if (fallbackGlyph) return fallbackGlyph->advanceX;
+  }
+
   uint16_t advanceFP = sdFont.getAdvance(cp, styleIdx);
   if (advanceFP != 0 || utf8IsCombiningMark(cp)) {
     return advanceFP;
@@ -358,7 +364,28 @@ void GfxRenderer::FrameBufferLoan::end() {
 
 bool GfxRenderer::isFontCacheScanning() const { return fontCacheManager_ && fontCacheManager_->isScanning(); }
 
+namespace {
+uint8_t readerFamilyPointSize(const EpdFontFamily& font) {
+#if CROSSINK_SCALABLE_FONTS
+  const auto* data = font.getData();
+  if (data && data->sizeFamily) return data->pointSize;
+#endif
+  const uint8_t points = font.pointSize();
+  return points >= 8 && points <= 44 ? points : 0;
+}
+}  // namespace
+
 void GfxRenderer::insertFont(const int fontId, EpdFontFamily font) {
+  const uint8_t pt = readerFamilyPointSize(font);
+  if (pt >= MIN_READER_FALLBACK_PT && pt <= MAX_READER_FALLBACK_PT &&
+      !font.getFallbackFont(EpdFontFamily::REGULAR)) {
+    const size_t idx = pt - MIN_READER_FALLBACK_PT;
+    const EpdFont* fallbackReg = readerFallbackRegular_[idx];
+    const EpdFont* fallbackBold = readerFallbackBold_[idx];
+    if (fallbackReg && fallbackReg != font.getFont(EpdFontFamily::REGULAR)) {
+      font = font.withFallbackFonts(fallbackReg, fallbackBold);
+    }
+  }
   auto result = fontMap.insert({fontId, font});
   if (!result.second) {
     LOG_ERR("GFX", "Font ID %d already registered, ignoring duplicate", fontId);
@@ -380,19 +407,44 @@ bool GfxRenderer::setFilenameFallback(const int primaryFontId, const int composi
   insertFont(compositeFontId, it->second.withFallbackFonts(regular, bold));
   filenameFontMap_[primaryFontId] = compositeFontId;
   // Attach to the shared UI family too: every renderer path (including SDK
-  // widgets) then measures and draws the same per-glyph fallback. Reader font
-  // registrations are separate and retain their own glyphs.
+  // widgets) then measures and draws the same per-glyph fallback.
   it->second = it->second.withFallbackFonts(regular, bold);
   return true;
 }
 
+void GfxRenderer::setReaderFallbackSize(const uint8_t points, const EpdFont* regular, const EpdFont* bold) {
+  if (points < MIN_READER_FALLBACK_PT || points > MAX_READER_FALLBACK_PT) return;
+  const size_t idx = points - MIN_READER_FALLBACK_PT;
+  readerFallbackRegular_[idx] = regular;
+  readerFallbackBold_[idx] = bold;
+
+  for (auto& [id, family] : fontMap) {
+    if (id <= -100 && id >= -110) continue;
+    if (readerFamilyPointSize(family) != points) continue;
+    if (regular && regular != family.getFont(EpdFontFamily::REGULAR)) {
+      family = family.withFallbackFonts(regular, bold);
+    } else {
+      family = family.withFallbackFonts(nullptr);
+    }
+  }
+}
+
 void GfxRenderer::clearFilenameFallbacks() {
+  for (size_t i = 0; i < READER_FALLBACK_SLOTS; ++i) {
+    readerFallbackRegular_[i] = nullptr;
+    readerFallbackBold_[i] = nullptr;
+  }
   for (const auto& entry : filenameFontMap_) {
     const auto primary = fontMap.find(entry.first);
     if (primary != fontMap.end()) primary->second = primary->second.withFallbackFonts(nullptr);
     removeFont(entry.second);
   }
   filenameFontMap_.clear();
+  for (auto& [id, family] : fontMap) {
+    if (readerFamilyPointSize(family) != 0) {
+      family = family.withFallbackFonts(nullptr);
+    }
+  }
 }
 
 // Translate logical (x,y) coordinates to physical panel coordinates based on current orientation
@@ -705,10 +757,11 @@ static void renderCharScaled(const GfxRenderer& renderer, GfxRenderer::RenderMod
                              const EpdFontFamily& fontFamily, const uint32_t cp, int cursorX, int cursorY,
                              const bool pixelState, const EpdFontFamily::Style style) {
   if (renderer.grayPlanesAreAbsolute()) renderMode = GfxRenderer::BW;
-  const EpdGlyph* glyph = fontFamily.getGlyph(cp, style);
-  if (!glyph) return;
+  const auto glyphData = fontFamily.getGlyphData(cp, style);
+  const EpdGlyph* glyph = glyphData.glyph;
+  const EpdFontData* fontData = glyphData.fontData;
+  if (!glyph || !fontData) return;
 
-  const EpdFontData* fontData = fontFamily.getData(style);
   const uint8_t* bitmap = renderer.getGlyphBitmap(fontData, glyph);
   if (!bitmap) return;
 
@@ -773,10 +826,11 @@ static void renderCharSmallCaps(const GfxRenderer& renderer, GfxRenderer::Render
                                 const EpdFontFamily& fontFamily, const uint32_t cp, int cursorX, int cursorY,
                                 const bool pixelState, const EpdFontFamily::Style style) {
   if (renderer.grayPlanesAreAbsolute()) renderMode = GfxRenderer::BW;
-  const EpdGlyph* glyph = fontFamily.getGlyph(cp, style);
-  if (!glyph) return;
+  const auto glyphData = fontFamily.getGlyphData(cp, style);
+  const EpdGlyph* glyph = glyphData.glyph;
+  const EpdFontData* fontData = glyphData.fontData;
+  if (!glyph || !fontData) return;
 
-  const EpdFontData* fontData = fontFamily.getData(style);
   const uint8_t* bitmap = renderer.getGlyphBitmap(fontData, glyph);
   if (!bitmap) return;
 
@@ -3049,10 +3103,11 @@ int GfxRenderer::drawScaledCodepoint(const int fontId, const uint32_t cp, const 
   if (syntheticGlyph::isBlankSpace(cp, cp == 0x1680 && font.findGlyphData(cp, style).glyph)) {
     return fp4::toPixel(static_cast<int32_t>(font.getSpaceAdvanceX(cp, style)) * scale256 / 256);
   }
-  const EpdGlyph* glyph = font.getGlyph(cp, style);
-  if (!glyph) return 0;
+  const auto glyphData = font.getGlyphData(cp, style);
+  const EpdGlyph* glyph = glyphData.glyph;
+  const EpdFontData* fontData = glyphData.fontData;
+  if (!glyph || !fontData) return 0;
   const int advance = fp4::toPixel(static_cast<int32_t>(glyph->advanceX) * scale256 / 256);
-  const EpdFontData* fontData = font.getData(style);
   const uint8_t* bitmap = getGlyphBitmap(fontData, glyph);
   if (!bitmap) return advance;
 

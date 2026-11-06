@@ -55,7 +55,7 @@ inline uint32_t readerRenderSpecSignature(const ReaderRenderSpec& spec) {
   mix(spec.wordSpacing);
   mix(static_cast<uint8_t>(spec.characterSpacing));
   mix(static_cast<uint8_t>(spec.renderMode));
-  if (spec.publisherFonts != PublisherFonts::Off) {
+  if (spec.publisherFonts != PublisherFonts::Off || spec.publisherFontSignature != 0) {
     mix(static_cast<uint8_t>(spec.publisherFonts));
     mix(spec.publisherFontSignature);
   }

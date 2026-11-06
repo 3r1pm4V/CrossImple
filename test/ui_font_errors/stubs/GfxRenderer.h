@@ -10,4 +10,5 @@ class GfxRenderer {
     ++bindings;
     return true;
   }
+  void setReaderFallbackSize(uint8_t, const EpdFont*, const EpdFont*) {}
 };

@@ -1,6 +1,16 @@
 ## [v0.21] - 2026-11-06
 
 ### Added
+- **Hỗ trợ Font Tiếng Trung / CJK Dung lượng lớn & Font Fallback Trình đọc sách (X4 Classic & X4 Pro)**:
+  - Mở rộng giới hạn font ngoài (`MaxFileBytes`) lên **16 MB** và `MaxFamilyBytes` lên **32 MB** cho cả thẻ nhớ lẫn Web Upload (tương thích hoàn hảo với các bộ font CJK đầy đủ như Noto Sans SC 10-14 MB).
+  - Tự động gắn font dự phòng CJK (chọn trong *Cài đặt > Thiết bị > Font dự phòng*) trực tiếp vào trình đọc sách EPUB & TXT. Khi người dùng chọn 1 Font Latin yêu thích (ví dụ Mali) + 1 Font dự phòng CJK, thiết bị sẽ hiển thị song song mượt mà cả tên sách ngoài UI lẫn nội dung tiếng Trung bên trong mà không còn bị lỗi ký tự `????`.
+  - Áp dụng kỹ thuật streaming FreeType thông minh: font nhỏ (<= 2 MB) giữ trọn trong PSRAM để lật trang nhanh, font CJK lớn (> 2 MB) tự động stream với bộ đệm tiền tố 1 MB PSRAM, đảm bảo an toàn tuyệt đối cho bộ nhớ.
+- **Tinh giản Siêu Sạch theo Tinh thần CrossImple (Clean Pruning)**:
+  - Loại bỏ hoàn toàn khỏi giao diện người dùng (UI) và chu trình vận hành các tính năng thừa thãi so với định vị máy đọc sách tinh gọn:
+    - Gỡ bỏ hoàn toàn menu và hệ thống **Plugins & Plugin Hub**.
+    - Gỡ bỏ tính năng **Chia sẻ & Đồng bộ sách ngang hàng tầm gần (Nearby Book Transfer & Nearby Stats Sync)**.
+    - Gỡ bỏ tính năng **Upload thống kê đọc sách lên Cloud (StatsUploadActivity)** và **Tự động sao lưu thống kê ngầm (Auto Backup Stats)**.
+  - Giữ lại trọn vẹn và tối ưu các tính năng đọc sách cốt lõi: **KOReader Sync** (Sync Server), **OPDS Catalog Browser**, toàn bộ tùy chỉnh chuyên sâu của **Reader Font & Formatting** (8..44pt, Margin, Spacing, Line Height, Focus/Guide Mode), các bộ **Themes** (Minimal, Dark, Cozy, Pixel,...) và **Phím tắt (Button Remap)**.
 - **Chế độ Lật trang 1-Bit Siêu tốc (Monochrome Fast-Turn Mode)**:
   - Khi đọc các trang sách chỉ có chữ thuần túy (`!pageHasImages`), hệ thống tự động bỏ qua toàn bộ chu trình tính toán đa mức xám (grayscale anti-aliasing) và bộ đệm trung gian để dựng trực tiếp qua chế độ làm mới vi sai 1-bit (<150ms).
   - Tốc độ lật trang tức thì, phản hồi siêu nhạy và tối ưu hóa thời lượng pin cho máy E-ink.

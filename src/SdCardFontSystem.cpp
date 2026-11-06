@@ -121,6 +121,7 @@ void SdCardFontSystem::begin(GfxRenderer& renderer) {
 
 int SdCardFontSystem::ensureBuiltInReaderFont(GfxRenderer& renderer) {
 #if CROSSINK_SCALABLE_FONTS
+  filenameFontSystem.ensureLoaded(renderer);
   ensureScalableBuiltinFamily(renderer, SETTINGS.fontFamily == CrossPointSettings::BITTER ? 1 : 0);
 #else
   (void)renderer;
@@ -139,6 +140,7 @@ void SdCardFontSystem::persistSettingsChange() const {
 void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer) {
 #if CROSSINK_SCALABLE_FONTS
   ScalableFontAccess access;
+  filenameFontSystem.ensureLoaded(renderer);
 #endif
   // If the web server (or another task) installed/deleted fonts, re-discover.
   // Track whether we just re-discovered so we can force a reload below even

@@ -41,6 +41,7 @@
 
 #include "AppVersion.h"
 #include "CrossPointSettings.h"
+#include "FilenameFontSystem.h"
 #include "FontInstaller.h"
 #include "OpdsServerStore.h"
 #include "ProtectedPaths.h"
@@ -2721,9 +2722,9 @@ void CrossPointWebServer::handleFontUploadData() {
 #if CROSSINK_SCALABLE_FONTS
       const auto& path = fontUpload.filePath;
       if (fontfiles::isScalable(path.c_str()) &&
-          fontUpload.bytesWritten + fontUpload.bufferPos + upload.currentSize > 2 * 1024 * 1024) {
+          fontUpload.bytesWritten + fontUpload.bufferPos + upload.currentSize > 16 * 1024 * 1024) {
         fontUpload.valid = false;
-        LOG_ERR("WEB", "Scalable font exceeds 2 MiB limit");
+        LOG_ERR("WEB", "Scalable font exceeds 16 MiB limit");
         break;
       }
 #endif
@@ -2787,6 +2788,7 @@ void CrossPointWebServer::handleFontUploadData() {
 void CrossPointWebServer::handleFontUpload() {
   if (fontUpload.valid) {
     sdFontSystem.markRegistryDirty();
+    filenameFontSystem.invalidate();
     server->send(200, "application/json", "{\"ok\":true}");
     LOG_DBG("WEB", "Font upload complete: %s", fontUpload.filePath.c_str());
     fontUpload.valid = false;
@@ -2813,6 +2815,7 @@ void CrossPointWebServer::handleFontDelete() {
 
   if (result == FontInstaller::Error::OK) {
     sdFontSystem.markRegistryDirty();
+    filenameFontSystem.invalidate();
     server->send(200, "application/json", "{\"ok\":true}");
     LOG_DBG("WEB", "Deleted font family: %s", familyName);
   } else {

@@ -223,8 +223,6 @@ constexpr ReaderDrawerCatalog makeReaderDrawerCatalog(const ReaderDrawerAvailabi
   if (available.hasClippings) location.add(ReaderDrawerCatalogItem::ViewClippings);
   if (available.buttonDevice) {
     location.add(ReaderDrawerCatalogItem::SyncProgress);
-    location.add(ReaderDrawerCatalogItem::NearbyPositionSync);
-    location.add(ReaderDrawerCatalogItem::SendNearbyBook);
   }
   location.add(ReaderDrawerCatalogItem::Screenshot);
   location.add(ReaderDrawerCatalogItem::DisplayQr);

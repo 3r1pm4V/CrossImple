@@ -14,6 +14,7 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "FilenameFontSystem.h"
 #include "GlobalActions.h"
 #include "MappedInputManager.h"
 #include "QuickActions.h"
@@ -1094,8 +1095,10 @@ bool TxtReaderActivity::loadPageIndexCache() {
 
   int32_t fontId;
   serialization::readPod(f, fontId);
-  if (fontId != cachedFontId) {
-    LOG_DBG("TRS", "Cache font ID mismatch (%d != %d), rebuilding", fontId, cachedFontId);
+  const int32_t expectedFontSig =
+      static_cast<int32_t>(static_cast<uint32_t>(cachedFontId) ^ filenameFontSystem.fingerprint());
+  if (fontId != expectedFontSig) {
+    LOG_DBG("TRS", "Cache font ID mismatch (%d != %d), rebuilding", fontId, expectedFontSig);
     return false;
   }
 
@@ -1152,7 +1155,9 @@ void TxtReaderActivity::savePageIndexCache() const {
   serialization::writePod(f, cachedCharacterSpacing);
   serialization::writePod(f, static_cast<int32_t>(viewportWidth));
   serialization::writePod(f, static_cast<int32_t>(linesPerPage));
-  serialization::writePod(f, static_cast<int32_t>(cachedFontId));
+  const int32_t fontSig =
+      static_cast<int32_t>(static_cast<uint32_t>(cachedFontId) ^ filenameFontSystem.fingerprint());
+  serialization::writePod(f, fontSig);
   serialization::writePod(f, static_cast<int32_t>(cachedVerticalMargin));
   serialization::writePod(f, static_cast<int32_t>(cachedHorizontalMargin));
   serialization::writePod(f, cachedParagraphAlignment);
@@ -1190,7 +1195,10 @@ bool TxtReaderActivity::drawCurrentPageToBuffer(const std::string& filePath, Gfx
   }
 
   // Compute layout values that match what initializeReader() produces
+  sdFontSystem.ensureLoaded(renderer);
   const int fontId = SETTINGS.getReaderFontId();
+  const int32_t expectedFontSig =
+      static_cast<int32_t>(static_cast<uint32_t>(fontId) ^ filenameFontSystem.fingerprint());
   const uint8_t verticalMargin = SETTINGS.screenMarginVertical;
   const uint8_t horizontalMargin = SETTINGS.screenMarginHorizontal;
   const uint8_t paragraphAlignment = SETTINGS.paragraphAlignment;
@@ -1265,7 +1273,7 @@ bool TxtReaderActivity::drawCurrentPageToBuffer(const std::string& filePath, Gfx
       serialization::readPod(cacheFile, numPages);
 
       if (magic == CACHE_MAGIC && version == CACHE_VERSION && cachedFileSize == txt.getFileSize() && cachedVw == vw &&
-          cachedLpp == linesPerPage && cachedFontId == fontId && cachedVerticalMargin == verticalMargin &&
+          cachedLpp == linesPerPage && cachedFontId == expectedFontSig && cachedVerticalMargin == verticalMargin &&
           cachedHorizontalMargin == horizontalMargin && cachedAlignment == paragraphAlignment &&
           cachedSpacing == SETTINGS.characterSpacingLevel(SETTINGS.characterSpacing) && numPages > 0 &&
           numPages <= MAX_CACHE_PAGES) {

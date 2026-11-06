@@ -19,7 +19,7 @@ function formatSize(bytes) {
         const data = await res.json();
         ttfSupported = data.ttfSupported === true;
         document.getElementById('formatHelp').textContent = ttfSupported
-          ? 'Upload .cpfont packs or static .ttf/.otf fonts (up to 2 MiB per file). Variable fonts and collections are unsupported.'
+          ? 'Upload .cpfont packs or static .ttf/.otf fonts (up to 16 MiB per file). Variable fonts and collections are unsupported.'
           : 'Upload .cpfont font packs. Scalable .ttf/.otf fonts require a supported PSRAM device.';
         // Build rows with DOM APIs and textContent so on-device family names
         // (which can contain arbitrary characters) cannot break markup or

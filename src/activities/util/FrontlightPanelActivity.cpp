@@ -242,27 +242,18 @@ void FrontlightPanelActivity::openGlobalSettings() {
 }
 
 void FrontlightPanelActivity::openSyncDialog() {
-  static constexpr std::array<StrId, 3> OPTIONS = {StrId::STR_SYNC_BOOK, StrId::STR_NEARBY_POSITION_SYNC,
-                                                   StrId::STR_SEND_NEARBY_BOOK};
-  drawerState.syncDialogOpen = true;
   const bool canSyncBookProgress = FsHelpers::hasEpubExtension(context.bookPath);
-  const bool canSendBook = !context.bookPath.empty();
-  optionPopup.show(StrId::STR_SYNC_AND_TRANSFER, OPTIONS.data(), OPTIONS.size(), canSyncBookProgress ? 0 : 2,
-                   [this](const int index) {
-                     drawerState.syncDialogOpen = false;
-                     FrontlightPanelResult panelResult;
-                     panelResult.state = drawerState;
-                     panelResult.activeEpub = context.activeEpub;
-                     panelResult.bookPath = context.bookPath;
-                     if (index == 0) panelResult.action = FrontlightPanelAction::SyncProgress;
-                     if (index == 1) panelResult.action = FrontlightPanelAction::NearbyPositionSync;
-                     if (index == 2) panelResult.action = FrontlightPanelAction::SendNearbyBook;
-                     setResult(ActivityResult(std::move(panelResult)));
-                     finish();
-                   });
-  optionPopup.setDisabledOptions({!canSyncBookProgress, !canSyncBookProgress, !canSendBook});
-  optionPopup.setCancelCallback([this] { closeSyncDialog(); });
-  requestUpdate();
+  if (canSyncBookProgress) {
+    FrontlightPanelResult panelResult;
+    panelResult.state = drawerState;
+    panelResult.activeEpub = context.activeEpub;
+    panelResult.bookPath = context.bookPath;
+    panelResult.action = FrontlightPanelAction::SyncProgress;
+    setResult(ActivityResult(std::move(panelResult)));
+    finish();
+  } else {
+    close();
+  }
 }
 
 void FrontlightPanelActivity::closeSyncDialog() {

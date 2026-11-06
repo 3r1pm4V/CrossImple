@@ -95,7 +95,6 @@ void syncProgress(GfxRenderer& renderer, MappedInputManager& mappedInput, const 
       startGlobalSyncProgress();  // Opens account settings, same as for EPUB.
       return;
     }
-    // No position to map and no reader to resume: send this book's stats in place.
     auto sync =
         makeUniqueNoThrow<StatsUploadActivity>(renderer, mappedInput, fullPath, StatsUploadActivity::Scope::Book);
     if (!sync) {
@@ -151,8 +150,8 @@ bool hasClearableBookCache(const std::string& path) {
 }
 
 bool canSendNearby(const std::string& path) {
-  return FsHelpers::hasEpubExtension(path) || FsHelpers::hasTxtExtension(path) || FsHelpers::hasXtcExtension(path) ||
-         FsHelpers::hasPngExtension(path) || FsHelpers::hasBmpExtension(path);
+  (void)path;
+  return false;
 }
 
 void clearFileMetadata(const std::string& fullPath) {

@@ -208,14 +208,14 @@ int main(int argc, char** argv) {
   {
     std::ofstream large(largePath, std::ios::binary);
     large.write(reinterpret_cast<const char*>(bytes[0].data()), bytes[0].size());
-    large.seekp(3 * 1024 * 1024 - 1);
+    large.seekp((HalScalableFont::MaxFileBytes + 1024 * 1024) - 1);
     large.put('\0');
     assert(large.good());
   }
   size_t largeBytes = 0;
   assert(!HalScalableFont::fileSize(largePath.c_str(), largeBytes));
   assert(HalScalableFont::fileSize(largePath.c_str(), largeBytes, HalScalableFont::MaxFilenameFileBytes));
-  assert(largeBytes == 3 * 1024 * 1024);
+  assert(largeBytes == (HalScalableFont::MaxFileBytes + 1024 * 1024));
   HalScalableFont::Info info;
   assert(!HalScalableFont::inspectFile(largePath.c_str(), info));
   assert(HalScalableFont::inspectFile(largePath.c_str(), info, nullptr, HalScalableFont::MaxFilenameFileBytes));

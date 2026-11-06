@@ -31,9 +31,9 @@ class ScalableFontAccess {
 // existing 2-bit and fractional-metric conventions. Call under RenderLock.
 class HalScalableFont {
  public:
-  static constexpr size_t MaxFileBytes = 2 * 1024 * 1024;
+  static constexpr size_t MaxFileBytes = 16 * 1024 * 1024;
   static constexpr size_t MaxFilenameFileBytes = 32 * 1024 * 1024;
-  static constexpr size_t MaxFamilyBytes = 6 * 1024 * 1024;
+  static constexpr size_t MaxFamilyBytes = 32 * 1024 * 1024;
   static constexpr size_t ReaderReserveBytes = 1024 * 1024;
   struct Info {
     char family[64] = {};

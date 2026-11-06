@@ -565,9 +565,13 @@ bool HalScalableFont::openFile(const char* path, size_t remainingBytes,
   // A small face is cheaper to read sequentially once than through hundreds of
   // tiny glyph reads. Cap temporary residency at 256 KiB per style (1 MiB per
   // family); large dictionary fonts should not scan megabytes before opening.
+  // Keep normal reader fonts (<= 2 MiB) fully resident in PSRAM while streaming larger CJK reader fonts
+  // through the 1 MiB prefix cache so an 8 MiB PSRAM budget is never exhausted.
+  constexpr size_t AutoResidentLimit = 2 * 1024 * 1024;
   constexpr size_t TemporaryResidentLimit = 256 * 1024;
-  const bool allowResident = mode == FileMode::Auto || ((mode == FileMode::Temporary || mode == FileMode::Filename) &&
-                                                        size <= TemporaryResidentLimit);
+  const bool allowResident = (mode == FileMode::Auto && size <= AutoResidentLimit) ||
+                             ((mode == FileMode::Temporary || mode == FileMode::Filename) &&
+                              size <= TemporaryResidentLimit);
   const bool canReside = allowResident && size <= heap.free - reserve && heap.largest >= size;
   if (canReside) {
     auto bytes = makeAlignedByteBufferNoThrow(size, Pool);
