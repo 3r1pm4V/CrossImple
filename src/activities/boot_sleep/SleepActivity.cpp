@@ -564,14 +564,31 @@ void SleepActivity::onEnter() {
   overlayBackgroundBufferStored =
       sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::OVERLAY && renderer.storeBwBuffer();
 
-  // Show the popup in the orientation that was visible before reader exit restores
-  // global settings. Reset to portrait afterwards so sleep screen layout stays unchanged.
-  if (APP_STATE.lastSleepFromReader) {
-    renderer.setOrientation(sleepPopupOrientation);
-    GUI.drawPopup(renderer, tr(STR_ENTERING_SLEEP));
-    renderer.setOrientation(GfxRenderer::Orientation::Portrait);
-  } else {
-    GUI.drawPopup(renderer, tr(STR_ENTERING_SLEEP));
+  // X4 Pro and X4 Classic share a panel that can retain this high-contrast
+  // transient update beneath the final OEM-style sleep refresh. Render only
+  // the final sleep frame on that panel family. On X3, only show the popup when
+  // the sleep screen must decode an uncached cover image from the EPUB/ZIP.
+  bool sleepRequiresUncachedCoverDecode = false;
+  if (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER ||
+      (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM && APP_STATE.lastSleepFromReader)) {
+    if (!recentBookPath.empty()) {
+      const bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
+      sleepRequiresUncachedCoverDecode =
+          SleepCoverAssets::cachedCoverPathFor(recentBookPath, cropped, bookCoverToneProfile(renderer)).empty();
+    }
+  }
+  const bool showSleepPopup =
+      !BoardConfig::isX4Pro() && !CROSSINK_APP_DEVICE_X4CLASSIC && sleepRequiresUncachedCoverDecode;
+  if (showSleepPopup) {
+    // Show the popup in the orientation that was visible before reader exit restores
+    // global settings. Reset to portrait afterwards so sleep screen layout stays unchanged.
+    if (APP_STATE.lastSleepFromReader) {
+      renderer.setOrientation(sleepPopupOrientation);
+      GUI.drawPopup(renderer, tr(STR_ENTERING_SLEEP));
+      renderer.setOrientation(GfxRenderer::Orientation::Portrait);
+    } else {
+      GUI.drawPopup(renderer, tr(STR_ENTERING_SLEEP));
+    }
   }
 
   switch (sleepScreen) {

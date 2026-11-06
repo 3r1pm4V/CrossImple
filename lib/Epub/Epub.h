@@ -107,6 +107,7 @@ class Epub {
   uint32_t totalReferencePages = 0;
   bool referencePagesUseCharacters = false;
   bool xLocationsLoaded = false;
+  bool xLocationsChecked = false;
   mutable ZipDirectoryCache zipDirectoryCache;
   OpenFailure lastLoadFailure = OpenFailure::None;
   bool sourceSpineMapDeclared = false;
