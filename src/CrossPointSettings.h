@@ -515,7 +515,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Text rendering settings
   uint8_t extraParagraphSpacing = 1;
   uint8_t forceParagraphIndents = 0;
-  uint8_t textAntiAliasing = 1;
+  uint8_t textAntiAliasing = 0;
+  uint8_t fastPageTurn = 1;
   // Touch screen reader zones/gestures on boards with a touch controller.
   // Shortcut-only pause; keep the saved tap/swipe choices unchanged.
   uint8_t disablePageTurnGestures = 0;

@@ -705,7 +705,7 @@ ReaderSettingsDraft EpubReaderDrawerActivity::captureSettings() {
   value.screenMarginHorizontal = SETTINGS.screenMarginHorizontal;
   value.orientation = SETTINGS.orientation;
   value.paragraphAlignment = SETTINGS.paragraphAlignment;
-  value.textAntiAliasing = SETTINGS.textAntiAliasing;
+  value.textAntiAliasing = (SETTINGS.textAntiAliasing && !SETTINGS.fastPageTurn) ? 1 : 0;
   value.focusReadingEnabled = SETTINGS.focusReadingEnabled;
   value.guideReadingEnabled = SETTINGS.guideReadingEnabled;
   value.hyphenationEnabled = SETTINGS.hyphenationEnabled;
@@ -733,7 +733,8 @@ void EpubReaderDrawerActivity::applySettings(const ReaderSettingsDraft& value) {
   SETTINGS.screenMarginHorizontal = value.screenMarginHorizontal;
   SETTINGS.orientation = value.orientation;
   SETTINGS.paragraphAlignment = value.paragraphAlignment;
-  SETTINGS.textAntiAliasing = value.textAntiAliasing;
+  SETTINGS.textAntiAliasing = value.textAntiAliasing ? 1 : 0;
+  SETTINGS.fastPageTurn = value.textAntiAliasing ? 0 : 1;
   SETTINGS.focusReadingEnabled = value.focusReadingEnabled;
   SETTINGS.guideReadingEnabled = value.guideReadingEnabled;
   SETTINGS.hyphenationEnabled = value.hyphenationEnabled;

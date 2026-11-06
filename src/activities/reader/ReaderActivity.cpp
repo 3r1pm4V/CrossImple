@@ -64,6 +64,8 @@ ReaderActivity::EpubOpenResult ReaderActivity::loadEpub(const std::string& path)
     // The popup replaces the restored Quick Resume frame, so the reader must clean it.
     allowFastInitialRefresh = false;
     openingFeedback.showIndexing(renderer);
+  } else {
+    openingFeedback.finish();
   }
   if (openingFeedback.showIfPending(renderer)) allowFastInitialRefresh = false;
   // Lend the framebuffer's 48 KB for every EPUB load: even a cached book may
@@ -167,6 +169,7 @@ void ReaderActivity::onGoToBmpViewer(const std::string& path) {
 void ReaderActivity::onGoToXtcReader(std::unique_ptr<Xtc> xtc) {
   const auto xtcPath = xtc->getPath();
   currentBookPath = xtcPath;
+  openingFeedback.finish();
   activityManager.replaceActivity(std::make_unique<XtcReaderActivity>(
       renderer, mappedInput, std::move(xtc), initialRefreshCountdown(), allowFastInitialRefresh, openingFeedback));
 }
@@ -174,6 +177,9 @@ void ReaderActivity::onGoToXtcReader(std::unique_ptr<Xtc> xtc) {
 void ReaderActivity::onGoToTxtReader(std::unique_ptr<Txt> txt) {
   const auto txtPath = txt->getPath();
   currentBookPath = txtPath;
+  if (Storage.exists((txt->getCachePath() + "/index.bin").c_str())) {
+    openingFeedback.finish();
+  }
   activityManager.replaceActivity(std::make_unique<TxtReaderActivity>(
       renderer, mappedInput, std::move(txt), initialRefreshCountdown(), allowFastInitialRefresh, openingFeedback));
 }

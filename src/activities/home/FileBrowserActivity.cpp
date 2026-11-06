@@ -89,14 +89,11 @@ bool isSleepImageFile(const std::string& path) {
 bool isBootImageFile(const std::string& path) { return FsHelpers::hasBmpExtension(path); }
 
 bool isMacOSMetadataEntry(std::string_view filename) {
-  return filename.rfind("._", 0) == 0 || filename == ".DS_Store" || filename == ".Spotlight-V100" ||
-         filename == ".Trashes" || filename == ".fseventsd";
+  return FsHelpers::isOsJunkEntry(filename);
 }
 
 bool isWindowsMetadataEntry(std::string_view filename) {
-  return equalsIgnoreCase(filename, "System Volume Information") || equalsIgnoreCase(filename, "$RECYCLE.BIN") ||
-         equalsIgnoreCase(filename, "desktop.ini") || equalsIgnoreCase(filename, "Thumbs.db") ||
-         equalsIgnoreCase(filename, "IndexerVolumeGuid") || equalsIgnoreCase(filename, "WPSettings.dat");
+  return FsHelpers::isOsJunkEntry(filename);
 }
 
 size_t estimateNextVectorCapacity(size_t size, size_t capacity) {

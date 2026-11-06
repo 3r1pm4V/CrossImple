@@ -1,7 +1,7 @@
 # 🐰 CrossImple
 
 [![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossImple?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
-[![Version](https://img.shields.io/badge/Version-v0.20-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
+[![Version](https://img.shields.io/badge/Version-v0.21-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
 [![Device](https://img.shields.io/badge/Devices-Xteink%20X3%20%7C%20X4%20Classic%20%7C%20X4%20Pro-blue?style=flat-square)](#-thiết-bị-hỗ-trợ-supported-devices)
 [![Base](https://img.shields.io/badge/Base-CrossPoint%20v2.0.0%20%7C%20CrossInk%20v2.0.0--rc-brightgreen?style=flat-square)](https://github.com/uxjulia/CrossInk)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -30,6 +30,7 @@
 | **Bảo vệ bảng FAT trên thẻ SD (`0003-sync-fat-before-data-cache.patch`)** | **[CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)** (`crosspoint-reader-develop`) | `scripts/sdfat_patches/0003-sync-fat-before-data-cache.patch`, `scripts/patch_sdfat.py` |
 | **Đồng bộ chốt nguồn Deep Sleep trên ESP32-C3 (`gpio_hold_dis(latch)`)** | **[CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)** (`crosspoint-reader-develop`) | `lib/hal/HalPowerManager.cpp` |
 | **Tách biệt Cache SDK theo từng kiến trúc chip (`patch_pioarduino_cache.py`)** | **CrossImple Custom** (Tự phát triển) | `scripts/patch_pioarduino_cache.py`, `platformio.ini` |
+| **Lật trang 1-Bit Siêu tốc, Tự động ngắt WiFi thông minh, Bộ lọc Thư mục Rác HĐH & Làm mới Toàn trang Thông minh** | **CrossImple Custom** (Tự phát triển theo triết lý Simple) | `src/activities/reader/EpubReaderActivity.cpp`, `src/network/CrossPointWebServerActivity.cpp`, `lib/FsHelpers/FsHelpers.cpp` |
 | **Negative Cache cho EPUB (`optimizerIndexChecked` & `xLocationsChecked`), Gộp ghi trạng thái Wake (`main.cpp`), Tắt máy tức thì (`SleepActivity.cpp`)** | **CrossImple Custom** (Tự phát triển) | `lib/Epub/Epub.cpp`, `src/main.cpp`, `src/activities/boot_sleep/SleepActivity.cpp` |
 | **8x8 Fine Bayer Dithering, E-Ink Optical Clamping (`45`–`225`), Tăng tương phản bìa sách (`1.20f`) & OOM Guard trên X3 (`8KB` trần)** | **CrossImple Custom** (Tự phát triển trên `JpegToBmpConverter` & `BitmapHelpers` của `CrossInk`) | `lib/JpegToBmpConverter/JpegToBmpConverter.cpp`, `lib/BitmapHelpers/BitmapHelpers.cpp` |
 | **Flash trực tiếp file `.bin` bất kỳ từ thẻ nhớ SD (`SdFirmwareUpdateActivity` & `FileBrowserActivity`)** | **CrossImple Custom** (Kế thừa và nâng cấp từ nhánh `CrossPet` / `CrossInk v1.6.1`) | `src/activities/util/SdFirmwareUpdateActivity.cpp`, `src/activities/files/FileBrowserActivity.cpp` |
@@ -38,6 +39,17 @@
 ---
 
 ## 📝 Nhật ký thay đổi (Changelog)
+
+### Phiên bản v0.21
+* **Bổ sung 4 Tối ưu Tinh gọn theo Triết lý Simple** *(Nguồn: CrossImple Custom)*:
+  * **Chế độ Lật trang 1-Bit Siêu tốc (Monochrome Fast-Turn Mode):** Khi đọc các trang sách chỉ có chữ thuần túy (`!pageHasImages`), hệ thống bỏ qua toàn bộ chu trình khử răng cưa đa mức xám và bộ đệm trung gian để vẽ trực tiếp qua chế độ làm mới vi sai 1-bit (<150ms). Phản hồi lật trang tức thì và tiết kiệm tối đa thời lượng pin. Bật/tắt trong *Reader Settings > Lật trang siêu tốc*.
+  * **Tự động ngắt WiFi thông minh (Network Idle Auto-Off Timer):** Tự động ngắt Web Server và tắt nguồn modem WiFi (`WiFi.mode(WIFI_OFF)`) sau 5 phút không có hoạt động truyền dữ liệu, bảo toàn pin nếu người dùng vô tình quên tắt kết nối.
+  * **Bộ lọc Thư mục Rác Hệ điều hành (OS Junk Blacklist Filter):** Loại bỏ triệt để các thư mục và tập tin rác hệ thống phát sinh từ macOS, Windows, Android (`$RECYCLE.BIN`, `.Spotlight-V100`, `.Trashes`, `.fseventsd`, `Android`, `LOST.DIR`, `Thumbs.db`,...) khỏi Thư viện và Quản lý tệp, tăng tốc độ nạp thẻ SD và giữ giao diện luôn tinh giản.
+  * **Làm mới Toàn trang Thông minh (Smart Contextual Full-Refresh):** Tự động kích hoạt chu trình làm mới toàn diện (`HALF_REFRESH`) ngay khi vừa lật qua một trang sách có chứa ảnh minh họa, xóa sạch bóng mờ (ghosting) mà không làm chậm các trang chữ thông thường tiếp theo.
+* **Bảo lưu 100% bản sắc tùy biến của CrossImple**:
+  * Bộ Font UI Lexica Ultralegible tiếng Việt chuẩn, Chốt bảo vệ nguồn nạp Firmware (Battery Guard < 25%), Bộ nhận diện bìa ngoài (CustomCoverResolver), Bảng xung 4 mức xám GrayTone::Middle cho màn hình SSD1677, và cơ chế an toàn Watchdog 15m / Nút nguồn 10s.
+
+---
 
 ### Phiên bản v0.20
 * **Tối ưu Hiệu năng & Nâng cao Độ ổn định (Đặc biệt giá trị cho máy E-ink)** *(Nguồn: crosspoint-reader v2.0.0 & CrossImple)*:
@@ -159,9 +171,9 @@
 
 | Thiết bị | Vi điều khiển (MCU) | Màn hình | Điều khiển | Tên file Firmware xuất ra |
 |---|---|---|---|---|
-| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.20.bin` |
-| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.20.bin` |
-| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.20.bin` |
+| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.21.bin` |
+| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.21.bin` |
+| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.21.bin` |
 
 ---
 
@@ -177,9 +189,9 @@
 
 ### Cách 1: Nâng cấp trực tiếp qua Thẻ nhớ SD (Khuyên dùng)
 1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossImple/releases):
-   * Với **Xteink X3**: tải `crossimple_x3_v0.20.bin`
-   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.20.bin`
-   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.20.bin`
+   * Với **Xteink X3**: tải `crossimple_x3_v0.21.bin`
+   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.21.bin`
+   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.21.bin`
 2. Chép file `.bin` vào thư mục gốc của thẻ MicroSD (định dạng FAT32).
 3. Bật máy đọc sách, mở mục **Quản lý tệp (File Browser)**, chọn file `.bin` vừa chép và nhấn **Xác nhận (Confirm)**.
 4. Máy sẽ tự động kiểm tra chip ESP32, tag phần cứng, tính toàn vẹn SHA256 và tiến hành flash an toàn. Sau khi hoàn tất máy sẽ tự khởi động lại.
@@ -215,11 +227,11 @@ python scripts/build_all.py --export-bin
 # Cách 2: Chạy thủ công từng luồng riêng biệt
 # Luồng 1 — Biên dịch riêng cho Xteink X3 (ESP32-C3)
 pio run -e default
-# File xuất ra: crossimple_x3_v0.20.bin
+# File xuất ra: crossimple_x3_v0.21.bin
 
 # Luồng 2 — Biên dịch cho dòng Xteink X4 (ESP32-S3)
 pio run -e x4-classic -e x4-pro
-# File xuất ra: crossimple_x4-classic_v0.20.bin, crossimple_x4-pro_v0.20.bin
+# File xuất ra: crossimple_x4-classic_v0.21.bin, crossimple_x4-pro_v0.21.bin
 ```
 
 ---

@@ -883,12 +883,17 @@ void TxtReaderActivity::renderPage() {
   if (showOpeningFeedback()) renderer.clearScreen(ReaderUtils::readerBackgroundColor());
   openingFeedback.finish();
 
+  const bool useTextAa = SETTINGS.textAntiAliasing && !SETTINGS.fastPageTurn;
+
   // BW rendering
-  renderLines();
+  {
+    const GfxRenderer::MonochromeTextScope monoScope(renderer, !useTextAa);
+    renderLines();
+  }
   renderStatusBar();
 
   const bool deferred =
-      SETTINGS.textAntiAliasing &&
+      useTextAa &&
       ReaderUtils::displayDeferredGrayscale(renderer, pagesUntilFullRefresh, deferredGrayscalePlanes, [&]() {
         renderLines();
         return true;
@@ -896,12 +901,12 @@ void TxtReaderActivity::renderPage() {
   if (!deferred) {
     auto request = ReaderUtils::PageRefresh::Blocking;
 #if FREEINK_DEVICE_PICCO || FREEINK_DEVICE_STICKY
-    if (SETTINGS.textAntiAliasing) request = ReaderUtils::PageRefresh::GrayscaleBase;
+    if (useTextAa) request = ReaderUtils::PageRefresh::GrayscaleBase;
 #endif
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, request);
   }
 
-  if (SETTINGS.textAntiAliasing && !deferred) {
+  if (useTextAa && !deferred) {
     ReaderUtils::renderAntiAliased(renderer, [&renderLines]() { renderLines(); });
   }
   pluginEvents.rendered(totalPages > 0 ? static_cast<int>((currentPage + 1LL) * 10000 / totalPages) : 0);

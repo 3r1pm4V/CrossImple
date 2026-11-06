@@ -661,6 +661,18 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
     this->*(info.valuePtr) = value;
   }
 
+  if (doc["fastPageTurn"].isNull()) {
+    fastPageTurn = 1;
+    textAntiAliasing = 0;
+    needsResave = true;
+  } else {
+    const uint8_t syncedTextAa = fastPageTurn ? 0 : 1;
+    if (textAntiAliasing != syncedTextAa) {
+      textAntiAliasing = syncedTextAa;
+      needsResave = true;
+    }
+  }
+
   // The dynamic Images setting is intentionally absent from the generic field loop.
   imageRendering = clamp(doc["imageRendering"] | imageRendering, IMAGE_RENDERING_COUNT, imageRendering);
   imageGrayscale = clamp(doc["imageGrayscale"] | imageGrayscale, 2, imageGrayscale);
@@ -1208,6 +1220,7 @@ bool CrossPointSettings::loadFromBinaryFile() {
     readAndValidate(inputFile, sleepScreenCoverMode, SLEEP_SCREEN_COVER_MODE_COUNT);
     if (++settingsRead >= fileSettingsCount) break;
     serialization::readPod(inputFile, textAntiAliasing);
+    fastPageTurn = textAntiAliasing ? 0 : 1;
     if (++settingsRead >= fileSettingsCount) break;
     readAndValidate(inputFile, hideBatteryPercentage, HIDE_BATTERY_PERCENTAGE_COUNT);
     if (++settingsRead >= fileSettingsCount) break;

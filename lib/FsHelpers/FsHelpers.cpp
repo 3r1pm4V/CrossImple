@@ -274,4 +274,35 @@ void sanitizePathComponentForFat32(const char* input, char* output, size_t maxLe
   output[i] = '\0';
 }
 
+static bool strEqualsIgnoreCase(std::string_view a, std::string_view b) {
+  if (a.length() != b.length()) return false;
+  for (size_t i = 0; i < a.length(); ++i) {
+    if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isOsJunkEntry(std::string_view name) {
+  if (name.empty()) return false;
+  // macOS metadata and resource forks
+  if (name.rfind("._", 0) == 0 || name == ".DS_Store" || name == ".Spotlight-V100" ||
+      name == ".Trashes" || name == ".fseventsd" || name == ".TemporaryItems") {
+    return true;
+  }
+  // Windows metadata, recycler and desktop artifacts
+  if (strEqualsIgnoreCase(name, "System Volume Information") || strEqualsIgnoreCase(name, "$RECYCLE.BIN") ||
+      strEqualsIgnoreCase(name, "desktop.ini") || strEqualsIgnoreCase(name, "Thumbs.db") ||
+      strEqualsIgnoreCase(name, "IndexerVolumeGuid") || strEqualsIgnoreCase(name, "WPSettings.dat")) {
+    return true;
+  }
+  // Android / SD card system artifacts
+  if (strEqualsIgnoreCase(name, "LOST.DIR") || strEqualsIgnoreCase(name, "Android") ||
+      strEqualsIgnoreCase(name, ".android_secure")) {
+    return true;
+  }
+  return false;
+}
+
 }  // namespace FsHelpers

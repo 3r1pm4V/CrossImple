@@ -351,6 +351,7 @@ bool isBookName(const std::string& name) { return fileTypeFor(name) != 0; }
 bool isHiddenOrSidecar(const char* name) { return name[0] == '.'; }
 
 bool isSystemDirectory(const char* name) {
+  if (FsHelpers::isOsJunkEntry(name)) return true;
   // FAT names are case-insensitive. Match whole directory names, never book
   // basenames or prefixes such as XTCacheArchive. No temporary strings needed.
   for (const char* system : {"XTCache", "System Volume Information"}) {

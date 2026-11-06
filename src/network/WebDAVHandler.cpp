@@ -51,7 +51,7 @@ constexpr const char* HIDDEN_ITEMS[] = {"System Volume Information", "XTCache"};
 constexpr size_t HIDDEN_ITEM_COUNT = sizeof(HIDDEN_ITEMS) / sizeof(HIDDEN_ITEMS[0]);
 
 bool isProtectedPathSegment(const char* name) {
-  return (!SETTINGS.showHiddenFiles && name[0] == '.') ||
+  return (!SETTINGS.showHiddenFiles && (name[0] == '.' || FsHelpers::isOsJunkEntry(name))) ||
          std::any_of(HIDDEN_ITEMS, HIDDEN_ITEMS + HIDDEN_ITEM_COUNT,
                      [name](const char* item) { return strcmp(name, item) == 0; });
 }
@@ -92,6 +92,7 @@ bool WebDAVHandler::canRaw(WebServer& server, const String& uri) {
 
 void WebDAVHandler::raw(WebServer& server, const String& uri, HTTPRaw& raw) {
   (void)uri;
+  notifyActivity();
   if (raw.status == RAW_START) {
     _putPath = getRequestPath(server);
     if (isProtectedPath(_putPath)) {
@@ -387,11 +388,13 @@ void WebDAVHandler::handleGet(WebServer& s) {
 
   // HalFile is a Print, not a Stream: client.write(file) converts it to bool
   // and sends 0x01. The helper handles partial writes and watchdog yielding.
+  notifyActivity();
   NetworkClient client = s.client();
   if (!Storage.readFileToStream(path.c_str(), client)) {
     LOG_ERR("DAV", "GET %s: failed to stream file", path.c_str());
     client.stop();  // Headers are already sent; terminate the incomplete body.
   }
+  notifyActivity();
 }
 
 // ── HEAD ─────────────────────────────────────────────────────────────────────

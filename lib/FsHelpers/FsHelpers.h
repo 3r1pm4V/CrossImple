@@ -105,4 +105,7 @@ inline bool isSafePathComponent(const String& name) {
  */
 void sanitizePathComponentForFat32(const char* input, char* output, size_t maxLen);
 
+// Returns true for operating system junk entries (Windows/macOS/Android metadata & trash)
+bool isOsJunkEntry(std::string_view name);
+
 }  // namespace FsHelpers

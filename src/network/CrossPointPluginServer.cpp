@@ -61,6 +61,7 @@ void CrossPointWebServer::streamFileToClient(HalFile& file) const {
         break;
       }
       totalWritten += wrote;
+      recordActivity();
     }
   }
   client.clear();
@@ -561,6 +562,7 @@ void CrossPointWebServer::handleFetch() {
       return false;
     }
     written += writeLen;
+    recordActivity();
     // Heap trajectory during the transfer: a steady value rules RAM out of a
     // mid-body failure; a falling one implicates it.
     if (written >= nextHeapLog) {
@@ -680,6 +682,7 @@ void CrossPointWebServer::handlePluginFsUpload() {
   static constexpr size_t MAX_PLUGIN_FILE = 256 * 1024;
   auto& st = pluginFsUpload;
   const HTTPUpload& part = server->upload();
+  recordActivity();
   const auto fail = [&st](const int status, const char* error) {
     if (st.file.isOpen()) st.file.close();  // explicit: remove follows on the same path
     if (!st.tmp.empty()) Storage.remove(st.tmp.c_str());

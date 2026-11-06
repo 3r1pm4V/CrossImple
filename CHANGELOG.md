@@ -1,3 +1,20 @@
+## [v0.21] - 2026-11-06
+
+### Added
+- **Chế độ Lật trang 1-Bit Siêu tốc (Monochrome Fast-Turn Mode)**:
+  - Khi đọc các trang sách chỉ có chữ thuần túy (`!pageHasImages`), hệ thống tự động bỏ qua toàn bộ chu trình tính toán đa mức xám (grayscale anti-aliasing) và bộ đệm trung gian để dựng trực tiếp qua chế độ làm mới vi sai 1-bit (<150ms).
+  - Tốc độ lật trang tức thì, phản hồi siêu nhạy và tối ưu hóa thời lượng pin cho máy E-ink.
+  - Có thể bật/tắt linh hoạt trong mục Cài đặt Trình đọc sách (*Reader Settings > Lật trang siêu tốc / Fast Page Turn*).
+- **Tự động ngắt WiFi thông minh (Network Idle Auto-Off Timer)**:
+  - Tự động phát hiện trạng thái không có hoạt động truyền dữ liệu mạng trong 5 phút ở chế độ Truyền tệp (File Transfer / Web Server / WebDAV / WebSocket).
+  - Tự động đóng dịch vụ và tắt nguồn bộ thu phát WiFi (`WiFi.mode(WIFI_OFF)`), bảo vệ thiết bị không bị cạn sạch pin nếu người dùng quên tắt kết nối.
+- **Bộ lọc Thư mục Rác Hệ điều hành (OS Junk Blacklist Filter)**:
+  - Tích hợp bộ lọc tập trung nhận diện và loại trừ triệt để các thư mục, tập tin rác hệ thống phát sinh khi cắm thẻ nhớ vào máy tính macOS, Windows, Android (`$RECYCLE.BIN`, `.Spotlight-V100`, `.Trashes`, `.fseventsd`, `Android`, `LOST.DIR`, `Thumbs.db`,...).
+  - Áp dụng đồng bộ xuyên suốt từ Thư viện (Library Indexer), Duyệt tệp (File Browser) đến bộ duyệt thư mục sách (Folder Book Iterator), giúp danh sách tệp luôn tinh gọn, ngăn ngừa lỗi quét thẻ và giữ trọn tinh thần Simple.
+- **Làm mới Toàn trang Thông minh (Smart Contextual Full-Refresh)**:
+  - Tự động kích hoạt chu trình làm mới toàn diện (`HALF_REFRESH`) ngay khi lật qua khỏi một trang sách có chứa ảnh minh họa hoặc hình vẽ phức tạp, giúp quét sạch triệt để hiện tượng lưu ảnh / bóng mờ (ghosting).
+  - Với các trang chữ thông thường tiếp theo, thiết bị tự động duy trì chu kỳ làm mới theo đúng số trang người dùng đã cài đặt, cân bằng hoàn hảo giữa độ nét chữ và tốc độ đọc.
+
 ## [v0.20] - 2026-11-06
 
 ### Added

@@ -81,7 +81,8 @@ int scaled75SourceEnd(const int dst, const int srcLimit) {
 void draw2BitFontPixel(const GfxRenderer& renderer, const GfxRenderer::RenderMode renderMode, const int x, const int y,
                        const uint8_t raw, const bool pixelState) {
   const uint8_t bmpVal = 3 - raw;
-  if (renderMode == GfxRenderer::BW && bmpVal < 3) {
+  const uint8_t bwLimit = renderer.monochromeTextThreshold() ? 2 : 3;
+  if (renderMode == GfxRenderer::BW && bmpVal < bwLimit) {
     renderer.drawPixel(x, y, pixelState);
   } else if (renderMode == GfxRenderer::GRAYSCALE_MSB && (bmpVal == 1 || bmpVal == 2)) {
     renderer.drawPixel(x, y, false);
@@ -912,9 +913,10 @@ void GfxRenderer::drawGlyphBitmap(const uint8_t* bitmap, const int width, const 
   physical.dyX = nextX - physical.x;
   physical.dyY = nextY - physical.y;
 
-  const glyphBitmap::Plane plane = mode == BW              ? glyphBitmap::Plane::BW
-                                   : mode == GRAYSCALE_MSB ? glyphBitmap::Plane::GrayMSB
-                                                           : glyphBitmap::Plane::GrayLSB;
+  const glyphBitmap::Plane plane =
+      mode == BW ? (monochromeTextThreshold_ ? glyphBitmap::Plane::BWMonochrome : glyphBitmap::Plane::BW)
+      : mode == GRAYSCALE_MSB ? glyphBitmap::Plane::GrayMSB
+                              : glyphBitmap::Plane::GrayLSB;
   glyphBitmap::draw(bitmap, width, height, twoBit, plane, state, target, clip);
 }
 

@@ -9,7 +9,7 @@
 namespace glyphBitmap {
 
 // Framebuffer plane a glyph is painted into.
-enum class Plane : uint8_t { BW, GrayLSB, GrayMSB };
+enum class Plane : uint8_t { BW, BWMonochrome, GrayLSB, GrayMSB };
 
 // Position of glyph pixel (0, 0) plus the step for one move along the glyph's
 // x and y axes, all in one coordinate space. The axes must describe an
@@ -97,8 +97,11 @@ inline void draw(const uint8_t* bitmap, int width, int height, bool twoBit, Plan
   uint8_t levels = 0x02;
   bool clearBits = state;
   if (twoBit) {
-    levels = plane == Plane::BW ? 0x0e : plane == Plane::GrayMSB ? 0x06 : 0x04;
-    if (plane != Plane::BW) clearBits = false;
+    levels = plane == Plane::BW             ? 0x0e
+             : plane == Plane::BWMonochrome ? 0x0c
+             : plane == Plane::GrayMSB      ? 0x06
+                                            : 0x04;
+    if (plane != Plane::BW && plane != Plane::BWMonochrome) clearBits = false;
   }
 
   // Intersect with the glyph bounds, then with the panel width and the

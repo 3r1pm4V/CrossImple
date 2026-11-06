@@ -75,7 +75,12 @@ class CrossPointWebServer {
   // Get the port number
   uint16_t getPort() const { return port; }
 
+  // Network idle auto-off timer
+  void recordActivity() const { lastActivityTime = millis(); }
+  unsigned long getLastActivityTime() const { return lastActivityTime; }
+
  private:
+  mutable unsigned long lastActivityTime = 0;
   std::unique_ptr<WebServer> server = nullptr;
   std::unique_ptr<WebSocketsServer> wsServer = nullptr;
   bool running = false;

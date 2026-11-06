@@ -1111,7 +1111,7 @@ void captureReaderSettings(EpubReaderActivity::ReaderSettingsSnapshot& out) {
   out.embeddedStyle = SETTINGS.embeddedStyle;
   out.publisherFonts = SETTINGS.publisherFonts;
   out.hyphenationEnabled = SETTINGS.hyphenationEnabled;
-  out.textAntiAliasing = SETTINGS.textAntiAliasing;
+  out.textAntiAliasing = (SETTINGS.textAntiAliasing && !SETTINGS.fastPageTurn) ? 1 : 0;
   out.imageRendering = SETTINGS.imageRendering;
   out.imageGrayscale = SETTINGS.imageGrayscale;
   out.extraParagraphSpacing = SETTINGS.extraParagraphSpacing;
@@ -1154,6 +1154,7 @@ void applyReaderSettings(const EpubReaderActivity::ReaderSettingsSnapshot& in) {
   SETTINGS.publisherFonts = in.publisherFonts <= static_cast<uint8_t>(PublisherFonts::All) ? in.publisherFonts : 0;
   SETTINGS.hyphenationEnabled = in.hyphenationEnabled ? 1 : 0;
   SETTINGS.textAntiAliasing = in.textAntiAliasing ? 1 : 0;
+  SETTINGS.fastPageTurn = in.textAntiAliasing ? 0 : 1;
   SETTINGS.imageRendering =
       in.imageRendering < CrossPointSettings::IMAGE_RENDERING_COUNT ? in.imageRendering : SETTINGS.imageRendering;
   SETTINGS.imageGrayscale = in.imageGrayscale ? 1 : 0;
@@ -7666,6 +7667,9 @@ bool EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int fo
   bool needsImageGrayscale = grayscaleAvailable && SETTINGS.imageGrayscale && pageHasImages;
   bool needsTextGrayscale = grayscaleAvailable && SETTINGS.textAntiAliasing && foregroundBlack && page->hasText() &&
                             !sdFontSystem.fontUsesMonochromeRaster(renderer, fontId, SETTINGS.sdFontFamilyName);
+  if (SETTINGS.fastPageTurn && !pageHasImages) {
+    needsTextGrayscale = false;
+  }
   const int contentBottom = renderer.getScreenHeight() - orientedMarginBottom;
 
   // The pending count excludes the page currently being rendered. Decide
@@ -7710,6 +7714,7 @@ bool EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int fo
   };
 
   const auto composePageBuffer = [&]() {
+    const GfxRenderer::MonochromeTextScope monoScope(renderer, !needsTextGrayscale);
     if (deferImageLoading) {
       page->renderWithImagePlaceholders(renderer, fontId, orientedMarginLeft, orientedMarginTop, foregroundBlack,
                                         /*renderCachedImages=*/false, SETTINGS.imageGrayscale);
@@ -7842,7 +7847,7 @@ bool EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int fo
     // refresh cadence. A grayscale pass leaves gray charge that a fast diff on
     // the next page can't clear (#2190), so only grayscale pages force that
     // next ordinary page onto the HALF ghost-cleanup path.
-    if (needsAnyGrayscale) {
+    if (pageHasImages) {
       pagesUntilFullRefresh = 1;
     }
   } else if (needsAnyGrayscale) {

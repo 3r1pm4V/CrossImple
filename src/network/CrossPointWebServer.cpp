@@ -380,7 +380,7 @@ bool isProtectedPath(const String& path) {
 
     String segment = path.substring(start, end);
 
-    if (segment.startsWith(".")) return true;
+    if (segment.startsWith(".") || FsHelpers::isOsJunkEntry(segment.c_str())) return true;
 
     for (const auto* item : HIDDEN_ITEMS) {
       if (segment.equals(item)) return true;
@@ -449,6 +449,14 @@ void CrossPointWebServer::begin() {
   // and PWAs on other origins can use the HTTP API. Preflight OPTIONS requests
   // are answered in handleNotFound().
   server->enableCORS(true);
+
+  lastActivityTime = millis();
+  server->addMiddleware([this](WebServer&, Middleware::Callback next) {
+    recordActivity();
+    const bool handled = next();
+    recordActivity();
+    return handled;
+  });
 
 #ifndef SIMULATOR
   // Run before WebDAV's catch-all GET handler; never redirect body methods.
@@ -535,7 +543,9 @@ void CrossPointWebServer::begin() {
   const char* davHeaders[] = {"Depth",      "Destination", "Overwrite",     "If",
                               "Lock-Token", "Timeout",     "If-None-Match", "Host"};
   server->collectHeaders(davHeaders, 8);
-  server->addHandler(new WebDAVHandler());  // Note: WebDAVHandler will be deleted by WebServer when server is stopped
+  server->addHandler(new WebDAVHandler(
+      [](void* ctx) { static_cast<CrossPointWebServer*>(ctx)->recordActivity(); },
+      this));  // Note: WebDAVHandler will be deleted by WebServer when server is stopped
 
   server->begin();
 
@@ -719,6 +729,7 @@ void CrossPointWebServer::answerDiscovery() const {
   const int len =
       recvfrom(discoverySocket, buffer, sizeof(buffer) - 1, 0, reinterpret_cast<sockaddr*>(&from), &fromLen);
   if (len != 5 || memcmp(buffer, "hello", 5) != 0) return;
+  recordActivity();
   const char* hostname = WiFi.getHostname();
   char message[96];
   const int messageLen = snprintf(message, sizeof(message), "crosspoint (on %s);%u",
@@ -875,10 +886,14 @@ bool CrossPointWebServer::scanFiles(const char* path, const FileVisitor visitor,
       // Treat OS/device metadata like other hidden items: keep it out of the
       // default view, but let users manage it when Show Hidden Files is enabled.
       if (!shouldHide && !SETTINGS.showHiddenFiles) {
-        for (const auto* item : HIDDEN_ITEMS) {
-          if (fileName.equals(item)) {
-            shouldHide = true;
-            break;
+        if (FsHelpers::isOsJunkEntry(fileName.c_str())) {
+          shouldHide = true;
+        } else {
+          for (const auto* item : HIDDEN_ITEMS) {
+            if (fileName.equals(item)) {
+              shouldHide = true;
+              break;
+            }
           }
         }
       }
@@ -1087,6 +1102,7 @@ void CrossPointWebServer::handleDownload() const {
         break;
       }
       totalWritten += wrote;
+      recordActivity();
       resetTaskWatchdogIfSubscribed();
     }
   }
@@ -1126,6 +1142,7 @@ void CrossPointWebServer::handleUpload(UploadState& state) const {
   }
 
   const HTTPUpload& upload = server->upload();
+  recordActivity();
 
   if (upload.status == UPLOAD_FILE_START) {
     if (state.file) abortUpload(state);
@@ -1985,6 +2002,11 @@ void CrossPointWebServer::handlePostSettings() {
         const int val = doc[s.key].as<int>() ? 1 : 0;
         if (s.valuePtr) {
           SETTINGS.*(s.valuePtr) = val;
+          if (s.valuePtr == &CrossPointSettings::fastPageTurn) {
+            SETTINGS.textAntiAliasing = val ? 0 : 1;
+          } else if (s.valuePtr == &CrossPointSettings::textAntiAliasing) {
+            SETTINGS.fastPageTurn = val ? 0 : 1;
+          }
         }
         applied++;
         break;
@@ -2356,6 +2378,9 @@ void CrossPointWebServer::wsEventCallback(uint8_t num, WStype_t type, uint8_t* p
 //   4. Server sends TEXT "DONE" or "ERROR:<message>" when complete
 void CrossPointWebServer::onWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
   if (num < WEBSOCKETS_SERVER_CLIENT_MAX) wsLastActivity[num] = type == WStype_DISCONNECTED ? 0 : millis();
+  if (type != WStype_DISCONNECTED) {
+    recordActivity();
+  }
   switch (type) {
     case WStype_DISCONNECTED:
       LOG_DBG("WS", "Client %u disconnected", num);
@@ -2631,6 +2656,7 @@ void CrossPointWebServer::handleFontUploadData() {
   if (!server || !static_cast<CrossPointHttpServer*>(server.get())->hasUpload()) return;
 #endif
   HTTPUpload& upload = server->upload();
+  recordActivity();
 
   switch (upload.status) {
     case UPLOAD_FILE_START: {

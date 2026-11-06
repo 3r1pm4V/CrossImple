@@ -119,6 +119,8 @@ const std::vector<SettingInfo>& getBaseSettingsList() {
                             StrId::STR_CAT_READER));
     add(SettingInfo::Toggle(StrId::STR_TEXT_AA, &CrossPointSettings::textAntiAliasing, "textAntiAliasing",
                             StrId::STR_CAT_READER));
+    add(SettingInfo::Toggle(StrId::STR_FAST_PAGE_TURN, &CrossPointSettings::fastPageTurn, "fastPageTurn",
+                            StrId::STR_CAT_READER));
     add(SettingInfo::DynamicEnum(
         StrId::STR_IMAGES,
         {StrId::STR_IMAGES_DISPLAY, StrId::STR_IMAGES_DISPLAY_BW, StrId::STR_IMAGES_PLACEHOLDER,

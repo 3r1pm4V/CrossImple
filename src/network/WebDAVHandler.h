@@ -5,6 +5,10 @@
 
 class WebDAVHandler : public RequestHandler {
  public:
+  using ActivityCallback = void (*)(void*);
+  explicit WebDAVHandler(ActivityCallback onActivity = nullptr, void* activityContext = nullptr)
+      : _onActivity(onActivity), _activityContext(activityContext) {}
+
   // RequestHandler interface
   bool canHandle(WebServer& server, HTTPMethod method, const String& uri) override;
   bool canRaw(WebServer& server, const String& uri) override;
@@ -12,6 +16,12 @@ class WebDAVHandler : public RequestHandler {
   bool handle(WebServer& server, HTTPMethod method, const String& uri) override;
 
  private:
+  ActivityCallback _onActivity = nullptr;
+  void* _activityContext = nullptr;
+  void notifyActivity() const {
+    if (_onActivity) _onActivity(_activityContext);
+  }
+
   // PUT streaming state (raw() is called in chunks)
   HalFile _putFile;
   String _putPath;

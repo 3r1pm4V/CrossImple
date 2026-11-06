@@ -40,7 +40,7 @@ FolderBookIterator::Result FolderBookIterator::next(std::string& bookPath) {
     LOG_ERR("ReadingSync", "Folder entry name exceeds upload limit");
     return Result::Error;
   }
-  if (name[0] == '.' || !FsHelpers::isSafePathComponent(std::string_view(name))) return Result::Entry;
+  if (name[0] == '.' || FsHelpers::isOsJunkEntry(name) || !FsHelpers::isSafePathComponent(std::string_view(name))) return Result::Entry;
   const auto path = directory + (directory == "/" ? "" : "/") + name;
   if (path.size() > MAX_PATH || (folder && depth + 1 >= MAX_DEPTH)) {
     LOG_ERR("ReadingSync", "Folder traversal limit reached: %s", path.c_str());

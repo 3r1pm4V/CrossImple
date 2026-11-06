@@ -47,23 +47,23 @@ def get_crossink_version(project_dir):
                     match = re.search(r'#define APP_VERSION\s+"([^"]+)"', line)
                     if match:
                         return match.group(1)
-        return '0.20'
+        return '0.21'
     except Exception:
-        return '0.20'
+        return '0.21'
 
 
 def get_production_version(project_dir):
-    return '0.20'
+    return '0.21'
 
 
 def get_hardware_version(project_dir, pioenv):
     if pioenv == 'default':
-        return 'v0.20'
+        return 'v0.21'
     if pioenv == 'x4-classic':
-        return 'v0.20-x4-classic'
+        return 'v0.21-x4-classic'
     if pioenv == 'x4-pro':
-        return 'v0.20-x4-pro'
-    return 'v0.20'
+        return 'v0.21-x4-pro'
+    return 'v0.21'
 
 
 def inject_download_endpoints(env):
@@ -91,6 +91,7 @@ def inject_version(env):
     env.Append(CPPDEFINES=[
         ('GIT_BRANCH', '\\\"' + branch + '\\\"'),
         ('CROSSINK_HARDWARE_VERSION', '\\\"' + hardware_version + '\\\"'),
+        ('CROSSINK_VERSION', '\\\"' + hardware_version + '\\\"'),
     ])
 
     inject_download_endpoints(env)

@@ -496,6 +496,15 @@ void CrossPointWebServerActivity::loop() {
 
     // Handle web server requests while keeping input responsive.
     if (webServer && webServer->isRunning()) {
+      // Auto-off if network idle for 5 minutes (saves battery if forgotten)
+      constexpr unsigned long IDLE_AUTO_OFF_MS = 5UL * 60UL * 1000UL;
+      if (!webServer->getWsUploadStatus().inProgress &&
+          millis() - webServer->getLastActivityTime() > IDLE_AUTO_OFF_MS) {
+        LOG_INF("WEBACT", "Network idle for 5m. Auto-stopping Web Server & WiFi.");
+        exitToOrigin();
+        return;
+      }
+
       const unsigned long timeSinceLastHandleClient = millis() - lastHandleClientTime;
 
       // Log if there's a significant gap between handleClient calls (>100ms)
