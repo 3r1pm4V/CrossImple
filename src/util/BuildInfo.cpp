@@ -1,4 +1,4 @@
-#include "BuildInfo.h"
+#include <AppVersion.h>
 
 #ifndef CROSSINK_VERSION
 #define CROSSINK_VERSION "unknown"

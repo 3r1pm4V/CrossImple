@@ -2,6 +2,14 @@
 
 #include <stdint.h>
 
+// 4x4 Bayer matrix for ordered dithering
+inline const uint8_t bayer4x4[4][4] = {
+    {0, 8, 2, 10},
+    {12, 4, 14, 6},
+    {3, 11, 1, 9},
+    {15, 7, 13, 5},
+};
+
 // Fine 8x8 Bayer matrix for ordered dithering (64 threshold levels).
 // Eliminates the coarse grid / crosshatch pattern of traditional 4x4 Bayer.
 inline const uint8_t bayer8x8[8][8] = {

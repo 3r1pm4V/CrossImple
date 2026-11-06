@@ -1,3 +1,33 @@
+## [v0.20] - 2026-11-06
+
+### Added
+- **Đại tu và Nâng cấp Hiệu năng EPUB & Khắc phục lỗi chí mạng**:
+  - **Tối ưu chỉ mục sách lớn (Large EPUB Fast Indexing)**: Cho phép nhảy trang tức thời theo phần trăm (%) mà không cần quét lại toàn bộ các chương sách trước đó; tối ưu hóa bộ nhớ đệm giúp mở mượt mà các tập EPUB dung lượng lớn và hàng ngàn trang.
+  - **Khắc phục lỗi tràn RAM danh sách Dấu trang (Bookmark List Crash Fix #892)**: Tái cấu trúc cơ chế nạp danh sách bookmark theo trang, khắc phục triệt để hiện tượng văng ứng dụng / sập nguồn (OOM) khi mở sách có nhiều đánh dấu trang.
+  - **Khôi phục nhanh khi thức dậy (Quick Resume #870)**: Ghi nhớ và giữ nguyên trang sách hiện tại qua các chu kỳ Sleep/Wake mà không phải dựng lại từ đầu.
+  - **Khắc phục lỗi bộ nhớ thấp OPDS HTTPS (#836)**: Tối ưu bộ đệm TLS wolfSSL giúp kết nối và tải sách từ các thư viện OPDS qua giao thức HTTPS bảo mật trên ESP32 mà không lo thiếu heap.
+  - **Sửa lỗi chia khối ngắt từ đoạn văn dài (Long Paragraph Hyphenation Chunk Split #844)**: Đảm bảo các đoạn văn dài có tính năng gạch nối từ tự động (hyphenation) không bị ngắt quãng hoặc lỗi căn lề giữa chừng.
+  - **Bảo toàn chuỗi ngày đọc sách qua nửa đêm (Midnight Reading Streak)**: Ghi nhận chính xác mốc chuyển giao ngày (00:00) trong khi đang đọc để bảo toàn chuỗi đọc liên tục mà không bị đứt đoạn thống kê.
+  - **Tối ưu bộ nhớ Web Server & WebDAV**: Giảm dung lượng chiếm dụng RAM khi bật chế độ quản lý file qua trình duyệt web.
+
+- **Nâng cấp Trình đọc sách & Hiển thị Font chữ chuyên nghiệp**:
+  - **Hỗ trợ Font nhúng trong EPUB (Embedded Fonts trên ESP32-S3)**: Tự động trích xuất và hiển thị các bộ font nhúng sẵn trong tệp EPUB trên X4 Classic & X4 Pro.
+  - **Hỗ trợ Font tĩnh định dạng .otf (Static OTF Font Support)**: Bổ sung khả năng nạp trực tiếp các bộ font OpenType (.otf) tĩnh từ thẻ nhớ SD bên cạnh định dạng .ttf và .cpfont.
+  - **Cơ chế UI Fallback Font thông minh**: Tự động hiển thị ký tự thay thế từ font hệ thống dự phòng khi font hiện tại thiếu ký tự (tránh hiện tượng ô vuông/mất chữ).
+  - **Thanh trượt giãn cách ký tự (Character Spacing: -5 đến +5) & Giãn cách từ (Word Spacing: -4 đến +4)**: Tinh chỉnh linh hoạt khoảng cách chữ và khoảng cách từ ngay trong menu cài đặt Reader.
+  - **Hỗ trợ CSS nâng cao**: Hiển thị chuẩn xác Drop Caps (chữ cái đầu thụt to), bordered/shaded blocks (khung viền/nền xám trích dẫn), và khối `fieldset`.
+  - **Biểu tượng đánh dấu sách đã đọc xong (Finished Book Checkmark)**: Hiển thị icon dấu tích trực quan bên cạnh các cuốn sách đã hoàn thành trong Thư viện (Library) và Quản lý tệp (File Browser).
+  - **Tự động đảo chiều nút cạnh theo góc xoay (Orient Side Buttons)**: Tự động đảo chiều nút lật trang cạnh bên và nhãn Up/Down trên X4 Classic theo góc xoay màn hình (90°, 180°, 270°).
+
+- **Nâng cấp Hệ thống Đồng bộ (Sync Server)**:
+  - **Đại tu KOReader Sync thành Sync Server hoàn chỉnh**: Hỗ trợ đồng bộ đa chiều tiến độ đọc sách, dữ liệu thống kê đọc (Reading Stats) và ghi chú/trích dẫn (Clippings) với máy chủ CrossPoint Sync / KOReader Server.
+  - **Đồng bộ hàng loạt một chạm (Sync Books Batch Sync)**: Bổ sung tùy chọn đồng bộ toàn bộ sách trong thư viện chỉ với một thao tác.
+  - **Thời gian đọc trung bình hàng ngày (Daily Reading Time - 7-day average)**: Tự động tính toán và hiển thị thời gian đọc trung bình trong 7 ngày gần nhất trên thẻ thống kê.
+
+### Changed
+- Đồng bộ toàn diện với nền tảng **CrossPoint Reader v2.0.0** và **CrossInk v2.0.0-rc**.
+- Bảo lưu 100% bản sắc tùy biến của **CrossImple**: Font hệ thống Lexica Ultralegible tiếng Việt chuẩn, Chốt bảo vệ nguồn điện nạp Firmware (Battery Guard < 25%), Bộ nhận diện bìa ngoài (CustomCoverResolver), Bảng xung 4 mức xám GrayTone::Middle cho màn hình SSD1677, và cơ chế an toàn Watchdog 15m / Nút nguồn 10s.
+
 ## [v0.16] - 2026-11-03
 
 ### Added
