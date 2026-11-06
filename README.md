@@ -40,12 +40,12 @@
 ## 📝 Nhật ký thay đổi (Changelog)
 
 ### Phiên bản v0.20
-* **Hiệu năng & Khắc phục lỗi chí mạng (Cực kỳ giá trị cho máy E-ink)** *(Nguồn: crosspoint-reader v2.0.0 & CrossImple)*:
+* **Tối ưu Hiệu năng & Nâng cao Độ ổn định (Đặc biệt giá trị cho máy E-ink)** *(Nguồn: crosspoint-reader v2.0.0 & CrossImple)*:
   * **Tối ưu chỉ mục sách lớn (Large EPUB Fast Indexing):** Tăng tốc mở và giải mã các sách EPUB dung lượng lớn, hỗ trợ nhảy nhanh theo phần trăm (%) trang đọc mà không cần quét lại tuần tự các chương sách trước đó.
-  * **Sửa lỗi tràn bộ nhớ danh sách Dấu trang (Bookmark List Crash Fix #892):** Nạp danh sách bookmark theo trang phân đoạn, triệt tiêu hoàn toàn lỗi tràn RAM (OOM) khi đọc sách có nhiều đánh dấu.
+  * **Tối ưu bộ nhớ danh sách Dấu trang (Bookmark List Memory Optimization #892):** Nạp danh sách bookmark theo trang phân đoạn, hoạt động mượt mà và ổn định khi mở sách có nhiều đánh dấu trang.
   * **Khôi phục nhanh khi thức dậy (Quick Resume #870):** Ghi nhớ và giữ nguyên trạng thái trang đọc chính xác qua các chu kỳ Sleep/Wake mà không phải dựng lại từ đầu.
-  * **Sửa lỗi bộ nhớ thấp OPDS HTTPS (#836):** Tối ưu hóa bộ đệm TLS wolfSSL giúp kết nối và tải sách mượt mà từ các kho sách OPDS qua giao thức HTTPS bảo mật trên ESP32.
-  * **Sửa lỗi chia khối ngắt từ đoạn văn dài (Long Paragraph Hyphenation Chunk Split #844):** Đảm bảo các đoạn văn dài có tính năng gạch nối từ tự động (hyphenation) không bị ngắt quãng hoặc lỗi căn lề giữa chừng.
+  * **Tối ưu kết nối OPDS qua HTTPS với bộ nhớ thấp (#836):** Tối ưu hóa bộ đệm TLS wolfSSL giúp kết nối và tải sách mượt mà từ các kho sách OPDS qua giao thức HTTPS bảo mật trên ESP32.
+  * **Hoàn thiện ngắt từ đoạn văn dài (Long Paragraph Hyphenation Chunk Split #844):** Đảm bảo các đoạn văn dài có tính năng gạch nối từ tự động (hyphenation) không bị ngắt quãng hoặc lỗi căn lề giữa chừng.
   * **Bảo toàn chuỗi ngày đọc sách qua nửa đêm (Midnight Reading Streak):** Ghi nhận chính xác mốc chuyển giao ngày (00:00) trong khi đang đọc để bảo toàn chuỗi đọc liên tục mà không bị đứt đoạn thống kê.
   * **Tối ưu bộ nhớ Web Server & WebDAV:** Giảm dung lượng chiếm dụng RAM khi bật chế độ quản lý file qua trình duyệt web.
 * **Trình đọc sách & Hiển thị Font chữ chuyên nghiệp** *(Nguồn: crosspoint-reader v2.0.0 & CrossInk v2.0.0-rc)*:

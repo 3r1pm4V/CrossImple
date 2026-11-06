@@ -1,12 +1,12 @@
 ## [v0.20] - 2026-11-06
 
 ### Added
-- **Đại tu và Nâng cấp Hiệu năng EPUB & Khắc phục lỗi chí mạng**:
+- **Tối ưu Hiệu năng EPUB & Nâng cao Độ ổn định Hệ thống**:
   - **Tối ưu chỉ mục sách lớn (Large EPUB Fast Indexing)**: Cho phép nhảy trang tức thời theo phần trăm (%) mà không cần quét lại toàn bộ các chương sách trước đó; tối ưu hóa bộ nhớ đệm giúp mở mượt mà các tập EPUB dung lượng lớn và hàng ngàn trang.
-  - **Khắc phục lỗi tràn RAM danh sách Dấu trang (Bookmark List Crash Fix #892)**: Tái cấu trúc cơ chế nạp danh sách bookmark theo trang, khắc phục triệt để hiện tượng văng ứng dụng / sập nguồn (OOM) khi mở sách có nhiều đánh dấu trang.
+  - **Khắc phục lỗi tràn RAM danh sách Dấu trang (Bookmark List Crash Fix #892)**: Tái cấu trúc cơ chế nạp danh sách bookmark theo trang, giúp hiển thị mượt mà và ổn định ngay cả với sách có hàng trăm đánh dấu trang.
   - **Khôi phục nhanh khi thức dậy (Quick Resume #870)**: Ghi nhớ và giữ nguyên trang sách hiện tại qua các chu kỳ Sleep/Wake mà không phải dựng lại từ đầu.
   - **Khắc phục lỗi bộ nhớ thấp OPDS HTTPS (#836)**: Tối ưu bộ đệm TLS wolfSSL giúp kết nối và tải sách từ các thư viện OPDS qua giao thức HTTPS bảo mật trên ESP32 mà không lo thiếu heap.
-  - **Sửa lỗi chia khối ngắt từ đoạn văn dài (Long Paragraph Hyphenation Chunk Split #844)**: Đảm bảo các đoạn văn dài có tính năng gạch nối từ tự động (hyphenation) không bị ngắt quãng hoặc lỗi căn lề giữa chừng.
+  - **Hoàn thiện ngắt từ đoạn văn dài (Long Paragraph Hyphenation Chunk Split #844)**: Đảm bảo các đoạn văn dài có tính năng gạch nối từ tự động (hyphenation) không bị ngắt quãng hoặc lỗi căn lề giữa chừng.
   - **Bảo toàn chuỗi ngày đọc sách qua nửa đêm (Midnight Reading Streak)**: Ghi nhận chính xác mốc chuyển giao ngày (00:00) trong khi đang đọc để bảo toàn chuỗi đọc liên tục mà không bị đứt đoạn thống kê.
   - **Tối ưu bộ nhớ Web Server & WebDAV**: Giảm dung lượng chiếm dụng RAM khi bật chế độ quản lý file qua trình duyệt web.
 
