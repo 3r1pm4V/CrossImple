@@ -28,10 +28,13 @@ constexpr auto Pool = MemoryPool::Psram;
 // 1 MiB in a warm preview; retain smaller arenas for fragmented PSRAM heaps.
 constexpr size_t WorkspaceOptions[] = {1280 * 1024, 1024 * 1024, 768 * 1024};
 constexpr size_t PixelBytes = 512 * 1024;
-constexpr size_t PixelCacheSlots = 512;
-constexpr size_t MetricCacheSlots = 512;
-constexpr size_t KerningCacheSlots = 512;
-constexpr uint32_t AdapterRevision = 9;
+constexpr size_t PixelCacheSlots = 2048;
+constexpr size_t MetricCacheSlots = 2048;
+constexpr size_t KerningCacheSlots = 2048;
+static_assert((PixelCacheSlots & (PixelCacheSlots - 1)) == 0, "PixelCacheSlots must be a power of two");
+static_assert((MetricCacheSlots & (MetricCacheSlots - 1)) == 0, "MetricCacheSlots must be a power of two");
+static_assert((KerningCacheSlots & (KerningCacheSlots - 1)) == 0, "KerningCacheSlots must be a power of two");
+constexpr uint32_t AdapterRevision = 11;
 constexpr uint32_t SfntChecksumMagic = 0xB1B0AFBAu;
 // Unicode ends at 0x10FFFF, so the high bit safely marks a shaped glyph ID in
 // EpdGlyph::dataOffset without adding renderer-specific state to the SDK.
@@ -139,9 +142,17 @@ struct Runtime {
     return (uint64_t(cacheId) << 40) | (uint64_t(points) << 32) | glyphOrCodepoint;
   }
 
-  static size_t cacheIndex(const uint32_t cacheId, const uint32_t glyphOrCodepoint, const uint8_t points,
-                           const size_t slots) {
-    return (glyphOrCodepoint * 31u + points * 7u + cacheId) % slots;
+  // 64-bit MurmurHash3 finalizer breaks arithmetic periodicity (such as the
+  // 0x1E00 = 15 * 512 delta between Latin-1 and Latin Extended Additional in
+  // Vietnamese text) and decorrelates adjacent cacheId / point-size values.
+  // Aligning to even indices pairs (base, base + 1) as a 2-way LRU set.
+  static size_t cacheSetBase(uint64_t key, const size_t slots) {
+    key ^= key >> 33;
+    key *= 0xff51afd7ed558ccdULL;
+    key ^= key >> 33;
+    key *= 0xc4ceb9fe1a85ec53ULL;
+    key ^= key >> 33;
+    return static_cast<size_t>(key) & (slots - 2);
   }
 
   void clearPixels() {
@@ -165,9 +176,14 @@ struct Runtime {
   bool glyphMetrics(freeink::font::FtFont& font, const uint32_t cacheId, const uint32_t glyphOrCodepoint,
                     const uint8_t points, EpdGlyph& glyph) {
     const uint64_t key = cacheKey(cacheId, glyphOrCodepoint, points);
-    auto& entry = metricEntries[cacheIndex(cacheId, glyphOrCodepoint, points, MetricCacheSlots)];
-    if (entry.key == key) {
-      glyph = entry.glyph;
+    const size_t base = cacheSetBase(key, MetricCacheSlots);
+    if (metricEntries[base].key == key) {
+      glyph = metricEntries[base].glyph;
+      return true;
+    }
+    if (metricEntries[base + 1].key == key) {
+      std::swap(metricEntries[base], metricEntries[base + 1]);
+      glyph = metricEntries[base].glyph;
       return true;
     }
 
@@ -189,7 +205,8 @@ struct Runtime {
              metrics.top,
              uint16_t((unsigned(metrics.width) * metrics.height + 3) / 4),
              glyphOrCodepoint};
-    entry = {key, glyph};
+    metricEntries[base + 1] = metricEntries[base];
+    metricEntries[base] = {key, glyph};
     return true;
   }
 
@@ -197,20 +214,32 @@ struct Runtime {
                  const uint32_t rightGlyph, const uint8_t points) {
     if (!leftGlyph || !rightGlyph) return 0;
     const uint64_t leftKey = cacheKey(cacheId, leftGlyph, points);
-    auto& entry = kerningEntries[(leftGlyph * 31u + rightGlyph * 17u + points * 7u + cacheId) % KerningCacheSlots];
-    if (entry.leftKey == leftKey && entry.rightGlyph == rightGlyph) return entry.value;
+    const size_t base =
+        cacheSetBase(leftKey ^ (uint64_t(rightGlyph) * 0x9e3779b97f4a7c15ULL), KerningCacheSlots);
+    if (kerningEntries[base].leftKey == leftKey && kerningEntries[base].rightGlyph == rightGlyph) {
+      return kerningEntries[base].value;
+    }
+    if (kerningEntries[base + 1].leftKey == leftKey && kerningEntries[base + 1].rightGlyph == rightGlyph) {
+      std::swap(kerningEntries[base], kerningEntries[base + 1]);
+      return kerningEntries[base].value;
+    }
 
     const auto measured = font.kerningGlyphs26_6(leftGlyph, rightGlyph, scalableFontPixelSize26_6(points));
     const auto value = int8_t(std::clamp<int32_t>(round26_6To16(measured), -128, 127));
-    entry = {leftKey, rightGlyph, value};
+    kerningEntries[base + 1] = kerningEntries[base];
+    kerningEntries[base] = {leftKey, rightGlyph, value};
     return value;
   }
 
   const uint8_t* packedBitmap(freeink::font::FtFont& font, const uint32_t cacheId, uint32_t glyphOrCodepoint,
-                              uint8_t points, uint8_t width, uint8_t height) {
+                              uint8_t points, uint8_t width, uint8_t height, const bool stemDarkening) {
     const uint64_t key = cacheKey(cacheId, glyphOrCodepoint, points);
-    auto& entry = pixelEntries[cacheIndex(cacheId, glyphOrCodepoint, points, PixelCacheSlots)];
-    if (entry.key == key) return pixelData + entry.offset;
+    const size_t base = cacheSetBase(key, PixelCacheSlots);
+    if (pixelEntries[base].key == key) return pixelData + pixelEntries[base].offset;
+    if (pixelEntries[base + 1].key == key) {
+      std::swap(pixelEntries[base], pixelEntries[base + 1]);
+      return pixelData + pixelEntries[base].offset;
+    }
 
     allocator.clearFailure();
     const auto* bitmap =
@@ -230,14 +259,16 @@ struct Runtime {
       const uint8_t* row = bitmap->pixels + size_t(y) * bitmap->width;
       for (unsigned x = 0; x < bitmap->width; ++x) {
         const unsigned value = row[x] >> 4;
-        // Match the default .cpfont converter's 4/8/12 cutoffs so the same
-        // outline keeps its stroke weight when installed in either format.
-        const uint8_t coverage = value < 4 ? 0 : value < 8 ? 1 : value < 12 ? 2 : 3;
+        // Match the .cpfont converter's darkened 3/6/10 cutoffs (--darken-aa)
+        // when stem darkening is enabled, or 4/8/12 otherwise.
+        const uint8_t coverage = stemDarkening ? (value < 3 ? 0 : value < 6 ? 1 : value < 10 ? 2 : 3)
+                                               : (value < 4 ? 0 : value < 8 ? 1 : value < 12 ? 2 : 3);
         const size_t index = size_t(y) * bitmap->width + x;
         dest[index / 4] |= coverage << (6 - (index % 4) * 2);
       }
     }
-    entry = {key, pixelUsed};
+    pixelEntries[base + 1] = pixelEntries[base];
+    pixelEntries[base] = {key, pixelUsed};
     pixelUsed += bytes;
     return dest;
   }
@@ -335,6 +366,7 @@ uint32_t HalScalableFont::renderingRevision() { return AdapterRevision; }
 bool HalScalableFont::openMemory(const uint8_t* bytes, size_t size) {
   freeink::font::FtFont::RenderOptions options;
   options.hinting = freeink::font::FtFont::HintingMode::Auto;
+  options.stemDarkening = true;
   return openMemory(bytes, size, options);
 }
 
@@ -497,6 +529,7 @@ bool HalScalableFont::prepareFamily(size_t bytes, size_t faces) {
 bool HalScalableFont::openFile(const char* path, size_t remainingBytes) {
   freeink::font::FtFont::RenderOptions options;
   options.hinting = freeink::font::FtFont::HintingMode::Auto;
+  options.stemDarkening = true;
   return openFile(path, remainingBytes, options);
 }
 bool HalScalableFont::openFile(const char* path, size_t remainingBytes,
@@ -901,8 +934,8 @@ const uint8_t* HalScalableFont::bitmap(void* ctx, const EpdGlyph* g) {
   ScalableFontAccess access;
   auto& s = *static_cast<Size*>(ctx);
   s.owner->fontDataFailure_ = false;
-  const auto* pixels =
-      runtime().packedBitmap(s.owner->font_, s.owner->cacheId_, g->dataOffset, s.points, g->width, g->height);
+  const auto* pixels = runtime().packedBitmap(s.owner->font_, s.owner->cacheId_, g->dataOffset, s.points, g->width,
+                                              g->height, s.owner->renderOptions_.stemDarkening);
   if (!pixels && g->width && g->height) {
     const auto failure = s.owner->font_.lastGlyphFailure();
     const int error = s.owner->font_.lastGlyphError();

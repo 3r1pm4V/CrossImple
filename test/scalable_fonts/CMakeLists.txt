@@ -6,6 +6,7 @@ file(GLOB SOURCES ${SDK}/src/*.c ${SDK}/src/*.cpp ${SDK}/src/freetype/*.c)
 add_executable(scalable_font_test ScalableFontTest.cpp ${SOURCES})
 target_compile_options(scalable_font_test PRIVATE -UNDEBUG)
 target_include_directories(scalable_font_test PRIVATE
+  ../../include
   ${SDK}/include
   ${SDK}/third_party/freetype/include
   ${SDK}/third_party/stb)
@@ -35,6 +36,7 @@ add_library(scalable_font_stack_check OBJECT
   ${SDK}/src/freetype/ft_raster.c)
 target_compile_options(scalable_font_stack_check PRIVATE -O2)
 target_include_directories(scalable_font_stack_check PRIVATE
+  ../../include
   ${SDK}/include
   ${SDK}/third_party/freetype/include)
 target_compile_definitions(scalable_font_stack_check PRIVATE
@@ -58,7 +60,7 @@ add_executable(scalable_font_adapter_test ScalableFontAdapterTest.cpp
 set_property(TARGET scalable_font_adapter_test PROPERTY CXX_STANDARD 20)
 target_compile_options(scalable_font_adapter_test PRIVATE -UNDEBUG)
 target_include_directories(scalable_font_adapter_test PRIVATE
-  stubs ../../lib/ScalableFont ../../lib/EpdFont ../../lib/Memory
+  ../../include stubs ../../lib/ScalableFont ../../lib/EpdFont ../../lib/Memory
   ${SDK}/include ${SDK}/third_party/freetype/include ${SDK}/third_party/stb)
 target_compile_definitions(scalable_font_adapter_test PRIVATE
   CROSSINK_SCALABLE_FONTS=1 SIMULATOR=1
@@ -79,6 +81,7 @@ add_test(NAME scalable_font_adapter COMMAND scalable_font_adapter_test
 add_executable(scalable_font_subset_compare ScalableFontSubsetCompare.cpp ${SOURCES})
 target_compile_options(scalable_font_subset_compare PRIVATE -UNDEBUG)
 target_include_directories(scalable_font_subset_compare PRIVATE
+  ../../include
   ${SDK}/include ${SDK}/third_party/freetype/include ${SDK}/third_party/stb)
 target_compile_definitions(scalable_font_subset_compare PRIVATE
   FREEINK_FONT_ENABLE_AUTOHINT=1 FREEINK_FONT_ENABLE_NATIVE_HINTING=1 FREEINK_FONT_ENABLE_MONOCHROME=1)

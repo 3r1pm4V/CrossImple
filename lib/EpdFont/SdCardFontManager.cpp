@@ -79,6 +79,7 @@ bool SdCardFontManager::loadFamilyClosest(const SdCardFontFamilyInfo& family, Gf
   if (family.isScalable()) {
     freeink::font::FtFont::RenderOptions defaults;
     defaults.hinting = freeink::font::FtFont::HintingMode::Auto;
+    defaults.stemDarkening = true;
     return loadScalable(family, renderer, targetPointSize, defaults);
   }
 #endif

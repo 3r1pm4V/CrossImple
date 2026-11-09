@@ -16,7 +16,7 @@ struct TtfRenderProfile {
   uint8_t interpreter = 0;  // Default, FreeType 35, FreeType 40
   uint8_t weight = 2;       // -0.5 px through +1 px; 2 is unchanged
   uint8_t slant = 0;        // None, Gentle, Medium, Strong
-  bool stemDarkening = false;
+  bool stemDarkening = true;
 
   bool operator==(const TtfRenderProfile& other) const {
     return hinting == other.hinting && raster == other.raster && interpreter == other.interpreter &&

@@ -278,6 +278,7 @@ bool FilenameFontSystem::ensureLoaded(GfxRenderer& renderer) {
   // Font bytes, descriptors and rendering scratch use the existing bounded PSRAM path.
   freeink::font::FtFont::RenderOptions options;
   options.hinting = freeink::font::FtFont::HintingMode::Auto;
+  options.stemDarkening = true;
   regular_ = makeUniqueNoThrow<HalScalableFont>();
   if (!regular_ || !regular_->openFile(regularFile->path.c_str(), HalScalableFont::MaxFilenameFileBytes, options,
                                        HalScalableFont::FileMode::Filename, boldFile ? 1 : 0)) {

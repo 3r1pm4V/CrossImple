@@ -179,7 +179,11 @@ void TxtReaderActivity::onExit() {
 }
 
 bool TxtReaderActivity::handleFrontlightPanelResult(const FrontlightPanelResult& result) {
-  (void)result;
+  if (result.ttfRenderingChanged) {
+    RenderLock lock(*this);
+    rebuildTextLayout();
+    return true;
+  }
   return false;
 }
 
@@ -774,7 +778,8 @@ void TxtReaderActivity::render(RenderLock&&) {
   if (initialized && currentPage != statusBarRelayoutPage) statusBarRelayoutOffset.reset();
   if (initialized && (cachedViewableInsets != renderer.getViewableInsets() ||
                       cachedTopStatusBarHeight != ReaderUtils::getTopStatusBarReservedHeight(renderer) ||
-                      cachedFooterReservedHeight != ReaderUtils::getReaderFooterReservedHeight(renderer, false))) {
+                      cachedFooterReservedHeight != ReaderUtils::getReaderFooterReservedHeight(renderer, false) ||
+                      cachedFontId != SETTINGS.getReaderFontId())) {
     if (currentPage >= 0 && currentPage < static_cast<int>(pageOffsets.size())) {
       if (!statusBarRelayoutOffset) statusBarRelayoutOffset = pageOffsets[currentPage];
       readingOffset = *statusBarRelayoutOffset;

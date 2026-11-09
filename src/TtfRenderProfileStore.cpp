@@ -48,6 +48,7 @@ freeink::font::FtFont::RenderOptions ttfRenderOptions(const TtfRenderProfile& ra
 }
 
 void TtfRenderProfileStore::toJson(JsonDocument& doc) const {
+  doc["version"] = 2;
   JsonArray profiles = doc["profiles"].to<JsonArray>();
   for (const auto& entry : profiles_) {
     JsonObject value = profiles.add<JsonObject>();
@@ -63,6 +64,7 @@ void TtfRenderProfileStore::toJson(JsonDocument& doc) const {
 
 bool TtfRenderProfileStore::fromJson(JsonVariantConst doc) {
   profiles_.clear();
+  const int version = doc["version"] | 1;
   const JsonArrayConst profiles = doc["profiles"].as<JsonArrayConst>();
   profiles_.reserve(std::min(profiles.size(), MAX_PROFILES));
   for (const JsonObjectConst value : profiles) {
@@ -75,8 +77,9 @@ bool TtfRenderProfileStore::fromJson(JsonVariantConst doc) {
     profile.interpreter = value["interpreter"] | profile.interpreter;
     profile.weight = value["weight"] | profile.weight;
     profile.slant = value["slant"] | profile.slant;
-    profile.stemDarkening = value["stemDarkening"] | profile.stemDarkening;
-    profiles_.push_back({family, sanitized(profile)});
+    profile.stemDarkening = version < 2 ? true : (value["stemDarkening"] | profile.stemDarkening);
+    const TtfRenderProfile clean = sanitized(profile);
+    if (clean != TtfRenderProfile{}) profiles_.push_back({family, clean});
   }
   return true;
 }

@@ -7,7 +7,7 @@ foreach(mode IN ITEMS scalable c3)
   target_compile_features(otf_${mode} PRIVATE cxx_std_20)
   target_compile_options(otf_${mode} PRIVATE -UNDEBUG -fsanitize=address,undefined -fno-omit-frame-pointer)
   target_link_options(otf_${mode} PRIVATE -fsanitize=address,undefined)
-  target_include_directories(otf_${mode} PRIVATE stubs ../../lib/ScalableFont
+  target_include_directories(otf_${mode} PRIVATE ../../include stubs ../../lib/ScalableFont
     ../scalable_fonts/stubs ../../lib/EpdFont ../../lib/Memory ../../src
     ${OTF_SDK}/include ${OTF_SDK}/third_party/freetype/include ${OTF_SDK}/third_party/stb)
   target_compile_definitions(otf_${mode} PRIVATE SIMULATOR=1)
