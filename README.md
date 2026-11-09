@@ -1,7 +1,7 @@
 # 🐰 CrossImple
 
 [![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossImple?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
-[![Version](https://img.shields.io/badge/Version-v0.21-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
+[![Version](https://img.shields.io/badge/Version-v0.22-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
 [![Device](https://img.shields.io/badge/Devices-Xteink%20X3%20%7C%20X4%20Classic%20%7C%20X4%20Pro-blue?style=flat-square)](#-thiết-bị-hỗ-trợ-supported-devices)
 [![Base](https://img.shields.io/badge/Base-CrossPoint%20v2.0.0%20%7C%20CrossInk%20v2.0.0--rc-brightgreen?style=flat-square)](https://github.com/uxjulia/CrossInk)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -41,6 +41,14 @@
 ---
 
 ## 📝 Nhật ký thay đổi (Changelog)
+
+### Phiên bản v0.22 (Bản tinh giản mã nguồn - Pruned Dead Features)
+* **Gỡ bỏ triệt để mã nguồn tính năng đã ẩn (Flash & RAM Optimization)**:
+  * Xóa hoàn toàn mã nguồn của Nearby Transfer (NearbyBookTransfer, NearbyStatsSync, NearbyBookPositionSync) và thư viện liên kết.
+  * Xóa hoàn toàn mã nguồn hệ thống Plugins (Plugin Hub, Plugin Server, Plugin Reader Events, các API Web /api/plugin*).
+  * Dọn dẹp trường cấu hình autoBackupStats và các chuỗi dịch không còn dùng.
+  * Gỡ bỏ các board thử nghiệm upstream không sử dụng (Picco, Sticky) để giữ codebase gọn gàng, tập trung cho X3, X4 Classic, X4 Pro.
+  * Giảm ~200-220 KB dung lượng Flash và ~1.9 KB RAM tĩnh trên mọi thiết bị.
 
 ### Phiên bản v0.21
 * **Hỗ trợ Font Tiếng Trung / CJK Dung lượng lớn & Font Fallback Trình đọc sách** *(Nguồn: CrossImple Custom)*:
@@ -180,9 +188,9 @@
 
 | Thiết bị | Vi điều khiển (MCU) | Màn hình | Điều khiển | Tên file Firmware xuất ra |
 |---|---|---|---|---|
-| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.21.bin` |
-| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.21.bin` |
-| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.21.bin` |
+| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.22.bin` |
+| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.22.bin` |
+| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.22.bin` |
 
 ---
 
@@ -198,9 +206,9 @@
 
 ### Cách 1: Nâng cấp trực tiếp qua Thẻ nhớ SD (Khuyên dùng)
 1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossImple/releases):
-   * Với **Xteink X3**: tải `crossimple_x3_v0.21.bin`
-   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.21.bin`
-   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.21.bin`
+   * Với **Xteink X3**: tải `crossimple_x3_v0.22.bin`
+   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.22.bin`
+   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.22.bin`
 2. Chép file `.bin` vào thư mục gốc của thẻ MicroSD (định dạng FAT32).
 3. Bật máy đọc sách, mở mục **Quản lý tệp (File Browser)**, chọn file `.bin` vừa chép và nhấn **Xác nhận (Confirm)**.
 4. Máy sẽ tự động kiểm tra chip ESP32, tag phần cứng, tính toàn vẹn SHA256 và tiến hành flash an toàn. Sau khi hoàn tất máy sẽ tự khởi động lại.
@@ -236,11 +244,11 @@ python scripts/build_all.py --export-bin
 # Cách 2: Chạy thủ công từng luồng riêng biệt
 # Luồng 1 — Biên dịch riêng cho Xteink X3 (ESP32-C3)
 pio run -e default
-# File xuất ra: crossimple_x3_v0.21.bin
+# File xuất ra: crossimple_x3_v0.22.bin
 
 # Luồng 2 — Biên dịch cho dòng Xteink X4 (ESP32-S3)
 pio run -e x4-classic -e x4-pro
-# File xuất ra: crossimple_x4-classic_v0.21.bin, crossimple_x4-pro_v0.21.bin
+# File xuất ra: crossimple_x4-classic_v0.22.bin, crossimple_x4-pro_v0.22.bin
 ```
 
 ---

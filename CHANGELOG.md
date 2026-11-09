@@ -1,3 +1,15 @@
+## [v0.22] - 2026-11-09
+
+### Đã gỡ bỏ (Removed)
+- Gỡ bỏ hoàn toàn mã nguồn của tính năng chia sẻ ngang hàng (Nearby File Transfer, Nearby Stats Sync, Nearby Position Sync) và thư viện liên kết `NearbyTransfer`.
+- Gỡ bỏ hoàn toàn hệ thống Plugin (Plugin System, Plugin Hub, Plugin Server, Plugin Reader Events, các API Web `/api/plugin*` và route liên quan).
+- Dọn dẹp tàn dư cài đặt cũ: xóa cờ cấu hình `autoBackupStats` và chuỗi dịch tự động sao lưu ngầm không còn dùng.
+- Gỡ bỏ các môi trường build thử nghiệm upstream không sử dụng: Picco (`picco`, `picco-debug`) và Sticky (`sticky`, `sticky-debug`, `sticky-simulator`).
+
+### Đã thay đổi (Changed)
+- Đơn giản hóa thanh điều hướng trang chủ CoverGrid từ 5 tab động thành 4 tab cố định (File Browser, Library, File Transfer, Settings).
+- Tinh giản bộ nhớ và mã nguồn của các trình đọc (EPUB, TXT, XTC) khi loại bỏ các hook sự kiện plugin.
+
 ## [v0.21] - 2026-11-06
 
 ### Added
