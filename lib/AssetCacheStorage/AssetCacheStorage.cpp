@@ -17,7 +17,7 @@
 namespace {
 bool hasPsram() {
 #if defined(SIMULATOR) && (defined(SIMULATOR_DEVICE_X4_PRO) || defined(SIMULATOR_DEVICE_X4_CLASSIC) || \
-                           defined(SIMULATOR_DEVICE_STICKY) || defined(CROSSINK_ASSET_CACHE_TEST_PSRAM))
+                           defined(CROSSINK_ASSET_CACHE_TEST_PSRAM))
   return true;
 #else
   return psramHeapAvailable();

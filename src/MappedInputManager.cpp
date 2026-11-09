@@ -314,11 +314,6 @@ bool MappedInputManager::shouldMirrorPowerAsConfirmHold() const {
 
 #if CROSSINK_APP_CAP_TOUCH
 bool MappedInputManager::touchInputEnabled() const {
-  // Picco locks touch across the app, but explicitly opened reader controls
-  // must remain usable so the Up + Down recovery menu can re-enable touch.
-  if (deviceUsesGlobalTouchscreenLock())
-    return gpio.hasTouch() && (!SETTINGS.disableReaderTouchscreen || (readerMode && readerTouchscreenOverride) ||
-                               touchscreenRecoveryOverride);
   return gpio.hasTouch() && (!readerMode || !SETTINGS.disableReaderTouchscreen || readerTouchscreenOverride);
 }
 
@@ -834,13 +829,8 @@ bool MappedInputManager::wasBottomEdgeUpSwipe() const {
   return false;
 }
 
-// Picco shares the X4 Pro drawer layout without pretending to have a Home key.
 bool MappedInputManager::usesFrontlightSwipeLayout() const {
-#if FREEINK_DEVICE_PICCO
-  return true;
-#else
   return hasHomeKeyHardware();
-#endif
 }
 
 // Drawer-layout boards use the bottom edge for menus and the top for light controls.
@@ -850,34 +840,18 @@ bool MappedInputManager::wasMenuGesture() const {
 
 bool MappedInputManager::wasReaderMenuGesture() const {
   const SwipeDir direction = wasSwipe();
-#if defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY
-  return direction == SwipeDir::Up;
-#else
   return usesFrontlightSwipeLayout() ? direction == SwipeDir::Up : direction == SwipeDir::Down;
-#endif
 }
 
 bool MappedInputManager::wasReaderHomeGesture() const {
-  // Drawer-layout boards reserve upward reader swipes for the menu.
-  // X4 Pro retains its Home key; Picco uses the drawer's Home action.
-#if defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY
-  // Sticky uses swipe up for the bottom reader drawer and swipe down for the
-  // reader-details panel. Home remains available from that panel's header.
-  return false;
-#else
   if (usesFrontlightSwipeLayout()) {
     return hasHomeKeyHardware() && wasHomeGesture();
   }
   return wasSwipe() == SwipeDir::Up;
-#endif
 }
 
 bool MappedInputManager::wasReaderLightPanelGesture() const {
-#if defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY
-  return wasSwipe() == SwipeDir::Down;
-#else
   return usesFrontlightSwipeLayout() && wasSwipe() == SwipeDir::Down;
-#endif
 }
 
 bool MappedInputManager::wasHomeGesture() const {

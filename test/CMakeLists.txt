@@ -187,7 +187,6 @@ add_subdirectory(reader_plugin_events)
 
 add_subdirectory(hal_power_manager)
 add_subdirectory(hal_frontlight)
-add_subdirectory(picco_slide_switch)
 add_subdirectory(input_wake)
 add_subdirectory(button_navigation)
 add_subdirectory(button_capture)

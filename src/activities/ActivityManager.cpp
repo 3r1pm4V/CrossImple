@@ -1,6 +1,5 @@
 #include "ActivityManager.h"
 
-#include "activities/plugins/PluginCatalogActivity.h"
 
 #if CROSSINK_SCALABLE_FONTS
 #include <HalScalableFont.h>
@@ -40,8 +39,6 @@
 #include "home/RecentBookProgress.h"
 #include "library/LibraryActivity.h"
 #include "network/CrossPointWebServerActivity.h"
-#include "network/NearbyBookTransferActivity.h"
-#include "network/NearbyStatsSyncActivity.h"
 #include "network/UsbDriveActivity.h"
 #include "reader/BookReadingStats.h"
 #include "reader/BookStatsActivity.h"
@@ -61,11 +58,7 @@ constexpr uint32_t FILE_TRANSFER_MODE_MASK = 0xFF;
 constexpr uint32_t FILE_TRANSFER_RETURN_TO_READER = 1U << 8;
 
 constexpr bool hasStickyReaderDetailsPanel() {
-#if defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY
-  return true;
-#else
   return false;
-#endif
 }
 
 uint32_t fileTransferBootPayload(const NetworkMode mode, const bool returnToReader) {
@@ -81,7 +74,7 @@ std::string fileNameFromPath(const std::string& path) {
   return slash == std::string::npos ? path : path.substr(slash + 1);
 }
 
-bool isNearbyTransferFile(const std::string& path) {
+bool isReaderBookFile(const std::string& path) {
   return FsHelpers::hasEpubExtension(path) || FsHelpers::hasXtcExtension(path) || FsHelpers::hasTxtExtension(path);
 }
 
@@ -90,7 +83,7 @@ FrontlightPanelContext buildFrontlightPanelContext(Activity& activity, GfxRender
   FrontlightPanelContext context;
   context.sourceActivity = &activity;
   const std::string currentPath = activity.getCurrentBookPath();
-  const bool currentBookValid = isNearbyTransferFile(currentPath) && Storage.exists(currentPath.c_str());
+  const bool currentBookValid = isReaderBookFile(currentPath) && Storage.exists(currentPath.c_str());
   const bool currentEpubValid = FsHelpers::hasEpubExtension(currentPath) && currentBookValid;
   const bool lastValid = !APP_STATE.openEpubPath.empty() && FsHelpers::hasEpubExtension(APP_STATE.openEpubPath) &&
                          Storage.exists(APP_STATE.openEpubPath.c_str());
@@ -957,26 +950,6 @@ void ActivityManager::goToFileTransfer(std::string returnBookPath) {
   replaceActivity(std::make_unique<CrossPointWebServerActivity>(renderer, mappedInput, std::move(returnBookPath)));
 }
 
-bool ActivityManager::goToNearbyBookSend(std::string path, const bool returnToReader) {
-  auto activity = makeUniqueNoThrow<NearbyBookTransferActivity>(
-      renderer, mappedInput, NearbyBookTransferActivity::Mode::Send, std::move(path), returnToReader);
-  if (!activity) {
-    LOG_ERR("ACT", "OOM: nearby file sender");
-    return false;
-  }
-  replaceActivity(std::move(activity));
-  return true;
-}
-
-void ActivityManager::goToNearbyBookReceive() {
-  auto activity =
-      makeUniqueNoThrow<NearbyBookTransferActivity>(renderer, mappedInput, NearbyBookTransferActivity::Mode::Receive);
-  if (!activity) {
-    LOG_ERR("ACT", "OOM: nearby file receiver");
-    return;
-  }
-  replaceActivity(std::move(activity));
-}
 
 void ActivityManager::goToCalibreWireless(const std::string& returnBookPath) {
   restartToFileTransfer(NetworkMode::CONNECT_CALIBRE, returnBookPath);
@@ -1033,10 +1006,6 @@ bool ActivityManager::resumeFileTransferFromNetworkBoot(const uint32_t payload) 
   return true;
 }
 
-void ActivityManager::goToNearbyStatsSync() {
-  if (!SETTINGS.shouldTrackReadingStats()) return;
-  replaceActivity(std::make_unique<NearbyStatsSyncActivity>(renderer, mappedInput));
-}
 
 void ActivityManager::goToSettings(const bool dismissOnUpSwipe, const bool openLanguageDownloads,
                                    const bool touchscreenRecovery) {
@@ -1068,14 +1037,6 @@ void ActivityManager::goToLibrary() {
   replaceActivity(std::move(library));
 }
 
-void ActivityManager::goToPlugins() {
-  auto plugins = makeUniqueNoThrow<PluginCatalogActivity>(renderer, mappedInput, true);
-  if (!plugins) {
-    LOG_ERR("ACT", "Cannot allocate Plugins activity");
-    return;
-  }
-  replaceActivity(std::move(plugins));
-}
 
 void ActivityManager::goToBrowser() {
   const auto& servers = OPDS_STORE.getServers();
@@ -1179,16 +1140,14 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, const HalDisplay::Ref
     const auto& activityName = currentActivity->name;
     if (activityName == "FileBrowser") {
       initialMenuItem = HomeMenuItem::FILE_BROWSER;
-    } else if (activityName == "PluginCatalog") {
-      initialMenuItem = HomeMenuItem::PLUGINS;
+
     } else if (activityName == "Library") {
       initialMenuItem = HomeMenuItem::LIBRARY;
     } else if (activityName == "OpdsBookBrowser") {
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
     } else if (activityName == "CrossPointWebServer") {
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
-    } else if (activityName == "NearbyStatsSync") {
-      initialMenuItem = HomeMenuItem::FILE_TRANSFER;
+
     } else if (activityName == "Settings") {
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
     }
@@ -1491,12 +1450,6 @@ RenderLock::~RenderLock() { unlock(); }
 
 void RenderLock::unlock() {
   if (isLocked) {
-#if FREEINK_DEVICE_PICCO
-    // A drawing transaction includes all async/grayscale passes. Shut down
-    // only when its owner releases the lock, including direct toast, screenshot
-    // and Quick Lock updates that bypass the activity render task.
-    display.powerOffBetweenFrames();
-#endif
     xSemaphoreGive(activityManager.renderingMutex);
     isLocked = false;
   }
@@ -1515,8 +1468,3 @@ bool RenderLock::heldByCurrentTask() {
   return xSemaphoreGetMutexHolder(activityManager.renderingMutex) == xTaskGetCurrentTaskHandle();
 }
 
-void ActivityManager::preparePluginSleep() {
-  RenderLock lock;
-  for (auto& activity : stackActivities) activity->prepareForSleep();
-  if (currentActivity) currentActivity->prepareForSleep();
-}

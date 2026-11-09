@@ -53,11 +53,7 @@ void nvs_close(nvs_handle_t) {
 
 int main() {
   const ScreenInsets defaults;
-#if defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY
-  assert((defaults.edges == std::array<uint8_t, 4>{{0, 0, 0, 0}}));
-#else
   assert((defaults.edges == std::array<uint8_t, 4>{{9, 3, 3, 3}}));
-#endif
   const ScreenInsets calibrated{{{4, 12, 20, 32}}};
   const std::array<std::array<uint8_t, 4>, 4> expected{
       {{{4, 12, 20, 32}}, {{32, 4, 12, 20}}, {{20, 32, 4, 12}}, {{12, 20, 32, 4}}}};

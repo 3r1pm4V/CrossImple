@@ -504,7 +504,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--factory-flash", action="store_true",
                         help="Use the reported 80 KiB factory partition; verify it remains unchanged (S3 profiles)")
     parser.add_argument("--book", default=str(DEFAULT_BOOK), help="EPUB fixture to copy into the isolated simulator fs_")
-    parser.add_argument("--env", choices=("simulator", "simulator-X3", "x4-classic-simulator", "sticky-simulator", "x4-pro-simulator"), default="simulator",
+    parser.add_argument("--env", choices=("simulator", "simulator-X3", "x4-classic-simulator", "x4-pro-simulator"), default="simulator",
                         help="PlatformIO simulator environment to build and run")
     parser.add_argument("--status-bar-lifecycle", action="store_true", help="Exercise reader settings return and reflow")
     parser.add_argument("--wifi-transmit-power", action="store_true", help="Check Wi-Fi power defaults, device picker and persistence")

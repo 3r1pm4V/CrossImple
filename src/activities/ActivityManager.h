@@ -50,7 +50,7 @@ struct LiveLightSwipeState {
 #endif
 
 enum class RequestUpdateResult { Rendered, Rejected };
-enum class HomeMenuItem { NONE, FILE_BROWSER, LIBRARY, FILE_TRANSFER, SETTINGS_MENU, PLUGINS };
+enum class HomeMenuItem { NONE, FILE_BROWSER, LIBRARY, FILE_TRANSFER, SETTINGS_MENU };
 
 /**
  * ActivityManager
@@ -158,21 +158,17 @@ class ActivityManager {
   void goToHotspotFileTransfer(const std::string& returnBookPath = {});
   void goToUsbDrive();
   bool resumeFileTransferFromNetworkBoot(uint32_t payload);
-  void goToNearbyStatsSync();
-  bool goToNearbyBookSend(std::string path, bool returnToReader);
-  void goToNearbyBookReceive();
+
   void goToSettings(bool dismissOnUpSwipe = false, bool openLanguageDownloads = false,
                     bool touchscreenRecovery = false);
   void markReleaseNotesShown() { releaseNotesShown = true; }
   void goToFileBrowser(std::string path = {});
   void goToLibrary();
   void goToBrowser();
-  void goToPlugins();
   bool goToOpdsServer(uint32_t serverIndex, bool networkBootReady = false);
   void goToReader(std::string path, bool suppressBackRelease = false, bool allowFastInitialRefresh = false,
                   bool cleanImageBaseOnEntry = false, bool keepWakeFrame = false);
   void goToReaderAndRunMenuAction(std::string path, uint8_t action);
-  void preparePluginSleep();
   void goToSleep(bool fromTimeout = false);
   void goToBoot();
   void goToFullScreenMessage(std::string message, EpdFontFamily::Style style = EpdFontFamily::REGULAR);

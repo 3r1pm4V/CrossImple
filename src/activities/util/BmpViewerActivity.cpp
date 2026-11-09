@@ -376,9 +376,7 @@ void BmpViewerActivity::promptDeleteImage() {
 
 void BmpViewerActivity::showContextMenu() {
   std::vector<FileBrowserActionActivity::MenuItem> items = BookActions::buildBookActionItems(filePath, false);
-  if (BookActions::canSendNearby(filePath)) {
-    items.push_back({FileBrowserAction::SendNearby, StrId::STR_SEND_NEARBY_BOOK});
-  }
+
 
   const bool isPinned = APP_STATE.favoriteSleepImagePath == filePath;
   items.push_back({isPinned ? FileBrowserAction::UnpinFavorite : FileBrowserAction::PinFavorite,
@@ -403,9 +401,7 @@ void BmpViewerActivity::showContextMenu() {
                              case FileBrowserAction::Delete:
                                promptDeleteImage();
                                return;
-                             case FileBrowserAction::SendNearby:
-                               activityManager.goToNearbyBookSend(filePath, false);
-                               return;
+
                              case FileBrowserAction::PinFavorite:
                                confirmSetSleepCover();
                                return;

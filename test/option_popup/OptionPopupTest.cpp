@@ -234,7 +234,7 @@ TEST(OptionPopup, ButtonNavigationSkipsDisabledOptions) {
   OptionPopup popup;
   int selectedIndex = -1;
 
-  const char* options[] = {"Sync Progress", "Nearby Position Sync", "Send to Nearby Device"};
+  const char* options[] = {"Sync Progress", "Browse Library", "Device Settings"};
   popup.show("Sync & Transfer", options, 3, 2, [&](const int index) { selectedIndex = index; });
   popup.setDisabledOptions({true, true, false});
 

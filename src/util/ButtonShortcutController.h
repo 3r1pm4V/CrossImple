@@ -38,7 +38,6 @@ class ButtonShortcutController {
     ToggleFrontlight = 27,
     ToggleTouchscreen = 28,
     PreviousPage = 29,
-    NearbyPositionSync = 30,
     Library = 31,
     HomeReader = 32,
     BackHome = 33,

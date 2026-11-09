@@ -9,8 +9,6 @@ class Activity;
 enum class FrontlightPanelAction : uint8_t {
   None = 0,
   SyncProgress,
-  NearbyPositionSync,
-  SendNearbyBook,
 };
 
 enum class FrontlightBookSource : uint8_t { CurrentBook = 0, LastBook, DeviceOnly };

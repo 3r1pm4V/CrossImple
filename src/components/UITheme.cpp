@@ -87,7 +87,7 @@ void UITheme::reload() {
 bool UITheme::supportsCoverGrid() {
 #if defined(SIMULATOR)
   return
-#if defined(SIMULATOR_DEVICE_STICKY) || defined(SIMULATOR_DEVICE_X4_PRO) || defined(SIMULATOR_DEVICE_X4_CLASSIC)
+#if defined(SIMULATOR_DEVICE_X4_PRO) || defined(SIMULATOR_DEVICE_X4_CLASSIC)
       true;
 #else
       false;
@@ -408,19 +408,14 @@ Rect UITheme::getHeaderRect(const GfxRenderer& renderer, const int height, const
 }
 
 int UITheme::getTopStatusBarInset(const GfxRenderer& renderer) {
-#if defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY
-  // The Sticky panel remains usable closer to its top edge than the shared
-  // status-bar layout assumes. Keep the clock and battery in that space.
-  (void)renderer;
-  return -5;
-#elif (defined(FREEINK_DEVICE_X4PRO) && FREEINK_DEVICE_X4PRO) || \
+#if (defined(FREEINK_DEVICE_X4PRO) && FREEINK_DEVICE_X4PRO) || \
     (defined(FREEINK_DEVICE_X4CLASSIC) && FREEINK_DEVICE_X4CLASSIC)
   // The X4 Pro and X4 Classic panels sit slightly recessed behind the
   // portrait top bezel.
   return renderer.getOrientation() == GfxRenderer::Orientation::Portrait ? 5 : 0;
-#endif
-
+#else
   return 0;
+#endif
 }
 
 // Centered text implementation that takes the safe area into account

@@ -9,13 +9,7 @@
 inline constexpr bool deviceHasFrontButtons() { return !CROSSINK_APP_CAP_TOUCH; }
 
 // Picco's physical slide switch locks screen input across the whole app.
-inline constexpr bool deviceUsesGlobalTouchscreenLock() {
-#if FREEINK_DEVICE_PICCO
-  return true;
-#else
-  return false;
-#endif
-}
+inline constexpr bool deviceUsesGlobalTouchscreenLock() { return false; }
 
 inline bool deviceHasEdgeSideButtons(const HalGPIO& gpio) {
 #ifdef SIMULATOR

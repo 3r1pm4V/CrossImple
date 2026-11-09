@@ -23,7 +23,6 @@
 #include <SPI.h>
 #include <TrustedTime.h>
 
-#include "util/PluginEvents.h"
 #if !defined(SIMULATOR) && !FREEINK_MCU_C3
 #include <XteinkDetect.h>
 #endif
@@ -31,10 +30,6 @@
 #include <uzlib.h>
 
 #include "AppCapabilities.h"
-#if FREEINK_DEVICE_PICCO
-#include "util/SlideSwitchToggle.h"
-#include "util/UsbSleepWakeToken.h"
-#endif
 
 #ifdef SIMULATOR
 using esp_reset_reason_t = int;
@@ -118,7 +113,6 @@ inline esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_
 #include "components/icons/tablerFilledIcons.h"
 #include "fontIds.h"
 #include "network/UsbSerialFileTransfer.h"
-#include "util/PluginBundle.h"
 #ifdef SIMULATOR
 #include <SimulatorLifecycle.h>
 
@@ -359,10 +353,6 @@ RTC_NOINIT_ATTR uint32_t silentReaderPageBuildMagic;
 RTC_NOINIT_ATTR uint32_t silentReaderPageBuildBookHash;
 RTC_NOINIT_ATTR uint32_t silentReaderPageBuildPackedTarget;
 RTC_NOINIT_ATTR uint32_t silentReaderPageBuildFlags;
-#if FREEINK_DEVICE_PICCO
-RTC_NOINIT_ATTR UsbSleepWakeToken piccoUsbWakeToken;
-static SlideSwitchToggle piccoSlideSwitch;
-#endif
 constexpr uint32_t SILENT_REBOOT_MAGIC = 0xC1EAB007;
 constexpr uint32_t SILENT_REBOOT_TARGET_HOME = 0;
 constexpr uint32_t SILENT_REBOOT_TARGET_READER = 1;
@@ -780,8 +770,6 @@ CrossPointSettings::SHORT_PWRBTN chordPowerAction(const ButtonShortcutController
       return Power::CYCLE_PAGE_TURN;
     case Chord::SyncProgress:
       return Power::SYNC_PROGRESS;
-    case Chord::NearbyPositionSync:
-      return Power::NEARBY_POSITION_SYNC;
     case Chord::Library:
       return Power::LIBRARY;
     case Chord::HomeReader:
@@ -1144,13 +1132,6 @@ void enterDeepSleep(bool fromTimeout) {
   // Commit to sleeping before goToSleep() runs the outgoing activity's onExit():
   // a WiFi activity would otherwise silentRestart() here and reboot instead.
   deepSleepInProgress = true;
-  activityManager.preparePluginSleep();
-  {
-    RenderLock lock;
-    const std::string book = activityManager.getCurrentBookPath();
-    pluginevents::prepareSleep(book.c_str(), activityManager.getScreenshotInfo().progressPercent,
-                               powerManager.getBatteryPercentage() >= 20);
-  }
   trustedtime::note();
   activityManager.goToSleep(fromTimeout);
   // Reader exit may already have saved this state. Save after the sleep screen
@@ -1168,12 +1149,6 @@ void enterDeepSleep(bool fromTimeout) {
     }
   }
 
-  if (halClock.isAvailable() && SETTINGS.shouldTrackReadingStats() && SETTINGS.autoBackupStats != 0) {
-    ReadingStatsDateTime now;
-    if (getCurrentLocalReadingStatsDateTime(now) && !backupGlobalStats(false)) {
-      LOG_ERR("MAIN", "Automatic reading-stats backup failed before deep sleep");
-    }
-  }
 
   // Last chance to sample: startDeepSleep() cuts the SD rail on X3, so nothing
   // can be written again until the next wake.
@@ -1182,26 +1157,10 @@ void enterDeepSleep(bool fromTimeout) {
   // cuts peripheral rails and isolates the bus pads; SPI boards are a no-op.
   libraryScanSleepToken.save(!library::libraryIndexNeedsRefresh());
   Storage.shutdown();
-
-#if FREEINK_DEVICE_PICCO
-  // The I2C light retains its state through sleep. Keep the saved preference.
-  Frontlight.setOn(false);
-  const bool usbWakeRequested = powerManager.holdWhileUsbPowered(gpio);
-#endif
   putTiltSensorToSleepForDeepSleep();
   display.deepSleep();
   mirrorWakeShortPressToNvs();
   LOG_DBG("MAIN", "Entering deep sleep");
-
-#if FREEINK_DEVICE_PICCO
-  if (usbWakeRequested) {
-    // A short press may already be released after display shutdown. Preserve
-    // the accepted wake through reset instead of depending on its GPIO level.
-    piccoUsbWakeToken.arm();
-    ESP.restart();
-    return;
-  }
-#endif
   powerManager.startDeepSleep(gpio);
 }
 
@@ -1259,11 +1218,7 @@ void setup() {
 
   const esp_reset_reason_t rawResetReason = esp_reset_reason();
   const esp_sleep_wakeup_cause_t rawWakeupCause = esp_sleep_get_wakeup_cause();
-#if FREEINK_DEVICE_PICCO
-  const bool usbSleepWake = piccoUsbWakeToken.consume(rawResetReason == ESP_RST_SW);
-#else
   constexpr bool usbSleepWake = false;
-#endif
   if (libraryScanSleepToken.consume(rawResetReason == ESP_RST_DEEPSLEEP)) library::restoreLibraryIndexAfterSleep();
 
 #ifdef ENABLE_SERIAL_LOG
@@ -1324,24 +1279,16 @@ void setup() {
   }
 
   gpio.begin();
-#if FREEINK_DEVICE_PICCO
-  // Latch the boot position without changing the saved firmware state.
-  piccoSlideSwitch.update(gpio.isToggleSwitchOn());
-#endif
   // Sticky shares Confirm and Power on one GPIO. Emit Power first so the
   // configured shortcut wins; MappedInputManager mirrors it back to Confirm
   // only on screens that explicitly allow the fallback.
   gpio.setSharedConfirmPowerShortPressEmitsPower(true);
   powerManager.begin();
-#if FREEINK_DEVICE_PICCO
-  powerManager.restoreBatteryAfterSleep(usbSleepWake);
-#endif
 
   const auto wakeupReason = usbSleepWake ? HalGPIO::WakeupReason::PowerButton : gpio.getWakeupReason();
 #ifndef SIMULATOR
   const bool shortPressWakes = readWakeShortPressFromNvs();
   if (wakeupReason == HalGPIO::WakeupReason::PowerButton && !usbSleepWake &&
-      !(FREEINK_DEVICE_PICCO && gpio.isUsbConnected()) &&
       !gpio.verifyPowerButtonWakeup(shortPressWakes, CrossPointSettings::POWER_BUTTON_LONG_PRESS_MS)) {
     LOG_DBG("MAIN", "Power-button wake not held through verification, sleeping");
     powerManager.startDeepSleep(gpio);
@@ -1356,7 +1303,7 @@ void setup() {
                                   ? MappedInputManager::Button::Down
                                   : MappedInputManager::Button::Up;
   const bool recoveryFirmwareMode = wakeupReason == HalGPIO::WakeupReason::PowerButton && !BoardConfig::isPaperMono() &&
-                                    !FREEINK_DEVICE_PICCO && mappedInputManager.isPressed(recoveryButton);
+                                    mappedInputManager.isPressed(recoveryButton);
 #else
   const bool recoveryFirmwareMode = false;
 #endif
@@ -1428,12 +1375,10 @@ void setup() {
 
   HalSystem::checkPanic();
 
-  if (!PluginBundle::recoverPending()) LOG_ERR("PLUG", "Plugin install recovery pending");
   // I2C light capabilities must be known before settings validate saved gestures.
   // Apply brightness and wake policy only after the saved settings are loaded.
   Frontlight.initializeHardware();
   SETTINGS.loadFromFile();
-  pluginevents::refreshSubscriptions();
   Storage.installDateTimeCallback(&SETTINGS.clockUtcOffsetQ);
   APP_STATE.loadFromFile();
 #ifdef SIMULATOR
@@ -1749,36 +1694,7 @@ void setup() {
   allowSleepAt = millis() + 2000;
 }
 
-#if FREEINK_DEVICE_PICCO
-static bool handleSlideSwitch() {
-  if (!gpio.hasToggleSwitch() || !piccoSlideSwitch.update(gpio.isToggleSwitchOn())) return false;
-  switch (static_cast<CrossPointSettings::SlideSwitchAction>(SETTINGS.slideSwitchAction)) {
-    case CrossPointSettings::SlideSwitchAction::Light:
-      if (!Frontlight.present()) return false;
-      Frontlight.setOn(!Frontlight.isOn());
-      SETTINGS.frontlightOn = Frontlight.isOn();
-      break;
-    case CrossPointSettings::SlideSwitchAction::NightMode:
-      SETTINGS.screenInverted = SETTINGS.screenInverted ? 0 : 1;
-      break;
-    case CrossPointSettings::SlideSwitchAction::TouchControls:
-      SETTINGS.disableReaderTouchscreen = SETTINGS.disableReaderTouchscreen ? 0 : 1;
-      break;
-    case CrossPointSettings::SlideSwitchAction::TiltPageTurn:
-      if (!halTiltSensor.isAvailable()) return false;
-      SETTINGS.tiltPageTurn = SETTINGS.tiltPageTurn == CrossPointSettings::TILT_OFF ? CrossPointSettings::TILT_ON
-                                                                                    : CrossPointSettings::TILT_OFF;
-      halTiltSensor.clearPendingEvents();
-      break;
-    default:
-      LOG_ERR("SWITCH", "Unknown slide switch action");
-      return false;
-  }
-  SETTINGS.saveToFile();
-  activityManager.requestUpdate();
-  return true;
-}
-#endif
+
 
 void loop() {
   markWatchdogMainLoopTick();
@@ -1829,13 +1745,6 @@ void loop() {
     return;
   }
 
-#if FREEINK_DEVICE_PICCO
-  bool slideSwitchChanged = false;
-  {
-    RenderLock lock(RenderLock::Mode::Try);
-    if (lock.ownsLock()) slideSwitchChanged = handleSlideSwitch();
-  }
-#endif
   if (!buttonShortcutController.isQuickLocked()) {
     halTiltSensor.update(SETTINGS.tiltPageTurn, SETTINGS.tiltPageTurnDirection, SETTINGS.orientation,
                          activityManager.isReaderActivity());
@@ -1864,9 +1773,6 @@ void loop() {
   const bool userInputReceived = gpio.wasAnyPressed() || gpio.wasAnyReleased()
 #if CROSSINK_APP_CAP_TOUCH
                                  || gpio.wasTouchActivity()
-#endif
-#if FREEINK_DEVICE_PICCO
-                                 || slideSwitchChanged
 #endif
                                  || halTiltSensor.hadActivity();
 
@@ -2070,7 +1976,6 @@ void loop() {
   // refresh after input was sampled: a stale touch-down can become a false hold.
   if (!activityManager.isReaderActivity() && !activityManager.hasActivityNamed("KeyboardEntry")) {
     RenderLock lock(RenderLock::Mode::Try);
-    if (lock.ownsLock()) pluginevents::pollOnline();
   }
   const unsigned long activityStartTime = millis();
   activityManager.loop();

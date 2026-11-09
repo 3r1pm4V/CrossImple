@@ -17,7 +17,6 @@ class CatalogActivity : public UiListActivity {
     BROWSING,
     DOWNLOADING,
     ERROR,
-    PLUGIN_PICKER,
     LIST_PICKER,
     DONE,
     NO_TOKEN,

@@ -39,11 +39,7 @@ class HalTiltSensor {
   unsigned long _wakeMs = 0;       // Timestamp of last wake() for stabilization
 
   // Tuning constants
-#if defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY
-  static constexpr float RATE_THRESHOLD_DPS = 200.0f;  // Stay below the Sticky IMU's ±245 dps range
-#else
   static constexpr float RATE_THRESHOLD_DPS = 270.0f;  // Deg/sec speed to trigger flick
-#endif
   static constexpr float NEUTRAL_RATE_DPS = 50.0f;         // Must stop moving below this rate before next trigger
   static constexpr unsigned long COOLDOWN_MS = 600;        // Minimum ms between triggers
   static constexpr unsigned long POLL_INTERVAL_MS = 50;    // 20 Hz polling

@@ -1,4 +1,4 @@
-foreach(device X4 X4CLASSIC X3 X4PRO STICKY)
+foreach(device X4 X4CLASSIC X3 X4PRO)
   set(target ButtonNavigation${device}Test)
   add_executable(${target}
     ButtonNavigationTest.cpp

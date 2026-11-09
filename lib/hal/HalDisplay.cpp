@@ -137,9 +137,6 @@ void HalDisplay::displayBufferAsync(HalDisplay::RefreshMode mode) {
 }
 
 void HalDisplay::waitRefreshComplete() { einkDisplay.waitRefreshComplete(); }
-#if FREEINK_DEVICE_PICCO
-void HalDisplay::powerOffBetweenFrames() { einkDisplay.powerOffBetweenFrames(); }
-#endif
 
 bool HalDisplay::supportsAsyncRefresh() const { return einkDisplay.supportsAsyncRefresh(); }
 
