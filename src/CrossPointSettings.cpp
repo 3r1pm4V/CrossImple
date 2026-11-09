@@ -25,7 +25,6 @@
 #include "SettingsList.h"
 #include "fontIds.h"
 #include "util/FrontlightSchedule.h"
-#include "util/PluginLocations.h"
 #include "util/ReaderStatusBarJson.h"
 #include "util/TwoFingerSwipe.h"
 
@@ -242,7 +241,7 @@ bool isValidQuickActionSlot(const uint8_t action) {
   return action < CrossPointSettings::QUICK_ACTION_SLOT_ACTION_COUNT ||
          action == CrossPointSettings::TOGGLE_HOME_BUTTON_IN_READER ||
          action == CrossPointSettings::TOGGLE_FRONTLIGHT || action == CrossPointSettings::TOGGLE_TOUCHSCREEN ||
-         action == CrossPointSettings::PREVIOUS_PAGE || action == CrossPointSettings::NEARBY_POSITION_SYNC ||
+         action == CrossPointSettings::PREVIOUS_PAGE ||
          action == CrossPointSettings::LIBRARY || action == CrossPointSettings::HOME_READER ||
          action == CrossPointSettings::BACK_HOME || action == CrossPointSettings::SELECT_CHAPTER ||
          action == CrossPointSettings::TOGGLE_PAGE_TURN_GESTURES || action == CrossPointSettings::ROTATE_FLIP;
@@ -539,8 +538,6 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   doc["tiltPageTurnDirectionSchema"] = TILT_DIRECTION_SCHEMA_CURRENT;
   doc["clockDateHasBeenSynced"] = clockDateHasBeenSynced;
   doc["screenInverted"] = screenInverted;
-  doc["pluginsEnabled"] = pluginsEnabled;
-  doc["pluginHubPromptHidden"] = pluginHubPromptHidden;
 }
 
 bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint) {
@@ -1032,13 +1029,6 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
   }
   clockDateHasBeenSynced = clamp(doc["clockDateHasBeenSynced"] | static_cast<uint8_t>(0), 2, 0);
 
-  if (doc["pluginsEnabled"].isNull()) {
-    pluginsEnabled = PluginLocations::anyPluginInstalledOnDisk() ? 1 : 0;
-    needsResave = true;
-  } else {
-    pluginsEnabled = clamp(doc["pluginsEnabled"] | uint8_t{0}, 2, 0);
-  }
-  pluginHubPromptHidden = clamp(doc["pluginHubPromptHidden"] | uint8_t{0}, 2, 0);
   if (needsResave) requestResave();
   WifiTransmitPower::setLimit(wifiTransmitPower);
   LOG_DBG("CPS", "Settings loaded from file");
@@ -1417,12 +1407,7 @@ bool CrossPointSettings::verifySleepScreenMigrationContract() {
 #endif
 
 bool CrossPointSettings::isRefreshNeverAvailable() {
-#if defined(FREEINK_DEVICE_PICCO) && FREEINK_DEVICE_PICCO
-  // Keep periodic cleanup on Picco until its panels are validated without it.
-  return false;
-#else
   return Frontlight.present();
-#endif
 }
 
 int CrossPointSettings::getRefreshFrequency() const {

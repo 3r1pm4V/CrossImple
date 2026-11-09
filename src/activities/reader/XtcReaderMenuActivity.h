@@ -20,7 +20,6 @@ class XtcReaderMenuActivity final : public Activity {
     TOGGLE_COMPLETED,
     DELETE_STATS,
     DELETE_CACHE,
-    SEND_NEARBY_BOOK,
     DISABLE_TOUCHSCREEN,
     GO_TO_PERCENT,
   };

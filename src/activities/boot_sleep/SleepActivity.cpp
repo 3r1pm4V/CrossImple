@@ -51,13 +51,6 @@ constexpr int sleepBuildInfoSideMargin = 20;
 
 ImageToneProfile bookCoverToneProfile(const GfxRenderer& renderer) {
   if (SETTINGS.sleepScreenCoverFilter != CrossPointSettings::NO_FILTER) return ImageToneProfile::Legacy;
-#if FREEINK_DEVICE_PICCO
-  const char* controller = display.getControllerName();
-  if (controller && std::string_view(controller) == "SSD2677") {
-    return SETTINGS.sleepScreen == CrossPointSettings::COVER_OVERLAY ? ImageToneProfile::Even
-                                                                     : ImageToneProfile::PiccoCover;
-  }
-#endif
   return imageToneProfile(renderer.supportsAbsoluteGrayscale());
 }
 

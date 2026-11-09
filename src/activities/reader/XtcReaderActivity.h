@@ -19,7 +19,6 @@
 #include "DeferredGrayscale.h"
 #include "EndOfBookOptions.h"
 #include "GlobalReadingStats.h"
-#include "PluginReaderEvents.h"
 #include "ReaderButtonShortcuts.h"
 #include "ReaderProgressSaveDebouncer.h"
 #include "ReadingSessionJournal.h"
@@ -29,7 +28,6 @@
 #include "sync/SyncPending.h"
 
 class XtcReaderActivity final : public Activity {
-  PluginReaderEvents pluginEvents;
   ReaderUtils::DeferredGrayscalePlanes deferredGrayscalePlanes;
 #ifdef SIMULATOR
   friend struct ReaderMenuOrientationSmokeTest;
@@ -143,8 +141,6 @@ class XtcReaderActivity final : public Activity {
   void onExit() override;
   void prepareForSleep() override {
     if (!flushQueuedProgress()) LOG_ERR("PEVT", "Reader progress save failed before sleep");
-    pluginEvents.poll(getCurrentBookPath());
-    pluginEvents.flush(getCurrentBookPath());
   }
   void loop() override;
   void render(RenderLock&&) override;
@@ -156,13 +152,7 @@ class XtcReaderActivity final : public Activity {
   bool isReaderActivity() const override { return true; }
   bool isBookReaderActivity() const override { return true; }
   bool usesMenuButtonOrientation() const override;
-  bool usesFullScreenReaderVerticalSwipes() const override {
-#if (defined(FREEINK_DEVICE_STICKY) && FREEINK_DEVICE_STICKY) || (defined(FREEINK_DEVICE_PICCO) && FREEINK_DEVICE_PICCO)
-    return true;
-#else
-    return false;
-#endif
-  }
+  bool usesFullScreenReaderVerticalSwipes() const override { return false; }
   void onInputLockChanged(bool locked) override;
   bool handleQuickLockUnlock(QuickLockTrigger trigger) override;
   bool canSnapshotForSleepOverlay() const override { return true; }

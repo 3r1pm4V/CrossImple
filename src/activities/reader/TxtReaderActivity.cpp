@@ -167,7 +167,6 @@ void TxtReaderActivity::onExit() {
   if (!flushQueuedProgress()) {
     LOG_ERR("TRS", "Failed to flush debounced reader progress on exit");
   }
-  pluginEvents.exit(getCurrentBookPath(), getScreenshotInfo().progressPercent);
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
@@ -180,13 +179,11 @@ void TxtReaderActivity::onExit() {
 }
 
 bool TxtReaderActivity::handleFrontlightPanelResult(const FrontlightPanelResult& result) {
-  if (result.action != FrontlightPanelAction::SendNearbyBook || !txt) return false;
-  saveProgress(currentPage);
-  return activityManager.goToNearbyBookSend(txt->getPath(), true);
+  (void)result;
+  return false;
 }
 
 void TxtReaderActivity::loop() {
-  pluginEvents.pollWhenIdle(getCurrentBookPath());
   if (quickActionsPopup.handleInput(mappedInput, [this] { requestUpdate(); })) return;
 #if CROSSINK_APP_CAP_TOUCH
   // TXT has no reader drawer: the bottom edge exits directly on every touch device.
@@ -330,10 +327,8 @@ void TxtReaderActivity::requestPageTurn(const bool previous, const bool next) {
     RenderLock lock(*this);
     if (previous && currentPage > 0) {
       --currentPage;
-      pluginEvents.noteTurn(false);
     } else if (next && currentPage < totalPages - 1) {
       ++currentPage;
-      pluginEvents.noteTurn(true);
     } else {
       return;
     }
@@ -901,16 +896,12 @@ void TxtReaderActivity::renderPage() {
       });
   if (!deferred) {
     auto request = ReaderUtils::PageRefresh::Blocking;
-#if FREEINK_DEVICE_PICCO || FREEINK_DEVICE_STICKY
-    if (useTextAa) request = ReaderUtils::PageRefresh::GrayscaleBase;
-#endif
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, request);
   }
 
   if (useTextAa && !deferred) {
     ReaderUtils::renderAntiAliased(renderer, [&renderLines]() { renderLines(); });
   }
-  pluginEvents.rendered(totalPages > 0 ? static_cast<int>((currentPage + 1LL) * 10000 / totalPages) : 0);
   // scope destructor clears font cache via FontCacheManager
 }
 

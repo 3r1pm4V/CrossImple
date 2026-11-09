@@ -149,10 +149,6 @@ bool hasClearableBookCache(const std::string& path) {
   return FsHelpers::hasEpubExtension(path) || FsHelpers::hasXtcExtension(path);
 }
 
-bool canSendNearby(const std::string& path) {
-  (void)path;
-  return false;
-}
 
 void clearFileMetadata(const std::string& fullPath) {
   if (FsHelpers::hasEpubExtension(fullPath)) {

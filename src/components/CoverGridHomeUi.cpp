@@ -21,10 +21,9 @@ constexpr int16_t COVER_CELL_INSET = 6;
 CoverGridHomeUi::CoverGridHomeUi(GfxRenderer& renderer)
     : UiAppHost(renderer), coverCache(renderer), renderer(renderer) {}
 
-void CoverGridHomeUi::begin(const std::vector<RecentBook>& recent, bool plugins, bool continuing,
+void CoverGridHomeUi::begin(const std::vector<RecentBook>& recent, bool continuing,
                             float featuredProgress) {
   books = &recent;
-  hasPlugins = plugins;
   if (!recent.empty()) coverCache.begin();
   reset();
   app.on(SELECT, &CoverGridHomeUi::onAction, this);
@@ -231,19 +230,16 @@ void CoverGridHomeUi::drawGrid(UiScreen& screen) {
 }
 
 void CoverGridHomeUi::drawTabs(UiScreen& screen, fui::Rect rect) {
-  static constexpr const freeink::Icon* ICONS[] = {&icon_folder_32, &icon_landmark_32, &icon_puzzle_32,
+  static constexpr const freeink::Icon* ICONS[] = {&icon_folder_32, &icon_landmark_32,
                                                    &icon_lyra_transfer_32, &icon_lyra_settings_32};
-  int count = 0;
-  for (int i = 0; i < 5; ++i) {
-    if (i == 2 && !hasPlugins) continue;
-    auto& tab = tabItems[count];
-    tab.value = books->size() + count;
+  for (int i = 0; i < 4; ++i) {
+    auto& tab = tabItems[i];
+    tab.value = books->size() + i;
     tab.selected = selected == tab.value;
     tab.label = nullptr;
-    ++count;
   }
   tabs.tabs = tabItems.data();
-  tabs.count = count;
+  tabs.count = 4;
   tabs.layout = fui::TabBarLayout::SpaceBetween;
   tabs.action = SELECT;
   tabs.inputMask = fui::InputTouch;
@@ -252,8 +248,7 @@ void CoverGridHomeUi::drawTabs(UiScreen& screen, fui::Rect rect) {
   tabs.iconPainter = [](fui::DrawTarget&, fui::Rect iconRect, const fui::TabItem& tab, uint8_t, void* user) {
     const auto& self = *static_cast<CoverGridHomeUi*>(user);
     const int index = tab.value - static_cast<int>(self.books->size());
-    const int icon = !self.hasPlugins && index >= 2 ? index + 1 : index;
-    drawLucideIcon(self.renderer, *ICONS[icon], iconRect.x, iconRect.y);
+    drawLucideIcon(self.renderer, *ICONS[index], iconRect.x, iconRect.y);
     return true;
   };
   tabs.tabStyles.normal.background = fui::Paint::solid(fui::Color::White);

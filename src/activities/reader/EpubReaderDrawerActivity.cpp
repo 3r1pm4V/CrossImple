@@ -1920,12 +1920,6 @@ void EpubReaderDrawerActivity::activateRow(const RowId row) {
     case RowId::SyncProgress:
       action = EpubReaderMenuAction::SYNC;
       break;
-    case RowId::NearbyPositionSync:
-      action = EpubReaderMenuAction::NEARBY_POSITION_SYNC;
-      break;
-    case RowId::SendNearbyBook:
-      action = EpubReaderMenuAction::SEND_NEARBY_BOOK;
-      break;
     case RowId::ViewBookmarks:
       action = EpubReaderMenuAction::VIEW_BOOKMARKS;
       break;
@@ -3216,10 +3210,6 @@ const char* EpubReaderDrawerActivity::rowLabel(const RowId row) const {
       return tr(STR_READING_STATS);
     case RowId::SyncProgress:
       return tr(STR_SYNC_BOOK);
-    case RowId::NearbyPositionSync:
-      return tr(STR_NEARBY_POSITION_SYNC);
-    case RowId::SendNearbyBook:
-      return tr(STR_SEND_NEARBY_BOOK);
     case RowId::FontFamily:
       return tr(STR_FONT_FAMILY);
     case RowId::CharacterSpacing:
@@ -3366,8 +3356,6 @@ bool EpubReaderDrawerActivity::rowShowsNavigationCaret(const RowId row) const {
     case RowId::DeleteCache:
     case RowId::DeleteStats:
     case RowId::SyncProgress:
-    case RowId::NearbyPositionSync:
-    case RowId::SendNearbyBook:
       return false;
     default:
       return true;

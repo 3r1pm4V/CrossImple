@@ -20,7 +20,7 @@ namespace fui = freeink::ui;
 namespace {
 constexpr fui::ActionId ACTION_ROW = 1;
 
-enum class MenuSection : uint8_t { None, Nearby, SyncServer };
+enum class MenuSection : uint8_t { None, SyncServer };
 
 struct MenuEntry {
   NetworkMode mode;
@@ -47,8 +47,6 @@ static_assert(MENU_ENTRY_COUNT <= NetworkModeSelectionActivity::MAX_MENU_ROWS, "
 
 bool entryVisible(const NetworkMode mode) {
   switch (mode) {
-    case NetworkMode::NEARBY_STATS_SYNC:
-      return SETTINGS.shouldTrackReadingStats();
     case NetworkMode::SYNC_READING_STATS:
       return ReadingSyncUpload::canSyncReadingStats();
     case NetworkMode::SYNC_CLIPPINGS:
@@ -59,7 +57,8 @@ bool entryVisible(const NetworkMode mode) {
 }
 
 StrId sectionHeading(const MenuSection section) {
-  return section == MenuSection::Nearby ? StrId::STR_NEARBY_DEVICE : StrId::STR_SYNC_SERVER;
+  (void)section;
+  return StrId::STR_SYNC_SERVER;
 }
 }  // namespace
 
@@ -229,9 +228,7 @@ void NetworkModeSelectionActivity::buildListScreen(UiApp::ScreenType& screen) {
     item.subtitle = I18N.get(entry.description);
     if (entry.mode == NetworkMode::USB_DRIVE) {
       item.icon = fui::bitmapFromIcon(icon_usb_32);
-    } else if (entry.mode == NetworkMode::NEARBY_BOOK_RECEIVE) {
-      item.icon = fui::bitmapFromIcon(icon_chevrons_left_right_ellipsis_32);
-    } else if (entry.mode == NetworkMode::NEARBY_STATS_SYNC || entry.mode == NetworkMode::SYNC_READING_STATS) {
+    } else if (entry.mode == NetworkMode::SYNC_READING_STATS) {
       item.icon = fui::bitmapFromIcon(icon_reading_stats_32);
     } else if (entry.mode == NetworkMode::SYNC_BOOKS) {
       item.icon = fui::bitmapFromIcon(icon_cloud_upload_32);

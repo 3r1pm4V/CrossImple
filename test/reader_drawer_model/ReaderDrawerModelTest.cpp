@@ -189,18 +189,16 @@ TEST(ReaderDrawerModel, ButtonDevicesRestoreStatsAndTransfersInTheirTabs) {
   EXPECT_EQ(more.items[3], ReaderDrawerCatalogItem::ReadingStats);
 
   const auto& location = catalog[static_cast<size_t>(ReaderDrawerTab::Location)];
-  EXPECT_EQ(location.count, 7);
+  EXPECT_EQ(location.count, 5);
   EXPECT_EQ(location.items[2], ReaderDrawerCatalogItem::SyncProgress);
-  EXPECT_EQ(location.items[3], ReaderDrawerCatalogItem::NearbyPositionSync);
-  EXPECT_EQ(location.items[4], ReaderDrawerCatalogItem::SendNearbyBook);
-  EXPECT_EQ(location.items[5], ReaderDrawerCatalogItem::Screenshot);
-  EXPECT_EQ(location.items[6], ReaderDrawerCatalogItem::DisplayQr);
+  EXPECT_EQ(location.items[3], ReaderDrawerCatalogItem::Screenshot);
+  EXPECT_EQ(location.items[4], ReaderDrawerCatalogItem::DisplayQr);
 
   available.hasBookmarks = true;
   available.hasClippings = true;
   const ReaderDrawerCatalog fullCatalog = makeReaderDrawerCatalog(available);
   const auto& fullLocation = fullCatalog[static_cast<size_t>(ReaderDrawerTab::Location)];
-  EXPECT_EQ(fullLocation.count, 10);
+  EXPECT_EQ(fullLocation.count, 8);
   EXPECT_EQ(fullLocation.items[5], ReaderDrawerCatalogItem::SyncProgress);
 }
 

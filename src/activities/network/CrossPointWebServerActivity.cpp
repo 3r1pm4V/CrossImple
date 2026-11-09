@@ -24,7 +24,6 @@
 #include "components/TouchHeaderBackButton.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
-#include "util/PluginEvents.h"
 #include "util/QrUtils.h"
 
 namespace {
@@ -107,7 +106,6 @@ void CrossPointWebServerActivity::onEnter() {
 }
 
 void CrossPointWebServerActivity::onExit() {
-  pluginevents::refreshSubscriptions();
   library::invalidateLibraryIndex();
   Activity::onExit();
 
@@ -162,10 +160,6 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
     modeName = "OPDS Browser";
   } else if (mode == NetworkMode::CREATE_HOTSPOT) {
     modeName = "Create Hotspot";
-  } else if (mode == NetworkMode::NEARBY_STATS_SYNC) {
-    modeName = "Nearby Stats Sync";
-  } else if (mode == NetworkMode::NEARBY_BOOK_RECEIVE) {
-    modeName = "Receive File";
   } else if (mode == NetworkMode::SYNC_BOOKS) {
     modeName = "Sync Books";
   } else if (mode == NetworkMode::SYNC_READING_STATS) {
@@ -213,15 +207,6 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
   networkMode = mode;
   isApMode = (mode == NetworkMode::CREATE_HOTSPOT);
 
-  if (mode == NetworkMode::NEARBY_STATS_SYNC) {
-    activityManager.goToNearbyStatsSync();
-    return;
-  }
-  if (mode == NetworkMode::NEARBY_BOOK_RECEIVE) {
-    activityManager.goToNearbyBookReceive();
-    return;
-  }
-
   if (!networkBootReady) {
     switch (mode) {
       case NetworkMode::JOIN_NETWORK:
@@ -237,8 +222,6 @@ void CrossPointWebServerActivity::onNetworkModeSelected(const NetworkMode mode) 
         activityManager.goToUsbDrive();
         break;
       case NetworkMode::OPDS_BROWSER:
-      case NetworkMode::NEARBY_STATS_SYNC:
-      case NetworkMode::NEARBY_BOOK_RECEIVE:
       case NetworkMode::SYNC_BOOKS:
       case NetworkMode::SYNC_READING_STATS:
       case NetworkMode::SYNC_CLIPPINGS:

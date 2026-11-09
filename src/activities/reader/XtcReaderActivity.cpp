@@ -167,7 +167,6 @@ void XtcReaderActivity::onExit() {
   if (!flushQueuedProgress()) {
     LOG_ERR("XTR", "Failed to flush debounced reader progress on exit");
   }
-  pluginEvents.exit(getCurrentBookPath(), getScreenshotInfo().progressPercent);
 
   APP_STATE.readerActivityLoadCount = 0;
   APP_STATE.saveToFile();
@@ -214,7 +213,6 @@ void XtcReaderActivity::openReaderMenu() {
 
 void XtcReaderActivity::loop() {
   if (mappedInput.hasPendingActivity() || RenderLock::peek()) statsSaveDelay.defer(millis());
-  pluginEvents.pollWhenIdle(getCurrentBookPath());
   if (!xtc) {
     return;
   }
@@ -511,7 +509,6 @@ void XtcReaderActivity::loop() {
         needsUpdate = true;
       }
     } else if (prevTriggered && currentPage > 0) {
-      pluginEvents.noteTurn(false);
       recordCurrentPageReadingTime("page_back", /*deferStorage=*/true);
       if (currentPage >= static_cast<uint32_t>(skipAmount)) {
         currentPage -= skipAmount;
@@ -523,7 +520,6 @@ void XtcReaderActivity::loop() {
       uint32_t forwardReadSeconds = 0;
       const bool shouldRecordForwardRead = forwardPageReadElapsed(forwardReadSeconds, "page_forward");
       recordCurrentPageReadingTime("page_forward", /*deferStorage=*/true);
-      pluginEvents.noteTurn(true);
       currentPage += skipAmount;
       if (currentPage >= pageCount) {
         currentPage = pageCount;  // Allow showing "End of book"
@@ -1075,19 +1071,14 @@ void XtcReaderActivity::onReaderMenuConfirm(const int action) {
     case XtcReaderMenuActivity::MenuAction::DELETE_CACHE:
       deleteBookCache();
       break;
-    case XtcReaderMenuActivity::MenuAction::SEND_NEARBY_BOOK:
-      saveProgress(currentPage);
-      activityManager.goToNearbyBookSend(xtc ? xtc->getPath() : std::string{}, true);
-      return;
     case XtcReaderMenuActivity::MenuAction::DISABLE_TOUCHSCREEN:
       break;
   }
 }
 
 bool XtcReaderActivity::handleFrontlightPanelResult(const FrontlightPanelResult& result) {
-  if (result.action != FrontlightPanelAction::SendNearbyBook || !xtc) return false;
-  saveProgress(currentPage);
-  return activityManager.goToNearbyBookSend(xtc->getPath(), true);
+  (void)result;
+  return false;
 }
 
 bool XtcReaderActivity::supportsQuickAction(const CrossPointSettings::SHORT_PWRBTN action) {
@@ -1430,8 +1421,6 @@ void XtcReaderActivity::renderPage(const uint32_t pageToRender) {
           renderOverlays(false);
           return true;
         })) {
-      pluginEvents.rendered(xtc->getPageCount() ? static_cast<int>((pageToRender + 1ULL) * 10000 / xtc->getPageCount())
-                                                : 0);
       return;
     }
 
@@ -1468,8 +1457,6 @@ void XtcReaderActivity::renderPage(const uint32_t pageToRender) {
     }
     renderOverlays(true);
     renderer.cleanupGrayscaleWithFrameBuffer();
-    pluginEvents.rendered(xtc->getPageCount() ? static_cast<int>((pageToRender + 1ULL) * 10000 / xtc->getPageCount())
-                                              : 0);
     return;
   }
 
@@ -1532,8 +1519,6 @@ void XtcReaderActivity::renderPage(const uint32_t pageToRender) {
 
   // Display with appropriate refresh
   ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
-  pluginEvents.rendered(xtc->getPageCount() ? static_cast<int>((pageToRender + 1ULL) * 10000 / xtc->getPageCount())
-                                            : 0);
 }
 
 bool XtcReaderActivity::saveProgress(const uint32_t page) {

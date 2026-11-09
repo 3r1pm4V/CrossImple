@@ -285,7 +285,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     // Shortcut values are persisted. Append new actions; never reuse removed
     // raw values or they can silently change an existing binding's behavior.
     PREVIOUS_PAGE = 31,
-    NEARBY_POSITION_SYNC = 32,
     LIBRARY = 33,
     // Power-only choices. Keep SLEEP=1 as the existing Sleep/Wake setting.
     SLEEP_ONLY = 34,
@@ -332,7 +331,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     CHORD_TOGGLE_FRONTLIGHT = 27,
     CHORD_TOGGLE_TOUCHSCREEN = 28,
     CHORD_PREVIOUS_PAGE = 29,
-    CHORD_NEARBY_POSITION_SYNC = 30,
     CHORD_LIBRARY = 31,
     CHORD_HOME_READER = 32,
     CHORD_BACK_HOME = 33,
@@ -620,8 +618,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   char opdsPassword[64] = "";
   // OPDS download destination (empty = SD root). Edited from the OPDS server list.
   char opdsDownloadFolder[64] = "";
-  // Nearby file receive destination (empty = SD root).
-  char nearbyReceiveFolder[64] = "";
   // Legacy Hide Battery % choice, read only to migrate into per-bar battery styles.
   uint8_t hideBatteryPercentage = HIDE_NEVER;
   // Long-press page turn button behavior
@@ -658,8 +654,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   char dictionarySdFontFamilyName[64] = "";
   // Zero follows the active reader size.
   uint8_t dictionaryFontPointSize = 0;
-  uint8_t pluginsEnabled = 0;
-  uint8_t pluginHubPromptHidden = 0;
   // Show hidden files/directories (starting with '.') in the file browser (0 = hidden, 1 = show)
   uint8_t showHiddenFiles = 0;
   // Prefer embedded EPUB titles/authors in Library; disable for filename-only scans.
@@ -683,7 +677,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Move epub to /Read/ folder on SD card when marked as finished (0 = disabled, 1 = enabled)
   uint8_t moveFinishedToReadFolder = 0;
   // Automatically write a dated global reading-stats backup before sleep when an RTC is available (0 = off, 1 = on).
-  uint8_t autoBackupStats = 0;
   // Idle threshold for reading stats, stored in 10-second units to fit uint8_t.
   uint8_t readingIdleTimeThresholdUnits = 30;
   // Image rendering mode in EPUB reader
@@ -708,10 +701,6 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t frontlightBrightness = 60;
   uint8_t frontlightWarmth = 50;  // 0 = cool .. 100 = warm
   uint8_t frontlightOn = 0;
-#if FREEINK_DEVICE_PICCO
-  enum class SlideSwitchAction : uint8_t { Light, NightMode, TouchControls, TiltPageTurn };
-  uint8_t slideSwitchAction = static_cast<uint8_t>(SlideSwitchAction::Light);
-#endif
   // When enabled, restore a previously-on light after sleep. A previous off
   // state falls through to a complete schedule.
   uint8_t frontlightRestoreOnWake = 1;

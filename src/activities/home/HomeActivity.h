@@ -32,7 +32,6 @@ class HomeActivity final : public Activity {
  private:
 #ifdef SIMULATOR
   friend struct BookmarkListSmokeTest;
-  friend struct PluginCatalogSmokeTest;
 #endif
   ButtonNavigator buttonNavigator;
   std::unique_ptr<CoverGridHomeUi> coverGridUi;
@@ -52,7 +51,6 @@ class HomeActivity final : public Activity {
   bool hasReadingStats = false;
   bool hasBookmarks = false;
   bool hasClippings = false;
-  bool hasPlugins = false;
   bool minimalMenuOpen = false;
   bool minimalSuppressInitialFrontRelease = false;
   bool homeBookSwapLongPressHandled = false;
@@ -110,7 +108,6 @@ class HomeActivity final : public Activity {
   void onLibraryOpen();
   void onSettingsOpen();
   void onFileTransferOpen();
-  void onPluginsOpen();
   void onReadingStatsOpen();
   void onSavedItemsOpen();
 

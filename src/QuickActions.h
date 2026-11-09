@@ -80,7 +80,6 @@ inline constexpr std::array<CrossPointSettings::SHORT_PWRBTN, 36> shortcutAction
     CrossPointSettings::CYCLE_PAGE_TURN,
     CrossPointSettings::TOGGLE_TILT_PAGE_TURN,
     CrossPointSettings::SYNC_PROGRESS,
-    CrossPointSettings::NEARBY_POSITION_SYNC,
     CrossPointSettings::LIBRARY,
     CrossPointSettings::FILE_TRANSFER,
     CrossPointSettings::CALIBRE_WIRELESS,
@@ -106,7 +105,7 @@ inline bool supportsTiltPageTurn() { return halTiltSensor.isAvailable(); }
 
 inline bool isActionAvailable(const uint8_t action) {
   if (action == CrossPointSettings::READING_STATS && !SETTINGS.shouldTrackReadingStats()) return false;
-  if (action == CrossPointSettings::PREVIOUS_PAGE || action == CrossPointSettings::NEARBY_POSITION_SYNC ||
+  if (action == CrossPointSettings::PREVIOUS_PAGE ||
       action == CrossPointSettings::LIBRARY || action == CrossPointSettings::SELECT_CHAPTER ||
       action == CrossPointSettings::ROTATE_FLIP)
     return true;
@@ -138,7 +137,6 @@ inline StrId actionLabel(const uint8_t action) {
   if (action == CrossPointSettings::TOGGLE_PAGE_TURN_GESTURES) return StrId::STR_DISABLE_PAGE_TURN_GESTURES;
   if (action == CrossPointSettings::QUICK_LOCK) return StrId::STR_QUICK_LOCK;
   if (action == CrossPointSettings::PREVIOUS_PAGE) return StrId::STR_PREV_PAGE;
-  if (action == CrossPointSettings::NEARBY_POSITION_SYNC) return StrId::STR_NEARBY_POSITION_SYNC;
   if (action == CrossPointSettings::LIBRARY) return StrId::STR_LIBRARY;
   if (action == CrossPointSettings::HOME_READER) return StrId::STR_HOME_READER;
   if (action == CrossPointSettings::BACK_HOME) return StrId::STR_BACK_HOME;

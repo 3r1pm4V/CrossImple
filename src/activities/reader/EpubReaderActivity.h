@@ -24,7 +24,6 @@
 #include "FootnoteLinkTargets.h"
 #include "GlobalReadingStats.h"
 #include "ManualPageTurnQueue.h"
-#include "PluginReaderEvents.h"
 #include "ReaderButtonShortcuts.h"
 #include "ReaderProgressSaveDebouncer.h"
 #include "ReadingSessionJournal.h"
@@ -47,7 +46,6 @@ struct ToastRect {
 };
 
 class EpubReaderActivity final : public Activity {
-  PluginReaderEvents pluginEvents;
 #ifdef SIMULATOR
   friend struct BookmarkListSmokeTest;
   friend struct ReaderMenuOrientationSmokeTest;
@@ -579,8 +577,6 @@ class EpubReaderActivity final : public Activity {
   void onExit() override;
   void prepareForSleep() override {
     if (!saveReadingProgress()) LOG_ERR("PEVT", "Reader progress save failed before sleep");
-    pluginEvents.poll(getCurrentBookPath());
-    pluginEvents.flush(getCurrentBookPath());
   }
   void loop() override;
   void render(RenderLock&& lock) override;

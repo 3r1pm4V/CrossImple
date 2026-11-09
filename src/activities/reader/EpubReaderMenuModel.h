@@ -15,8 +15,6 @@ enum class EpubReaderMenuAction : uint8_t {
   DISPLAY_QR,
   GO_HOME,
   SYNC,
-  NEARBY_POSITION_SYNC,
-  SEND_NEARBY_BOOK,
   DELETE_STATS,
   DELETE_CACHE,
   RESET_READING_PACE,
@@ -151,8 +149,6 @@ enum class ReaderDrawerCatalogItem : uint8_t {
   ReadingStats,
   TrackBookStats,
   SyncProgress,
-  NearbyPositionSync,
-  SendNearbyBook,
 };
 
 struct ReaderDrawerAvailability {

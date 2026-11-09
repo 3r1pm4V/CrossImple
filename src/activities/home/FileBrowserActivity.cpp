@@ -639,7 +639,6 @@ void FileBrowserActivity::showDirectoryActionMenu(const std::string& entry, bool
                              case FileBrowserAction::DeleteClippings:
                              case FileBrowserAction::EpubRenderMode:
                              case FileBrowserAction::ResetReaderSettings:
-                             case FileBrowserAction::SendNearby:
                              case FileBrowserAction::Rename:
                                return;
                            }
@@ -757,9 +756,7 @@ void FileBrowserActivity::showFileActionMenu(const std::string& entry, bool igno
   std::vector<FileBrowserActionActivity::MenuItem> items = BookActions::buildBookActionItems(fullPath, false);
   items.insert(items.begin(), {FileBrowserAction::Rename, StrId::STR_RENAME});
 
-  if (BookActions::canSendNearby(fullPath)) {
-    items.push_back({FileBrowserAction::SendNearby, StrId::STR_SEND_NEARBY_BOOK});
-  }
+
 
   const bool canPinFavorite = isSleepImageFile(entry);
   if (canPinFavorite) {
@@ -812,9 +809,6 @@ void FileBrowserActivity::showFileActionMenu(const std::string& entry, bool igno
             return;
           case FileBrowserAction::Rename:
             startRenameFile(fullPath, entry);
-            return;
-          case FileBrowserAction::SendNearby:
-            activityManager.goToNearbyBookSend(fullPath, false);
             return;
           case FileBrowserAction::Delete:
             promptDeleteFile(fullPath, entry);

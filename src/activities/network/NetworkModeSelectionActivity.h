@@ -12,8 +12,6 @@ enum class NetworkMode {
   CONNECT_CALIBRE,
   CREATE_HOTSPOT,
   USB_DRIVE,
-  NEARBY_BOOK_RECEIVE,
-  NEARBY_STATS_SYNC,
   SYNC_BOOKS,
   SYNC_READING_STATS,
   SYNC_CLIPPINGS,
@@ -25,8 +23,6 @@ enum class NetworkMode {
  * - "Join a Network" - Connect to an existing WiFi network (STA mode)
  * - "Connect to Calibre" - Use Calibre wireless device transfers
  * - "Create Hotspot" - Create an Access Point that others can connect to (AP mode)
- * - "Nearby Stats Sync" - Sync reading stats directly with a nearby reader
- * - "Receive File" - Receive a file directly from another reader
  * - "Sync Books", "Sync Reading Stats", "Sync Clippings" - Sync Server uploads
  *
  * The onModeSelected callback is called with the user's choice.
@@ -38,7 +34,6 @@ class NetworkModeSelectionActivity final : public Activity {
 
  private:
 #ifdef SIMULATOR
-  friend struct PluginCatalogSmokeTest;
 #endif
   // FreeInkApp hosts the mode list (themed rows, icons, touch routing); the
   // header stays on GUI.drawHeader for the battery indicator.

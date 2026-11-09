@@ -26,7 +26,6 @@
 #include "BookmarkListSmokeTest.h"
 #include "ClippingSelectionSmokeTest.h"
 #include "OpdsCatalogSmokeTest.h"
-#include "PluginSmokeTest.h"
 #include "ReadingUploadSmokeTest.h"
 #include "SilentRestart.h"
 #include "StatsUploadSmokeTest.h"
@@ -7136,7 +7135,6 @@ class SimulatorSmokeTest {
           std::strcpy(SETTINGS.sdFontFamilyName, "PRIVATE_SUPPORT_SENTINEL_FONT");
           std::strcpy(SETTINGS.dictionarySdFontFamilyName, "PRIVATE_SUPPORT_SENTINEL_DICT");
           std::strcpy(SETTINGS.opdsDownloadFolder, "PRIVATE_SUPPORT_SENTINEL_FOLDER");
-          std::strcpy(SETTINGS.nearbyReceiveFolder, "PRIVATE_SUPPORT_SENTINEL_NEARBY");
         }
         APP_STATE.openEpubPath = std::getenv("CROSSINK_SIMULATOR_SMOKE_BOOK");
         const auto cache = Epub::cachePathForFilePath(APP_STATE.openEpubPath, "/.crosspoint");
@@ -7255,10 +7253,6 @@ class SimulatorSmokeTest {
 
   void tickImpl() {
     mappedInputManager.simulatorClearInputFrame();
-    if (std::getenv("CROSSINK_SIMULATOR_SMOKE_PLUGINS")) {
-      runPluginSmokeTestTick();
-      return;
-    }
 
     if (settleFrames > 0) {
       --settleFrames;
@@ -9173,7 +9167,7 @@ class SimulatorSmokeTest {
   }
 
   // File Transfer ends with Receive Nearby Book, plus Nearby Stats Sync when reading stats are tracked.
-  static int nearbyFileTransferRows() { return SETTINGS.shouldTrackReadingStats() ? 2 : 1; }
+  static int nearbyFileTransferRows() { return 0; }
 
   unsigned statusBarReaderPass = 0;
 

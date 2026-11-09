@@ -55,7 +55,6 @@
 #include "KOReaderSyncActivity.h"
 #include "LookedUpWordsActivity.h"
 #include "MappedInputManager.h"
-#include "NearbyBookPositionSyncActivity.h"
 #include "PageWordGeometry.h"
 #include "ProgressMapper.h"
 #include "QrDisplayActivity.h"
@@ -2565,7 +2564,6 @@ void EpubReaderActivity::onExit() {
   if (!saveReadingProgress()) {
     LOG_ERR("ERS", "Failed to flush debounced reader progress on exit");
   }
-  pluginEvents.exit(getCurrentBookPath(), getScreenshotInfo().progressPercent);
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
@@ -2759,8 +2757,7 @@ void EpubReaderActivity::openReaderMenu() {
       }
       const auto action = static_cast<EpubReaderMenuAction>(menu->action);
       const bool returnToReaderMenu = menu->reopenDrawer;
-      if (action == EpubReaderMenuAction::SYNC || action == EpubReaderMenuAction::NEARBY_POSITION_SYNC ||
-          action == EpubReaderMenuAction::SEND_NEARBY_BOOK) {
+      if (action == EpubReaderMenuAction::SYNC) {
         PendingOverlayResume resume;
         resume.origin = PendingOverlayOrigin::Reader;
         resume.overlay = PendingOverlayType::ReaderDrawer;
@@ -3076,7 +3073,6 @@ void EpubReaderActivity::flushPendingSyncMark() {
 
 void EpubReaderActivity::loop() {
   if (mappedInput.hasPendingActivity() || RenderLock::peek()) statsSaveDelay.defer(millis());
-  pluginEvents.pollWhenIdle(getCurrentBookPath());
   flushPendingSyncMark();
   if (keptOffer && !keptOfferShown && offerKeptPosition()) return;
   if (!hyphenationPackChecked && checkHyphenationPack()) return;
@@ -3966,22 +3962,6 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuAction action, const 
       });
       break;
     }
-    case EpubReaderMenuAction::SEND_NEARBY_BOOK: {
-      if (!epub) break;
-      const int page = section ? section->currentPage : nextPageNumber;
-      const int pageCount = section ? section->estimatedTotalPages() : cachedChapterTotalPageCount;
-      if (!saveProgress(currentSpineIndex, page, pageCount)) {
-        LOG_ERR("NBOOK", "Could not save EPUB progress before transfer");
-        drawToast(renderer, tr(STR_SAVE_PROGRESS_FAILED));
-        delay(1200);
-        requestUpdate();
-        break;
-      }
-      if (activityManager.goToNearbyBookSend(epub->getPath(), true) && replacementResume) {
-        APP_STATE.setPendingOverlayResume(*replacementResume);
-      }
-      return;
-    }
     case EpubReaderMenuAction::SELECT_CHAPTER: {
       int tocIndex = epub->getTocIndexForSpineIndex(currentSpineIndex);
       {
@@ -4403,78 +4383,6 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuAction action, const 
       }
       break;
     }
-    case EpubReaderMenuAction::NEARBY_POSITION_SYNC: {
-      const int currentPage = section ? section->currentPage : nextPageNumber;
-      const int totalPages = section ? section->estimatedTotalPages() : std::max(1, cachedChapterTotalPageCount);
-      std::optional<uint16_t> paragraphIndex;
-      std::optional<uint16_t> listItemIndex;
-      if (section) {
-        getSyncPageAnchors(*section, currentPage, paragraphIndex, listItemIndex);
-      }
-
-      CrossPointPosition localPos = {currentSpineIndex, currentPage, totalPages};
-      if (section && currentPage >= 0 && currentPage < section->pageCount) {
-        if (const auto offset = section->getVisibleTextOffsetForPage(static_cast<uint16_t>(currentPage))) {
-          localPos.visibleTextOffset = *offset;
-          localPos.hasVisibleTextOffset = true;
-        }
-      }
-      if (paragraphIndex.has_value()) {
-        localPos.paragraphIndex = *paragraphIndex;
-        localPos.hasParagraphIndex = true;
-      }
-      if (listItemIndex.has_value()) {
-        localPos.liIndex = *listItemIndex;
-        localPos.hasLiIndex = true;
-      }
-      const DocumentMatchMethod matchMethod = KOREADER_STORE.getMatchMethod();
-      const PositionCoordinateSpace coordinateSpace = matchMethod == DocumentMatchMethod::FILENAME
-                                                          ? PositionCoordinateSpace::SourceDocument
-                                                          : PositionCoordinateSpace::CurrentDocument;
-      KOReaderPosition localKoPos = ProgressMapper::toKOReader(epub, localPos, coordinateSpace);
-      if (!localKoPos.valid) {
-        LOG_ERR("NBPS", "Cannot resolve nearby sync position (needs re-optimization=%d)",
-                localKoPos.needsReoptimization);
-        drawToast(renderer,
-                  localKoPos.needsReoptimization ? tr(STR_SYNC_REOPTIMIZE_REQUIRED) : tr(STR_SYNC_FAILED_MSG));
-        delay(1200);
-        requestUpdate();
-        break;
-      }
-      const int tocIdx = epub->getTocIndexForSpineIndex(currentSpineIndex);
-      std::string localChapterName = (tocIdx >= 0) ? epub->getTocItem(tocIdx).title : "";
-      const std::string savedEpubPath = epub->getPath();
-
-      if (!saveProgress(currentSpineIndex, currentPage, totalPages)) {
-        LOG_ERR("NBPS", "Aborting nearby position sync because current progress could not be saved");
-        pendingSyncSaveError = true;
-        requestUpdate();
-        return;
-      }
-
-      LOG_DBG("NBPS", "Releasing section for nearby position sync (heap before: %u)", (unsigned)ESP.getFreeHeap());
-      {
-        RenderLock lock(*this);
-        if (section) {
-          nextPageNumber = section->currentPage;
-        }
-        section.reset();
-      }
-      LOG_DBG("NBPS", "Section released for nearby position sync (heap after: %u)", (unsigned)ESP.getFreeHeap());
-
-      auto syncActivity = makeUniqueNoThrow<NearbyBookPositionSyncActivity>(
-          renderer, mappedInput, epub, savedEpubPath, currentSpineIndex, currentPage, totalPages, std::move(localKoPos),
-          std::move(localChapterName), matchMethod, paragraphIndex, listItemIndex);
-      if (!syncActivity) {
-        LOG_ERR("NBPS", "OOM opening nearby position sync");
-        requestUpdate();
-        break;
-      }
-      if (replacementResume) APP_STATE.setPendingOverlayResume(*replacementResume);
-      pauseReadingPaceTimer("nearby_position_sync");
-      activityManager.replaceActivity(std::move(syncActivity));
-      break;
-    }
     case EpubReaderMenuAction::BOOKMARK_TOGGLE: {
       const int bookmarkPageCount = section ? section->estimatedTotalPages() : 0;
       if (activeFootnotePreview || !section || bookmarkPageCount == 0 || section->pageCount == 0) break;
@@ -4728,9 +4636,7 @@ bool EpubReaderActivity::handleFrontlightPanelResult(const FrontlightPanelResult
     handled = true;
   }
   if (result.action == FrontlightPanelAction::None) return handled;
-  if (result.action != FrontlightPanelAction::SyncProgress &&
-      result.action != FrontlightPanelAction::NearbyPositionSync &&
-      result.action != FrontlightPanelAction::SendNearbyBook) {
+  if (result.action != FrontlightPanelAction::SyncProgress) {
     return false;
   }
 
@@ -4747,19 +4653,12 @@ bool EpubReaderActivity::handleFrontlightPanelResult(const FrontlightPanelResult
     onReaderMenuConfirm(EpubReaderMenuAction::SYNC, false, &resume);
     return true;
   }
-  if (result.action == FrontlightPanelAction::NearbyPositionSync) {
-    onReaderMenuConfirm(EpubReaderMenuAction::NEARBY_POSITION_SYNC, false, &resume);
-    return true;
-  }
-  if (!activityManager.goToNearbyBookSend(epub->getPath(), true)) return false;
-  APP_STATE.setPendingOverlayResume(std::move(resume));
-  return true;
+  return false;
 }
 
 bool EpubReaderActivity::handleExternalReaderMenuAction(const uint8_t action) {
   // READING_STATS: a sync started there returns to that screen.
-  if (action != static_cast<uint8_t>(EpubReaderMenuAction::NEARBY_POSITION_SYNC) &&
-      action != static_cast<uint8_t>(EpubReaderMenuAction::READING_STATS))
+  if (action != static_cast<uint8_t>(EpubReaderMenuAction::READING_STATS))
     return false;
   onReaderMenuConfirm(static_cast<EpubReaderMenuAction>(action));
   return true;
@@ -5377,9 +5276,6 @@ bool EpubReaderActivity::handleShortcutAction(const uint8_t rawAction) {
     case CrossPointSettings::SHORT_PWRBTN::PREVIOUS_PAGE:
       requestManualPageTurn(false, "home_button");
       return true;
-    case CrossPointSettings::SHORT_PWRBTN::NEARBY_POSITION_SYNC:
-      onReaderMenuConfirm(EpubReaderMenuAction::NEARBY_POSITION_SYNC);
-      return true;
     case CrossPointSettings::SHORT_PWRBTN::ROTATE_FLIP:
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_ROTATE_FLIP);
       return true;
@@ -5478,9 +5374,6 @@ bool EpubReaderActivity::handleShortcutAction(const CrossPointSettings::SHORT_PW
       return true;
     case CrossPointSettings::SHORT_PWRBTN::PREVIOUS_PAGE:
       requestManualPageTurn(false, "shortcut");
-      return true;
-    case CrossPointSettings::SHORT_PWRBTN::NEARBY_POSITION_SYNC:
-      onReaderMenuConfirm(EpubReaderMenuAction::NEARBY_POSITION_SYNC);
       return true;
     case CrossPointSettings::SHORT_PWRBTN::ROTATE_FLIP:
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_ROTATE_FLIP);
@@ -5687,9 +5580,6 @@ bool EpubReaderActivity::executeShortPowerButtonAction() {
   }
 
   switch (SETTINGS.shortPwrBtn) {
-    case CrossPointSettings::SHORT_PWRBTN::NEARBY_POSITION_SYNC:
-      onReaderMenuConfirm(EpubReaderMenuAction::NEARBY_POSITION_SYNC);
-      return true;
     case CrossPointSettings::SHORT_PWRBTN::ROTATE_FLIP:
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_ROTATE_FLIP);
       return true;
@@ -5827,10 +5717,6 @@ bool EpubReaderActivity::executeLongPowerButtonAction() {
     case CrossPointSettings::SHORT_PWRBTN::SYNC_PROGRESS:
       mappedInput.suppressNextPowerConfirmRelease();
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_SYNC_PROGRESS);
-      return true;
-    case CrossPointSettings::SHORT_PWRBTN::NEARBY_POSITION_SYNC:
-      mappedInput.suppressNextPowerConfirmRelease();
-      onReaderMenuConfirm(EpubReaderMenuAction::NEARBY_POSITION_SYNC);
       return true;
     case CrossPointSettings::SHORT_PWRBTN::MARK_FINISHED:
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_MARK_FINISHED);
@@ -6276,7 +6162,6 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn, const char* source) {
       pendingStableReadSpine = currentSpineIndex;
       pendingStableReadPage = section ? section->currentPage : nextPageNumber;
     }
-    pluginEvents.noteTurn(true);
     if (shouldRecordForwardRead) {
       if (!exitingChapter) {
         recordForwardPagePaceSample(forwardReadSeconds, source);
@@ -6288,7 +6173,6 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn, const char* source) {
     }
   } else {
     recordCurrentPageReadingTime(source, /*deferStorage=*/true);
-    pluginEvents.noteTurn(false);
     hasStableTextPosition = false;
     pendingStableReadSeconds = 0;
     armReadingPaceWarmup("back_page");
@@ -7125,7 +7009,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     if (heapShapeRedrawStages & HEAP_SHAPE_REDRAW_DICT) {
       MemoryBudget::logHeapShape("dict.reader_redrawn");
     }
-    if (!activeFootnotePreview) pluginEvents.rendered(static_cast<int>(getCurrentBookProgressPercent() * 100));
     pageShownAtMs = activeFootnotePreview ? 0UL : millis();
     startDailyReadingInterval();
   }

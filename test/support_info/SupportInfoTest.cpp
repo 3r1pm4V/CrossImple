@@ -90,7 +90,7 @@ TEST(SupportInfo, SchemaAndExplicitNumericAllowlist) {
   EXPECT_EQ(d["globalPreferences"]["statusHidden"][1].as<int>(), 0);
   auto prefs = d["globalPreferences"].as<JsonObjectConst>();
   for (const char* key :
-       {"deviceName", "opdsServerUrl", "opdsUsername", "opdsPassword", "opdsDownloadFolder", "nearbyReceiveFolder",
+       {"deviceName", "opdsServerUrl", "opdsUsername", "opdsPassword", "opdsDownloadFolder",
         "sdFontFamilyName", "dictionarySdFontFamilyName", "password_obf", "openEpubPath"})
     EXPECT_FALSE(prefs.containsKey(key)) << key;
   EXPECT_STREQ(d["bookContext"]["status"], "excluded");

@@ -260,12 +260,7 @@ const std::vector<SettingInfo>& getBaseSettingsList() {
                           {StrId::STR_MENU_DIRECTIONAL, StrId::STR_MENU_CLASSIC}, "menuNavigation",
                           StrId::STR_CAT_CONTROLS));
 
-#if FREEINK_DEVICE_PICCO
-    add(SettingInfo::Enum(
-        StrId::STR_SLIDE_SWITCH, &CrossPointSettings::slideSwitchAction,
-        {StrId::STR_FRONTLIGHT, StrId::STR_READER_DARK_MODE, StrId::STR_TOGGLE_TOUCHSCREEN, StrId::STR_TILT_PAGE_TURN},
-        "slideSwitchAction", StrId::STR_CAT_CONTROLS));
-#endif
+
 
     // --- System ---
     add(SettingInfo::Enum(StrId::STR_WIFI_TRANSMIT_POWER, &CrossPointSettings::wifiTransmitPower,
@@ -293,14 +288,10 @@ const std::vector<SettingInfo>& getBaseSettingsList() {
                             "removeReadBooksFromRecents", StrId::STR_CAT_SYSTEM));
     add(SettingInfo::Toggle(StrId::STR_MOVE_FINISHED_TO_READ, &CrossPointSettings::moveFinishedToReadFolder,
                             "moveFinishedToReadFolder", StrId::STR_CAT_SYSTEM));
-    // STR_AUTO_BACKUP_STATS removed for CrossImple
     // Persisted and available to the web settings API, but category-less because
     // the on-device editor lives under System > OPDS Servers.
     add(SettingInfo::String(StrId::STR_OPDS_DEFAULT_FOLDER, SETTINGS.opdsDownloadFolder,
                             sizeof(SETTINGS.opdsDownloadFolder), "opdsDownloadFolder"));
-    // Persisted here, but edited from the nearby receive screen's folder picker.
-    add(SettingInfo::String(StrId::STR_NEARBY_RECEIVE_FOLDER, SETTINGS.nearbyReceiveFolder,
-                            sizeof(SETTINGS.nearbyReceiveFolder), "nearbyReceiveFolder"));
     add(SettingInfo::Value(StrId::STR_IDLE_TIME_THRESHOLD, &CrossPointSettings::readingIdleTimeThresholdUnits,
                            {CrossPointSettings::MIN_READING_IDLE_TIME_THRESHOLD_UNITS,
                             CrossPointSettings::MAX_READING_IDLE_TIME_THRESHOLD_UNITS, 1},

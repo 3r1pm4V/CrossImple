@@ -413,8 +413,6 @@ inline uint8_t shortcutRawValue(const ShortcutOptionCatalog catalog, const Cross
           return Chord::CHORD_CYCLE_PAGE_TURN;
         case Action::SYNC_PROGRESS:
           return Chord::CHORD_SYNC_PROGRESS;
-        case Action::NEARBY_POSITION_SYNC:
-          return Chord::CHORD_NEARBY_POSITION_SYNC;
         case Action::LIBRARY:
           return Chord::CHORD_LIBRARY;
         case Action::SELECT_CHAPTER:
@@ -527,7 +525,6 @@ inline uint8_t shortcutRawValue(const ShortcutOptionCatalog catalog, const Cross
           return LongPress::LONG_MENU_TOGGLE_PAGE_TURN_GESTURES;
         case Action::PAGE_TURN:
         case Action::PREVIOUS_PAGE:
-        case Action::NEARBY_POSITION_SYNC:
         case Action::TOGGLE_HOME_BUTTON_IN_READER:
         case Action::TOGGLE_FRONTLIGHT:
         case Action::TOGGLE_TOUCHSCREEN:
@@ -634,14 +631,8 @@ inline constexpr size_t BASE_SETTINGS_CAPACITY = 112 + (CROSSINK_APP_CAP_TOUCH ?
 inline constexpr size_t BASE_SETTINGS_CAPACITY = 111 + (CROSSINK_APP_CAP_TOUCH ? 4 : 0);
 #endif
 
-#if FREEINK_DEVICE_PICCO
-inline constexpr size_t SLIDE_SWITCH_SETTINGS_COUNT = 1;
-#else
-inline constexpr size_t SLIDE_SWITCH_SETTINGS_COUNT = 0;
-#endif
-
 inline size_t getBaseSettingsCapacity() {
-  return BASE_SETTINGS_CAPACITY + (QuickActions::supportsTiltPageTurn() ? 3 : 0) + SLIDE_SWITCH_SETTINGS_COUNT;
+  return BASE_SETTINGS_CAPACITY + (QuickActions::supportsTiltPageTurn() ? 3 : 0);
 }
 
 const std::vector<SettingInfo>& getBaseSettingsList();
@@ -926,7 +917,7 @@ inline std::vector<SettingInfo> buildControlsSettingsParentList(const std::vecto
   const bool hasHomeKey = gpio.hasHomeKey();
 
   std::vector<SettingInfo> settings;
-  settings.reserve(3 + SLIDE_SWITCH_SETTINGS_COUNT + (hasHomeKey ? 1u : 0u) + (hasFrontButtons ? 2u : 0u) +
+  settings.reserve(3 + (hasHomeKey ? 1u : 0u) + (hasFrontButtons ? 2u : 0u) +
                    (hasTiltPageTurnSetting ? 1u : 0u) + (hasTiltPageTurnDirectionSetting ? 1u : 0u) +
                    (hasTiltNextPageOnlySetting ? 1u : 0u) + (hasTapsGestures ? 1u : 0u));
   if (hasHomeKey) {
@@ -945,9 +936,6 @@ inline std::vector<SettingInfo> buildControlsSettingsParentList(const std::vecto
   if (hasTiltPageTurnDirectionSetting) addSettingByName(settings, allSettings, StrId::STR_TILT_PAGE_TURN_DIRECTION);
   if (hasTiltNextPageOnlySetting) addSettingByName(settings, allSettings, StrId::STR_TILT_NEXT_PAGE_ONLY);
   if (hasFrontButtons) addSettingByKey(settings, allSettings, "menuNavigation");
-#if FREEINK_DEVICE_PICCO
-  addSettingByKey(settings, allSettings, "slideSwitchAction");
-#endif
   return settings;
 }
 
@@ -1132,11 +1120,8 @@ inline std::vector<SettingInfo> buildSystemSettingsParentList(const std::vector<
   systemSettings.push_back(SettingInfo::Action(StrId::STR_WIFI_NETWORKS, SettingAction::Network));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_SYNC_SERVER, SettingAction::KOReaderSync));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser));
-#if !FREEINK_DEVICE_PICCO
-  // Picco retains the vendor recovery slot and has no spare application slot.
   systemSettings.push_back(SettingInfo::Action(StrId::STR_CHECK_UPDATES, SettingAction::CheckForUpdates));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_SD_FIRMWARE_UPDATE, SettingAction::SdFirmwareUpdate));
-#endif
   systemSettings.push_back(SettingInfo::Action(StrId::STR_RELEASE_NOTES, SettingAction::ReleaseNotes));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_ABOUT, SettingAction::About));
   return systemSettings;

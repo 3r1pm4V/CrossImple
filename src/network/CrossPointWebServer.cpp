@@ -56,7 +56,6 @@
 #include "html/FontsPageHtml.generated.h"
 #include "html/HomePageHtml.generated.h"
 #include "html/LogoPng.generated.h"
-#include "html/PluginHostJs.generated.h"
 #include "html/SettingsPageHtml.generated.h"
 #include "html/StyleCss.generated.h"
 #include "html/js/jszip_minJs.generated.h"
@@ -199,7 +198,6 @@ bool isWebSettingAvailable(const SettingInfo& setting) {
   if (!halClock.isAvailable()) {
     switch (setting.nameId) {
       case StrId::STR_HIDE_CLOCK:
-      case StrId::STR_AUTO_BACKUP_STATS:
       case StrId::STR_CLOCK_UTC_OFFSET:
       case StrId::STR_CLOCK_FORMAT:
       case StrId::STR_DATE_FORMAT:
@@ -480,22 +478,6 @@ void CrossPointWebServer::begin() {
   server->on("/style.css", HTTP_GET, [this] { handleStyleCss(); });
   server->on("/logo.png", HTTP_GET, [this] { handleLogo(); });
 
-  server->on("/plugin-host.js", HTTP_GET, [this] {
-    server->sendHeader("Content-Encoding", "gzip");
-    server->send_P(200, "application/javascript", PluginHostJs, PluginHostJsCompressedSize);
-  });
-  server->on("/api/plugins", HTTP_GET, [this] { handlePluginList(); });
-  server->on("/plugin", HTTP_GET, [this] { handlePluginFile(); });
-  server->on("/plugins-run", HTTP_GET, [this] { handlePluginRunnerPage(); });
-  server->on("/api/plugin-jobs", HTTP_POST, [this] { handlePluginJobSubmit(); });
-  server->on("/api/plugin-jobs/claim", HTTP_GET, [this] { handlePluginJobClaim(); });
-  server->on("/api/plugin-jobs/complete", HTTP_POST, [this] { handlePluginJobComplete(); });
-  server->on("/api/plugin-jobs/status", HTTP_GET, [this] { handlePluginJobStatus(); });
-  server->on("/api/relay", HTTP_POST, [this] { handleRelay(); });
-  server->on("/api/crypto", HTTP_POST, [this] { handleCrypto(); });
-  server->on("/api/fetch", HTTP_POST, [this] { handleFetch(); });
-  server->on("/api/book-key", HTTP_POST, [this] { handleBookKey(); });
-  server->on("/api/plugin-fs", HTTP_POST, [this] { handlePluginFs(); }, [this] { handlePluginFsUpload(); });
   server->on("/api/status", HTTP_GET, [this] { handleStatus(); });
   server->on("/api/files", HTTP_GET, [this] { handleFileListData(); });
   server->on("/download", HTTP_GET, [this] { handleDownload(); });
@@ -624,9 +606,6 @@ void CrossPointWebServer::stop() {
     return;
   }
 
-  if (pluginFsUpload.file.isOpen()) pluginFsUpload.file.close();
-  if (!pluginFsUpload.tmp.empty()) Storage.remove(pluginFsUpload.tmp.c_str());
-  pluginFsUpload = PluginFsUploadState{};
   running = false;  // Set this FIRST to prevent handleClient from using server
 
   LOG_DBG("WEB", "[MEM] Free heap before stop: %d bytes", ESP.getFreeHeap());
@@ -800,29 +779,11 @@ void CrossPointWebServer::handleStatus() const {
   JsonDocument doc;
   doc["version"] = AppVersion::version();
   doc["firmwareFamily"] = firmwareidentity::FAMILY;
-  doc["pluginApi"] = firmwareidentity::PLUGIN_API_VERSION;
-  doc["pluginCapabilities"] = firmwareidentity::PLUGIN_CAPABILITIES;
   doc["ip"] = ipAddr;
   doc["mode"] = apMode ? "AP" : "STA";
   doc["rssi"] = apMode ? 0 : WiFi.RSSI();
   doc["freeHeap"] = ESP.getFreeHeap();
   doc["uptime"] = millis() / 1000;
-  // ?plugin=<name> adds a stable device ID for that plugin: sha256(secret ||
-  // name). Not reversible to any hardware ID, and different per plugin.
-  std::string plugin = server->arg("plugin").c_str();
-  for (char& c : plugin) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  uint8_t secret[32];
-  if (SETTINGS.pluginsEnabled && !plugin.empty() && plugin.length() <= 64 && deviceSecret(secret)) {
-    uint8_t input[32 + 64];
-    memcpy(input, secret, sizeof(secret));
-    memcpy(input + sizeof(secret), plugin.c_str(), plugin.length());
-    uint8_t hash[32];
-    if (wc_Sha256Hash(input, sizeof(secret) + plugin.length(), hash) == 0) {
-      char hex[65];
-      for (size_t i = 0; i < sizeof(hash); i++) snprintf(hex + 2 * i, 3, "%02x", hash[i]);
-      doc["deviceId"] = hex;
-    }
-  }
 
 #if FREEINK_DEVICE_X4 || FREEINK_DEVICE_X3
   doc["device"] = gpio.deviceIsX3() ? "X3" : "X4";
@@ -2854,6 +2815,3 @@ void CrossPointWebServer::resumeTransferServices() {
           (unsigned)ESP.getMaxAllocHeap());
 }
 
-void CrossPointWebServer::releasePluginRequest() {
-  static_cast<CrossPointHttpServer*>(server.get())->releaseRequestArguments();
-}
