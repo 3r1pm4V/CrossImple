@@ -87,7 +87,7 @@ int scaled75SourceEnd(const int dst, const int srcLimit) {
 void draw2BitFontPixel(const GfxRenderer& renderer, const GfxRenderer::RenderMode renderMode, const int x, const int y,
                        const uint8_t raw, const bool pixelState) {
   const uint8_t bmpVal = 3 - raw;
-  const uint8_t bwLimit = renderer.monochromeTextThreshold() ? 2 : 3;
+  const uint8_t bwLimit = 3;
   if (renderMode == GfxRenderer::BW && bmpVal < bwLimit) {
     renderer.drawPixel(x, y, pixelState);
   } else if (renderMode == GfxRenderer::GRAYSCALE_MSB && (bmpVal == 1 || bmpVal == 2)) {

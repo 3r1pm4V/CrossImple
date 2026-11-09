@@ -98,7 +98,7 @@ inline void draw(const uint8_t* bitmap, int width, int height, bool twoBit, Plan
   bool clearBits = state;
   if (twoBit) {
     levels = plane == Plane::BW             ? 0x0e
-             : plane == Plane::BWMonochrome ? 0x0c
+             : plane == Plane::BWMonochrome ? 0x0e
              : plane == Plane::GrayMSB      ? 0x06
                                             : 0x04;
     if (plane != Plane::BW && plane != Plane::BWMonochrome) clearBits = false;

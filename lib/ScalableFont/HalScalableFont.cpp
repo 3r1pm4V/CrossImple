@@ -34,7 +34,7 @@ constexpr size_t KerningCacheSlots = 2048;
 static_assert((PixelCacheSlots & (PixelCacheSlots - 1)) == 0, "PixelCacheSlots must be a power of two");
 static_assert((MetricCacheSlots & (MetricCacheSlots - 1)) == 0, "MetricCacheSlots must be a power of two");
 static_assert((KerningCacheSlots & (KerningCacheSlots - 1)) == 0, "KerningCacheSlots must be a power of two");
-constexpr uint32_t AdapterRevision = 11;
+constexpr uint32_t AdapterRevision = 12;
 constexpr uint32_t SfntChecksumMagic = 0xB1B0AFBAu;
 // Unicode ends at 0x10FFFF, so the high bit safely marks a shaped glyph ID in
 // EpdGlyph::dataOffset without adding renderer-specific state to the SDK.
@@ -259,10 +259,10 @@ struct Runtime {
       const uint8_t* row = bitmap->pixels + size_t(y) * bitmap->width;
       for (unsigned x = 0; x < bitmap->width; ++x) {
         const unsigned value = row[x] >> 4;
-        // Match the .cpfont converter's darkened 3/6/10 cutoffs (--darken-aa)
-        // when stem darkening is enabled, or 4/8/12 otherwise.
-        const uint8_t coverage = stemDarkening ? (value < 3 ? 0 : value < 6 ? 1 : value < 10 ? 2 : 3)
-                                               : (value < 4 ? 0 : value < 8 ? 1 : value < 12 ? 2 : 3);
+        // Same 25/50/75% level thresholds as v0.16 (TtfEpdFont.cpp: a < 64/128/192),
+        // paired with Plane::BW / Plane::BWMonochrome = 0x0e so every >= 25% pixel inks.
+        (void)stemDarkening;
+        const uint8_t coverage = value < 4 ? 0 : value < 8 ? 1 : value < 12 ? 2 : 3;
         const size_t index = size_t(y) * bitmap->width + x;
         dest[index / 4] |= coverage << (6 - (index % 4) * 2);
       }
@@ -877,9 +877,11 @@ const EpdFont* HalScalableFont::atSize(uint8_t points) {
               unsigned(scalableFontPixelSize26_6(points)));
       return nullptr;
     }
-    d.ascender = ceil26_6(metrics.ascender26_6);
-    d.descender = floor26_6(metrics.descender26_6);
-    d.advanceY = uint8_t(std::clamp(ceil26_6(metrics.height26_6), 1, 255));
+    const int ascent = static_cast<int>((metrics.ascender26_6 + 32) >> 6);
+    const int lineHeight = static_cast<int>((metrics.height26_6 + 32) >> 6);
+    d.ascender = ascent;
+    d.descender = lineHeight - ascent > 0 ? lineHeight - ascent : 0;
+    d.advanceY = uint8_t(std::clamp(lineHeight, 1, 255));
     size.owner = this;
   }
   return &size.font;

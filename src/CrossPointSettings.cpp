@@ -536,6 +536,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   doc["languageCacheGeneration"] = languageCacheGeneration;
   if (keyboardLayouts != 0) doc["keyboardLayouts"] = keyboardLayouts;
   doc["tiltPageTurnDirectionSchema"] = TILT_DIRECTION_SCHEMA_CURRENT;
+  doc["characterSpacingSchema"] = 2;
   doc["clockDateHasBeenSynced"] = clockDateHasBeenSynced;
   doc["screenInverted"] = screenInverted;
 }
@@ -623,6 +624,14 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
     // Keep native CrossInk levels intact, including files at the legacy path.
     if (importingCrossPoint && info.valuePtr == &CrossPointSettings::wordSpacing && value == 100) {
       value = 0;
+      needsResave = true;
+    }
+    // CrossPoint (v0.16) stored characterSpacing in 0..4 with offset 2 (2 = 0px),
+    // whereas CrossInk stores 0..10 in 0.5px steps with offset 5 (5 = 0px).
+    // Heal both direct imports and earlier un-migrated crossink-settings.json files.
+    if (info.valuePtr == &CrossPointSettings::characterSpacing &&
+        (importingCrossPoint || (doc["characterSpacingSchema"] | 1) < 2) && value == 2) {
+      value = 5;
       needsResave = true;
     }
     if (strcmp(info.key, "sdFontSizeRange") == 0 && value == SD_FONT_RANGE_NO_EMOJI_LEGACY) {
