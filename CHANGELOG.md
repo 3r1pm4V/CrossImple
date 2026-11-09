@@ -1,5 +1,14 @@
 ## [v0.22] - 2026-11-09
 
+### Đã thêm & Tối ưu (Added & Improved)
+- **Tối ưu hiển thị Font `.ttf` / `.otf` Tiếng Việt sắc nét, đậm đều như `.cpfont` (X4 Classic & X4 Pro)**:
+  - Kích hoạt cờ `AF_LATIN_HINTS_HORZ_SNAP | AF_LATIN_HINTS_VERT_SNAP` trong FreeType Auto-Hinter qua header bọc `include/freetype/ftadvanc.h`, giúp căn chỉnh độ dày nét ngang/dọc và dấu thanh tiếng Việt đồng đều giữa các dòng.
+  - Bật mặc định `stemDarkening = true` và hạ ngưỡng lượng tử hóa 4 mức xám từ `(4, 8, 12)` xuống `(3, 6, 10)` đồng bộ với công cụ tạo `.cpfont` (`--darken-aa`).
+  - Tự động nâng cấp cấu hình `ttf-rendering.json` cũ (v1 -> v2) và tự động dàn trang lại trong trình đọc `TXT` khi thay đổi `TTF Render Options`.
+- **Nâng cấp Bộ đệm Font PSRAM lên 2048 Slot (2-Way Set-Associative LRU + MurmurHash3 64-bit)**:
+  - Mở rộng `PixelCacheSlots`, `MetricCacheSlots`, `KerningCacheSlots` từ `512` lên `2048` slot trên PSRAM (0 byte RAM nội).
+  - Thay hàm modulo tuyến tính bằng bộ trộn bit 64-bit MurmurHash3 (`fmix64`) và cấu trúc 2-Way Set-Associative LRU, loại bỏ triệt để hiện tượng đụng độ băm chu kỳ `0x1E00 = 15 × 512` giữa khối Latin-1 (`U+00C0..U+00F9`) và khối dấu tiếng Việt mở rộng (`U+1EA0..U+1EF9`).
+
 ### Đã gỡ bỏ (Removed)
 - Gỡ bỏ hoàn toàn mã nguồn của tính năng chia sẻ ngang hàng (Nearby File Transfer, Nearby Stats Sync, Nearby Position Sync) và thư viện liên kết `NearbyTransfer`.
 - Gỡ bỏ hoàn toàn hệ thống Plugin (Plugin System, Plugin Hub, Plugin Server, Plugin Reader Events, các API Web `/api/plugin*` và route liên quan).

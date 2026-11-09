@@ -30,6 +30,7 @@
 | **Bảo vệ bảng FAT trên thẻ SD (`0003-sync-fat-before-data-cache.patch`)** | **[CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)** (`crosspoint-reader-develop`) | `scripts/sdfat_patches/0003-sync-fat-before-data-cache.patch`, `scripts/patch_sdfat.py` |
 | **Đồng bộ chốt nguồn Deep Sleep trên ESP32-C3 (`gpio_hold_dis(latch)`)** | **[CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)** (`crosspoint-reader-develop`) | `lib/hal/HalPowerManager.cpp` |
 | **Tách biệt Cache SDK theo từng kiến trúc chip (`patch_pioarduino_cache.py`)** | **CrossImple Custom** (Tự phát triển) | `scripts/patch_pioarduino_cache.py`, `platformio.ini` |
+| **Tối ưu hiển thị Font `.ttf`/`.otf` Tiếng Việt sắc nét (FreeType Auto-Hinter `HORZ_SNAP | VERT_SNAP`, Lượng tử hóa `(3, 6, 10)`, Cache PSRAM 2048-slot 2-Way LRU MurmurHash3)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont` & FreeType Auto-Hinter) | `include/freetype/ftadvanc.h`, `lib/ScalableFont/HalScalableFont.cpp`, `src/TtfRenderProfileStore.cpp`, `src/activities/reader/TxtReaderActivity.cpp` |
 | **Hỗ trợ Font CJK 16MB/32MB, Streaming FreeType & Reader Font Fallback (EPUB & TXT song ngữ)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont` & `GfxRenderer`) | `lib/ScalableFont/`, `lib/GfxRenderer/`, `src/FilenameFontSystem.cpp`, `src/SdCardFontSystem.cpp` |
 | **Tinh giản Hệ thống theo Triết lý Simple (Gỡ bỏ Plugins, Nearby Transfer, Cloud Stats, Auto Backup ngầm)** | **CrossImple Custom** (Tối ưu theo triết lý Simple) | `src/SettingsList.cpp`, `src/activities/home/HomeActivity.cpp`, `src/activities/network/NetworkModeSelectionActivity.cpp` |
 | **Lật trang 1-Bit Siêu tốc, Tự động ngắt WiFi thông minh, Bộ lọc Thư mục Rác HĐH & Làm mới Toàn trang Thông minh** | **CrossImple Custom** (Tự phát triển theo triết lý Simple) | `src/activities/reader/EpubReaderActivity.cpp`, `src/network/CrossPointWebServerActivity.cpp`, `lib/FsHelpers/FsHelpers.cpp` |
@@ -42,13 +43,20 @@
 
 ## 📝 Nhật ký thay đổi (Changelog)
 
-### Phiên bản v0.22 (Bản tinh giản mã nguồn - Pruned Dead Features)
-* **Gỡ bỏ triệt để mã nguồn tính năng đã ẩn (Flash & RAM Optimization)**:
-  * Xóa hoàn toàn mã nguồn của Nearby Transfer (NearbyBookTransfer, NearbyStatsSync, NearbyBookPositionSync) và thư viện liên kết.
-  * Xóa hoàn toàn mã nguồn hệ thống Plugins (Plugin Hub, Plugin Server, Plugin Reader Events, các API Web /api/plugin*).
-  * Dọn dẹp trường cấu hình autoBackupStats và các chuỗi dịch không còn dùng.
-  * Gỡ bỏ các board thử nghiệm upstream không sử dụng (Picco, Sticky) để giữ codebase gọn gàng, tập trung cho X3, X4 Classic, X4 Pro.
-  * Giảm ~200-220 KB dung lượng Flash và ~1.9 KB RAM tĩnh trên mọi thiết bị.
+### Phiên bản v0.22 (Tối ưu hiển thị Font `.ttf`/`.otf` Tiếng Việt & Tinh giản mã nguồn)
+* **Hiển thị Font `.ttf` / `.otf` Tiếng Việt sắc nét, đậm đều tương đương `.cpfont` (X4 Classic & X4 Pro)** *(Nguồn: CrossImple Custom)*:
+  * **Khóa lưới nét chữ FreeType Auto-Hinter (`HORZ_SNAP | VERT_SNAP`):** Tự động kích hoạt cờ `AF_LATIN_HINTS_HORZ_SNAP | AF_LATIN_HINTS_VERT_SNAP` cho bộ Auto-Hinter qua header bọc `include/freetype/ftadvanc.h`, giúp căn chỉnh độ dày các nét ngang, nét dọc và dấu thanh tiếng Việt đồng nhất giữa mọi dòng văn bản.
+  * **Lượng tử hóa 4 mức xám đậm nét `(3, 6, 10)` & Bật mặc định `Stem Darkening`:** Đồng bộ ngưỡng cắt mức xám từ `(4, 8, 12)` xuống `(3, 6, 10)` chuẩn như công cụ biên dịch `.cpfont` (`--darken-aa`), khắc phục triệt để hiện tượng chữ `.ttf`/`.otf` bị mảnh nét hoặc nhạt màu trên màn hình E-Ink.
+  * **Đồng bộ cấu hình `TTF Render Options` trên cả EPUB & TXT:** Tự động nâng cấp hồ sơ `ttf-rendering.json` cũ (v1 -> v2) và tự động dàn trang lại trong trình đọc `TXT` ngay khi thay đổi tùy chọn hiển thị font mà vẫn giữ nguyên vị trí trang đang đọc.
+* **Nâng cấp Bộ đệm Font PSRAM lên 2048 Slot (2-Way Set-Associative LRU + Hàm băm 64-bit MurmurHash3)** *(Nguồn: CrossImple Custom)*:
+  * Mở rộng bảng đệm `PixelCacheSlots`, `MetricCacheSlots`, `KerningCacheSlots` từ `512` lên **2048 slot** trong PSRAM (tốn 0 byte RAM nội).
+  * Thay thế phép chia dư tuyến tính bằng bộ trộn bit 64-bit MurmurHash3 (`fmix64`) kết hợp cấu trúc cache kết hợp 2 chiều (**2-Way Set-Associative LRU**), triệt tiêu hoàn toàn hiện tượng đụng độ chu kỳ `0x1E00 = 15 × 512` giữa hai vùng dấu tiếng Việt (`U+00C0..U+00F9` và `U+1EA0..U+1EF9`) cũng như giữa 4 kiểu chữ (`Regular`/`Bold`/`Italic`/`BoldItalic`).
+* **Gỡ bỏ triệt để mã nguồn tính năng đã ẩn (Flash & RAM Optimization)** *(Nguồn: CrossImple Custom)*:
+  * Xóa hoàn toàn mã nguồn của Nearby Transfer (`NearbyBookTransfer`, `NearbyStatsSync`, `NearbyBookPositionSync`) và thư viện liên kết.
+  * Xóa hoàn toàn mã nguồn hệ thống Plugins (`Plugin Hub`, `Plugin Server`, `Plugin Reader Events`, các API Web `/api/plugin*`).
+  * Dọn dẹp trường cấu hình `autoBackupStats` và các chuỗi dịch không còn dùng.
+  * Gỡ bỏ các board thử nghiệm upstream không sử dụng (`Picco`, `Sticky`) để giữ codebase gọn gàng, tập trung 100% cho `X3`, `X4 Classic`, `X4 Pro`.
+  * Giảm ~200–220 KB dung lượng Flash và ~1.9 KB RAM tĩnh trên mọi thiết bị.
 
 ### Phiên bản v0.21
 * **Hỗ trợ Font Tiếng Trung / CJK Dung lượng lớn & Font Fallback Trình đọc sách** *(Nguồn: CrossImple Custom)*:
