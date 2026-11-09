@@ -6,10 +6,11 @@
   - **ROM Thuần X3 (`-DFREEINK_DEVICE_X4=0 -DFORCE_DEVICE_X3=1`):** Tách hẳn driver màn hình `SSD1677` của X4 C3 đời đầu và bỏ qua bước probe `XteinkDetect` lúc khởi động để tối ưu tốc độ Wake và dung lượng Flash cho X3.
   - **Tắt Serial Log ở bản Release X3 (`-DLOG_LEVEL=0`):** Giải phóng dung lượng Flash `.rodata` và giảm tải CPU đơn nhân `ESP32-C3` khi mở sách nặng.
   - **Adaptive Idle Polling (`InputWake.cpp` & `main.cpp`):** Tự động giãn chu kỳ quét ADC phím từ `10 ms` lên `20 ms` và chu kỳ nghỉ vòng lặp chính từ `50 ms` lên `100 ms` sau 3 giây không chạm phím (phản hồi tức thì ở `2 ms` ngay khi bấm nút), tiết kiệm thêm 15–20% pin khi đang đọc.
-- **Tối ưu hiển thị Font `.ttf` / `.otf` Tiếng Việt sắc nét, đậm đều như `.cpfont` (X4 Classic & X4 Pro)**:
-  - Kích hoạt cờ `AF_LATIN_HINTS_HORZ_SNAP | AF_LATIN_HINTS_VERT_SNAP` trong FreeType Auto-Hinter qua header bọc `include/freetype/ftadvanc.h`, giúp căn chỉnh độ dày nét ngang/dọc và dấu thanh tiếng Việt đồng đều giữa các dòng.
-  - Bật mặc định `stemDarkening = true` và hạ ngưỡng lượng tử hóa 4 mức xám từ `(4, 8, 12)` xuống `(3, 6, 10)` đồng bộ với công cụ tạo `.cpfont` (`--darken-aa`).
-  - Tự động nâng cấp cấu hình `ttf-rendering.json` cũ (v1 -> v2) và tự động dàn trang lại trong trình đọc `TXT` khi thay đổi `TTF Render Options`.
+- **Đồng bộ 100% hiển thị Font `.ttf` / `.otf` & `.cpfont` chuẩn `v0.16` (X4 Classic, X4 Pro & X3)**:
+  - Khôi phục mặt nạ `Plane::BWMonochrome = 0x0e` trong `GlyphBitmap.h` và `bwLimit = 3` trong `GfxRenderer.cpp`, giữ nguyên trọn vẹn cả 3 mức độ đậm (`1, 2, 3` — từ ngưỡng `>= 25%` coverage) ngay cả khi bật `Fast Page Turn = ON`, loại bỏ triệt để hiện tượng chữ bị gọt mảnh hoặc đứt nét.
+  - Chuẩn hóa pipeline FreeType `AF_LATIN_HINTS_STEM_ADJUST` kết hợp `stemDarkening = true` mặc định, lượng tử hóa 4 mức xám `(4, 8, 12)` và làm tròn chiều cao dòng `((height26_6 + 32) >> 6)` giống hệt `v0.16`.
+  - Bổ sung cơ chế tự động chuyển đổi `characterSpacing` từ giá trị mặc định cũ `2` (`0px` ở `v0.16`) sang `5` (`0px` ở `v0.22`) kèm cờ `characterSpacingSchema = 2` trong `settings.json`, khắc phục lỗi chữ bị ép sát `-1.5px` khi nâng cấp từ `v0.16`.
+  - Tự động nâng cấp cấu hình `ttf-rendering.json` và tự động dàn trang lại trong trình đọc `TXT` khi thay đổi `TTF Render Options`.
 - **Nâng cấp Bộ đệm Font PSRAM lên 2048 Slot (2-Way Set-Associative LRU + MurmurHash3 64-bit)**:
   - Mở rộng `PixelCacheSlots`, `MetricCacheSlots`, `KerningCacheSlots` từ `512` lên `2048` slot trên PSRAM (0 byte RAM nội).
   - Thay hàm modulo tuyến tính bằng bộ trộn bit 64-bit MurmurHash3 (`fmix64`) và cấu trúc 2-Way Set-Associative LRU, loại bỏ triệt để hiện tượng đụng độ băm chu kỳ `0x1E00 = 15 × 512` giữa khối Latin-1 (`U+00C0..U+00F9`) và khối dấu tiếng Việt mở rộng (`U+1EA0..U+1EF9`).

@@ -31,7 +31,7 @@
 | **Đồng bộ chốt nguồn Deep Sleep trên ESP32-C3 (`gpio_hold_dis(latch)`)** | **[CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader)** (`crosspoint-reader-develop`) | `lib/hal/HalPowerManager.cpp` |
 | **Tách biệt Cache SDK theo từng kiến trúc chip (`patch_pioarduino_cache.py`)** | **CrossImple Custom** (Tự phát triển) | `scripts/patch_pioarduino_cache.py`, `platformio.ini` |
 | **Tối ưu chuyên sâu riêng cho Xteink X3 (Ghim cố định bảng chữ Tiếng Việt `.cpfont`, ROM thuần X3 `FREEINK_DEVICE_X4=0`, Tắt Serial Log Release & Adaptive Idle Polling)** | **CrossImple Custom** (Tự phát triển riêng cho kiến trúc `ESP32-C3` X3) | `lib/EpdFont/SdCardFont.cpp`, `lib/hal/InputWake.cpp`, `lib/hal/HalGPIO.cpp`, `src/main.cpp`, `platformio.ini` |
-| **Tối ưu hiển thị Font `.ttf`/`.otf` Tiếng Việt sắc nét (FreeType Auto-Hinter `HORZ_SNAP | VERT_SNAP`, Lượng tử hóa `(3, 6, 10)`, Cache PSRAM 2048-slot 2-Way LRU MurmurHash3)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont` & FreeType Auto-Hinter) | `include/freetype/ftadvanc.h`, `lib/ScalableFont/HalScalableFont.cpp`, `src/TtfRenderProfileStore.cpp`, `src/activities/reader/TxtReaderActivity.cpp` |
+| **Chuẩn hóa hiển thị Font `.ttf`/`.otf` & `.cpfont` đồng nhất `v0.16` (`Plane::BWMonochrome = 0x0e`, FreeType `STEM_ADJUST` + `Stem Darkening`, Migration `characterSpacing` `2->5`, Cache PSRAM 2048-slot 2-Way LRU MurmurHash3)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont`, `GfxRenderer` & `CrossPointSettings`) | `lib/GfxRenderer/GlyphBitmap.h`, `lib/GfxRenderer/GfxRenderer.cpp`, `lib/ScalableFont/HalScalableFont.cpp`, `src/CrossPointSettings.cpp`, `src/TtfRenderProfileStore.cpp` |
 | **Hỗ trợ Font CJK 16MB/32MB, Streaming FreeType & Reader Font Fallback (EPUB & TXT song ngữ)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont` & `GfxRenderer`) | `lib/ScalableFont/`, `lib/GfxRenderer/`, `src/FilenameFontSystem.cpp`, `src/SdCardFontSystem.cpp` |
 | **Tinh giản Hệ thống theo Triết lý Simple (Gỡ bỏ Plugins, Nearby Transfer, Cloud Stats, Auto Backup ngầm)** | **CrossImple Custom** (Tối ưu theo triết lý Simple) | `src/SettingsList.cpp`, `src/activities/home/HomeActivity.cpp`, `src/activities/network/NetworkModeSelectionActivity.cpp` |
 | **Lật trang 1-Bit Siêu tốc, Tự động ngắt WiFi thông minh, Bộ lọc Thư mục Rác HĐH & Làm mới Toàn trang Thông minh** | **CrossImple Custom** (Tự phát triển theo triết lý Simple) | `src/activities/reader/EpubReaderActivity.cpp`, `src/network/CrossPointWebServerActivity.cpp`, `lib/FsHelpers/FsHelpers.cpp` |
@@ -50,10 +50,11 @@
   * **Biên dịch ROM thuần X3 (`-DFREEINK_DEVICE_X3=1 -DFREEINK_DEVICE_X4=0 -DFORCE_DEVICE_X3=1`):** Loại bỏ toàn bộ mã nguồn driver màn hình `SSD1677` (`800×480`), bảng xung LUT của X4 ver 1 (C3) và bỏ qua bước dò tìm phần cứng `XteinkDetect` lúc khởi động, giúp X3 thức dậy từ Deep Sleep nhanh hơn và nhẹ Flash hơn *(Lưu ý: File `crossimple_x3_v0.22.bin` nay dành riêng cho phần cứng Xteink X3)*.
   * **Tắt `ENABLE_SERIAL_LOG` (`-DLOG_LEVEL=0`) trên bản Release của X3:** Loại bỏ hàng ngàn chuỗi format log và lệnh ghi FIFO USB-Serial/JTAG trong lúc mở chương EPUB, giải nén ZIP và dựng trang trên chip đơn nhân RISC-V `ESP32-C3`.
   * **Giãn nhịp quét phím ADC thông minh khi dừng đọc trang (`Adaptive Idle Polling`):** Sau 3 giây không có thao tác phím, tự động hạ tần số quét thang điện trở ADC ngầm từ `10 ms` (100 Hz) xuống `20 ms` (50 Hz) và chu kỳ chờ vòng lặp chính từ `50 ms` lên `100 ms` (lập tức nhảy về `2 ms` ngay khi chạm phím), giảm thêm ~15–20% tiêu thụ điện CPU trong thời gian hiển thị trang sách.
-* **Hiển thị Font `.ttf` / `.otf` Tiếng Việt sắc nét, đậm đều tương đương `.cpfont` (X4 Classic & X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * **Khóa lưới nét chữ FreeType Auto-Hinter (`HORZ_SNAP | VERT_SNAP`):** Tự động kích hoạt cờ `AF_LATIN_HINTS_HORZ_SNAP | AF_LATIN_HINTS_VERT_SNAP` cho bộ Auto-Hinter qua header bọc `include/freetype/ftadvanc.h`, giúp căn chỉnh độ dày các nét ngang, nét dọc và dấu thanh tiếng Việt đồng nhất giữa mọi dòng văn bản.
-  * **Lượng tử hóa 4 mức xám đậm nét `(3, 6, 10)` & Bật mặc định `Stem Darkening`:** Đồng bộ ngưỡng cắt mức xám từ `(4, 8, 12)` xuống `(3, 6, 10)` chuẩn như công cụ biên dịch `.cpfont` (`--darken-aa`), khắc phục triệt để hiện tượng chữ `.ttf`/`.otf` bị mảnh nét hoặc nhạt màu trên màn hình E-Ink.
-  * **Đồng bộ cấu hình `TTF Render Options` trên cả EPUB & TXT:** Tự động nâng cấp hồ sơ `ttf-rendering.json` cũ (v1 -> v2) và tự động dàn trang lại trong trình đọc `TXT` ngay khi thay đổi tùy chọn hiển thị font mà vẫn giữ nguyên vị trí trang đang đọc.
+* **Đồng bộ 100% hiển thị Font `.ttf` / `.otf` & `.cpfont` chuẩn `v0.16` (X4 Classic, X4 Pro & X3)** *(Nguồn: CrossImple Custom)*:
+  * **Khôi phục mặt nạ `Plane::BWMonochrome = 0x0e` & `bwLimit = 3` (`GlyphBitmap.h`, `GfxRenderer.cpp`):** Giữ nguyên trọn vẹn cả 3 mức độ đậm (`1, 2, 3` — từ ngưỡng `>= 25%` coverage) ngay cả khi bật **Lật trang siêu tốc (`Fast Page Turn = ON`)**, khắc phục triệt để hiện tượng chữ bị gọt mất viền mức `1` gây mảnh nét, đứt nét hoặc răng cưa.
+  * **Chuẩn hóa Pipeline FreeType `STEM_ADJUST` + `Stem Darkening` & Chiều cao dòng (`HalScalableFont.cpp`):** Sử dụng thuật toán hinting `AF_LATIN_HINTS_STEM_ADJUST` kết hợp `stemDarkening = true` mặc định, lượng tử hóa 4 mức xám chuẩn `(4, 8, 12)` và công thức làm tròn chiều cao dòng `((height26_6 + 32) >> 6)` giống hệt `v0.16`, giúp nét chữ `.ttf`/`.otf` đầy đặn, tròn trịa và đồng nhất giữa mọi dòng văn bản.
+  * **Tự động sửa lỗi lệch giãn cách chữ khi nâng cấp từ `v0.16` (`CrossPointSettings.cpp`):** Bổ sung cơ chế tự động chuyển đổi giá trị mặc định cũ `"characterSpacing": 2` (tương ứng `0px` ở `v0.16`) sang mốc trung tâm mới `5` (`0px` ở `v0.22`), chấm dứt hoàn toàn hiện tượng các chữ cái bị ép sát vào nhau (`-1.5px`) khi cập nhật firmware.
+  * **Đồng bộ cấu hình `TTF Render Options` trên cả EPUB & TXT:** Tự động nâng cấp hồ sơ `ttf-rendering.json` và tự động dàn trang lại trong trình đọc `TXT` ngay khi thay đổi tùy chọn hiển thị font mà vẫn giữ nguyên vị trí trang đang đọc.
 * **Nâng cấp Bộ đệm Font PSRAM lên 2048 Slot (2-Way Set-Associative LRU + Hàm băm 64-bit MurmurHash3)** *(Nguồn: CrossImple Custom)*:
   * Mở rộng bảng đệm `PixelCacheSlots`, `MetricCacheSlots`, `KerningCacheSlots` từ `512` lên **2048 slot** trong PSRAM (tốn 0 byte RAM nội).
   * Thay thế phép chia dư tuyến tính bằng bộ trộn bit 64-bit MurmurHash3 (`fmix64`) kết hợp cấu trúc cache kết hợp 2 chiều (**2-Way Set-Associative LRU**), triệt tiêu hoàn toàn hiện tượng đụng độ chu kỳ `0x1E00 = 15 × 512` giữa hai vùng dấu tiếng Việt (`U+00C0..U+00F9` và `U+1EA0..U+1EF9`) cũng như giữa 4 kiểu chữ (`Regular`/`Bold`/`Italic`/`BoldItalic`).
@@ -264,6 +265,19 @@ pio run -e default
 pio run -e x4-classic -e x4-pro
 # File xuất ra: crossimple_x4-classic_v0.22.bin, crossimple_x4-pro_v0.22.bin
 ```
+
+---
+
+## ⚡ Chế độ Lật trang nhanh (`Fast Page Turn`) & Khử răng cưa (`Text Anti-Aliasing`)
+
+Trong **Reader Settings (Tùy chọn Đọc sách)**, hai cài đặt **Lật trang siêu tốc (`Fast Page Turn`)** và **Khử răng cưa chữ (`Text Anti-Aliasing`)** liên kết đối nghịch trực tiếp với nhau (`fastPageTurn = !textAntiAliasing`):
+
+| Chế độ | `Fast Page Turn = ON` *(Tắt khử răng cưa)* | `Fast Page Turn = OFF` *(Bật khử răng cưa 4 mức xám)* |
+| :--- | :--- | :--- |
+| **Tốc độ lật trang** | **Siêu tốc (~120–150 ms)** — chỉ chạy 1 pha xung 1-bit (`FAST_REFRESH`), phản hồi tức thì khi bấm phím. | **~420–500 ms** — chạy 1 pha đẩy mực đen/trắng + 2 pha LUT mức xám (`lut_grayscale_revert` trên X4 / `displayGrayBuffer` trên X3). |
+| **Độ nét & Độ đậm chữ** | Vẽ toàn bộ điểm ảnh mức `1, 2, 3` (`Plane::BWMonochrome = 0x0e`) thành **đen đặc 100%**. Nhờ bản vá chuẩn `v0.16`, chữ vẫn **đậm đà, liền nét**, tương phản đen-trắng sắc sảo. | Giữ nguyên biên độ **4 mức xám** (Đen đặc, Xám đậm, Xám nhạt, Trắng). Các đường cong, nét chéo và dấu tiếng Việt có viền chuyển sắc êm dịu như in giấy. |
+| **Tiêu thụ Pin** | **Tiết kiệm pin tối đa** (chỉ phát xung cao áp E-Ink 1 lần mỗi trang). | Tốn điện màn hình hơn một chút mỗi lần lật trang (phát xung E-Ink 3 pha). |
+| **Khuyến nghị theo máy** | Rất hợp cho **Xteink X3** (`300 PPI` mật độ điểm ảnh cao nên 1-bit vẫn rất mịn) hoặc khi cần đọc lướt nhanh. | **Mặc định khuyên dùng trên X4 Classic / X4 Pro** (`220 PPI` kết hợp font `.ttf`/`.otf` giúp chữ mềm mại, tròn trịa giống hệt `v0.16`). |
 
 ---
 
