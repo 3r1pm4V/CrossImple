@@ -1,6 +1,11 @@
 ## [v0.22] - 2026-11-09
 
 ### Đã thêm & Tối ưu (Added & Improved)
+- **Bộ 4 Tối ưu Chuyên sâu dành riêng cho Xteink X3 (`crossimple_x3_v0.22.bin`, giữ nguyên X4 Classic & X4 Pro)**:
+  - **Vietnamese Core Pre-Pinning (`SdCardFont.cpp`):** Tự động ghim cố định bảng chữ cái ASCII + 134 ký tự Tiếng Việt có dấu & dấu câu (~230 ký tự) vào `miniBitmap` ngay từ trang đầu tiên khi RAM trống >= 40 KB, giúp các lần lật trang tiếp theo trên X3 đạt 100% Cache Hit mà không cần đọc lại thẻ nhớ SD.
+  - **ROM Thuần X3 (`-DFREEINK_DEVICE_X4=0 -DFORCE_DEVICE_X3=1`):** Tách hẳn driver màn hình `SSD1677` của X4 C3 đời đầu và bỏ qua bước probe `XteinkDetect` lúc khởi động để tối ưu tốc độ Wake và dung lượng Flash cho X3.
+  - **Tắt Serial Log ở bản Release X3 (`-DLOG_LEVEL=0`):** Giải phóng dung lượng Flash `.rodata` và giảm tải CPU đơn nhân `ESP32-C3` khi mở sách nặng.
+  - **Adaptive Idle Polling (`InputWake.cpp` & `main.cpp`):** Tự động giãn chu kỳ quét ADC phím từ `10 ms` lên `20 ms` và chu kỳ nghỉ vòng lặp chính từ `50 ms` lên `100 ms` sau 3 giây không chạm phím (phản hồi tức thì ở `2 ms` ngay khi bấm nút), tiết kiệm thêm 15–20% pin khi đang đọc.
 - **Tối ưu hiển thị Font `.ttf` / `.otf` Tiếng Việt sắc nét, đậm đều như `.cpfont` (X4 Classic & X4 Pro)**:
   - Kích hoạt cờ `AF_LATIN_HINTS_HORZ_SNAP | AF_LATIN_HINTS_VERT_SNAP` trong FreeType Auto-Hinter qua header bọc `include/freetype/ftadvanc.h`, giúp căn chỉnh độ dày nét ngang/dọc và dấu thanh tiếng Việt đồng đều giữa các dòng.
   - Bật mặc định `stemDarkening = true` và hạ ngưỡng lượng tử hóa 4 mức xám từ `(4, 8, 12)` xuống `(3, 6, 10)` đồng bộ với công cụ tạo `.cpfont` (`--darken-aa`).
