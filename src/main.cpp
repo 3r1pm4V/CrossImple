@@ -2031,7 +2031,11 @@ void loop() {
     if (millis() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
       powerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
+#if defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3 && (!defined(FREEINK_DEVICE_X4) || !FREEINK_DEVICE_X4)
+      waitForInput(millis() - lastActivityTime >= 3000 ? 100 : 50);
+#else
       waitForInput(50);
+#endif
     } else {
       // Short delay to prevent tight loop while still being responsive
       waitForInput(inputPollDelayMs);

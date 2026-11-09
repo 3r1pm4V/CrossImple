@@ -64,7 +64,7 @@ HalGPIO::DeviceType nvsToDeviceType(NvsDeviceValue value) {
   return value == NvsDeviceValue::X3 ? HalGPIO::DeviceType::X3 : HalGPIO::DeviceType::X4;
 }
 
-HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
+[[maybe_unused]] HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
   // Explicit override for recovery/support:
   // 0 = auto, 1 = force X4, 2 = force X3
   const NvsDeviceValue overrideValue = readNvsDeviceValue(NVS_KEY_DEV_OVERRIDE, NvsDeviceValue::Unknown);
@@ -155,6 +155,7 @@ void HalGPIO::begin() {
   // SPI.begin() attaches them to the SPI matrix. I2C-only device fingerprint
   // above doesn't care about SPI ordering.
   const bool x3IsUc8279 = deviceIsX3() && detectX3DisplayIsUc8279();
+#if FREEINK_DEVICE_X4
   BoardConfig::selectDevice(!deviceIsX3() ? BoardConfig::Board::XteinkX4
                             : x3IsUc8279  ? BoardConfig::Board::XteinkX3Uc8279
                                           : BoardConfig::Board::XteinkX3);
@@ -165,13 +166,18 @@ void HalGPIO::begin() {
   if (deviceIsX4()) {
     freeink::applyXteinkDisplayController();
   }
+#else
+  BoardConfig::selectDevice(x3IsUc8279 ? BoardConfig::Board::XteinkX3Uc8279 : BoardConfig::Board::XteinkX3);
+#endif
 
   SPI.begin(EPD_SCLK, SPI_MISO, EPD_MOSI, EPD_CS);
 
+#if FREEINK_DEVICE_X4
   if (deviceIsX4()) {
     pinMode(BAT_GPIO0, INPUT);
     pinMode(UART0_RXD, INPUT);
   }
+#endif
 #endif
   inputMgr.begin();
   InputWake::begin();

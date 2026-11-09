@@ -70,7 +70,11 @@ class HalGPIO {
   enum class DeviceType : uint8_t { X4, X3 };
 
  private:
+#if defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3 && (!defined(FREEINK_DEVICE_X4) || !FREEINK_DEVICE_X4)
+  DeviceType _deviceType = DeviceType::X3;
+#else
   DeviceType _deviceType = DeviceType::X4;
+#endif
 
  public:
   HalGPIO() = default;

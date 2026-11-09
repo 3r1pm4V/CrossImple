@@ -142,7 +142,15 @@ void captureButtons(void*) {
     const bool analog = BoardConfig::ACTIVE.inputStyle == BoardConfig::InputStyle::XteinkAdcLadder;
     const bool sharedHeld = BoardConfig::ACTIVE.inputStyle == BoardConfig::InputStyle::DigitalConfirmPowerHold &&
                             captureDecoder.isPowerButtonPhysicallyPressed();
+#if defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3 && (!defined(FREEINK_DEVICE_X4) || !FREEINK_DEVICE_X4)
+    static uint32_t lastActiveSampleMs = 0;
+    if (changed || pulses || debouncing || held) lastActiveSampleMs = now;
+    const uint32_t analogIdleMs = (now - lastActiveSampleMs >= 3000) ? 20 : 10;
+    const uint32_t waitMs =
+        debouncing || (analog && held) ? 2 : analog || sharedHeld || wakePins == 0 ? analogIdleMs : 250;
+#else
     const uint32_t waitMs = debouncing || (analog && held) ? 2 : analog || sharedHeld || wakePins == 0 ? 10 : 250;
+#endif
     const TickType_t ticks = pdMS_TO_TICKS(waitMs);
     xSemaphoreTake(sampleSignal, ticks > 0 ? ticks : 1);
   }
