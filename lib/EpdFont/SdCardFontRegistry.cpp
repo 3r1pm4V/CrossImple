@@ -474,7 +474,7 @@ bool SdCardFontRegistry::readIndex(uint64_t fingerprint) {
   // Names only: at most 128 bounded names and empty vectors, never font files.
   const auto heap = MemoryBudget::snapshot();
   const size_t arrayBytes = header.count * sizeof(SdCardFontFamilyInfo);
-  const size_t required = arrayBytes + header.count * 144U + 8192U;
+  const size_t required = arrayBytes + header.count * 64U + 4096U;
   if (heap.freeHeap < required || heap.maxAllocHeap < std::max(arrayBytes, size_t(128))) {
     file.close();
     discoveryFailed_ = true;
@@ -520,13 +520,14 @@ bool SdCardFontRegistry::rebuildIndex(uint64_t fingerprint, uint32_t generation)
   using namespace fontcatalog;
   clear();
   const auto heap = MemoryBudget::snapshot();
-  const size_t arrayBytes = MAX_SD_FAMILIES * sizeof(SdCardFontFamilyInfo);
-  const size_t required = arrayBytes + MAX_SD_FAMILIES * 144U + 8192U;
+  const size_t initialCapacity = 32;
+  const size_t arrayBytes = initialCapacity * sizeof(SdCardFontFamilyInfo);
+  const size_t required = arrayBytes + 4096U;
   if (heap.freeHeap < required || heap.maxAllocHeap < arrayBytes) {
     LOG_ERR("SDREG", "Insufficient memory to rebuild font index");
     return false;
   }
-  families_.reserve(MAX_SD_FAMILIES);
+  families_.reserve(initialCapacity);
 
   char hiddenRoot[16];
   char visibleRoot[16];
@@ -609,8 +610,8 @@ bool SdCardFontFamilyInfo::ensureDetails() const {
   if (ok) {
     const auto heap = MemoryBudget::snapshot();
     const size_t arrayBytes = indexCount * sizeof(SdCardFontFileInfo);
-    if (heap.freeHeap < arrayBytes + indexBytes + indexCount * 24U + 8192U ||
-        heap.maxAllocHeap < arrayBytes + MaxPath) {
+    if (heap.freeHeap < arrayBytes + indexBytes + indexCount * 24U + 4096U ||
+        heap.maxAllocHeap < std::max(arrayBytes + MaxPath, size_t(128))) {
       file.close();
       LOG_ERR("SDREG", "Insufficient memory for font details: %s", name.c_str());
       return false;

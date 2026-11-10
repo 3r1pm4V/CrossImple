@@ -169,6 +169,8 @@ class SdCardFont {
     static_assert(sizeof(BmpInterval16) == 6, "BmpInterval16 must remain compact");
     BmpInterval16* bmpIntervals = nullptr;
     uint16_t bmpIntervalCount = 0;  // At most MAX_INTERVALS (4096), keeping per-style padding unchanged.
+    bool bmpIntervalsInPsram = false;
+    bool fullIntervalsInPsram = false;
     // True when bmpIntervals/fullIntervals above points at another style's table rather than
     // this style's own allocation. Regular/bold/italic weights of the same family almost always
     // cover the identical codepoint set, so a CJK font's multi-KB-per-style table is otherwise
@@ -260,7 +262,7 @@ class SdCardFont {
   // 4KB covers normal content glyphs through 44pt; larger files are rejected
   // before registration so layout falls back to a supported physical size.
   static constexpr size_t CONTENT_BITMAP_BYTES = 4096;
-  std::unique_ptr<uint8_t[]> contentBitmap_;
+  HeapByteBuffer contentBitmap_;
   bool leanContent_ = false;
   char filePath_[128] = {};
 

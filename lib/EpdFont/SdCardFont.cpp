@@ -222,11 +222,29 @@ void SdCardFont::freeStyleAll(PerStyle& s) {
   // A shared table is owned by the style it was aliased from -- that style's own
   // freeStyleAll() call frees it. Deleting it here too would double-free.
   if (!s.intervalsShared) {
-    delete[] s.fullIntervals;
-    delete[] s.bmpIntervals;
+    if (s.fullIntervalsInPsram) {
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+      heap_caps_free(s.fullIntervals);
+#else
+      std::free(s.fullIntervals);
+#endif
+    } else {
+      delete[] s.fullIntervals;
+    }
+    if (s.bmpIntervalsInPsram) {
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+      heap_caps_free(s.bmpIntervals);
+#else
+      std::free(s.bmpIntervals);
+#endif
+    } else {
+      delete[] s.bmpIntervals;
+    }
   }
   s.fullIntervals = nullptr;
   s.bmpIntervals = nullptr;
+  s.fullIntervalsInPsram = false;
+  s.bmpIntervalsInPsram = false;
   s.intervalsShared = false;
   s.bmpIntervalCount = 0;
   freeStyleLigatures(s);
@@ -714,7 +732,12 @@ bool SdCardFont::load(const char* path, const size_t residentLimit) {
     }
     // Font-lifetime 4KB scratch is too large for the stack; reused for every
     // glyph and freed with the optional font, avoiding render-time heap churn.
-    contentBitmap_ = makeUniqueNoThrow<uint8_t[]>(CONTENT_BITMAP_BYTES);
+    if (psramHeapAvailable()) {
+      contentBitmap_ = makePsramByteBufferNoThrow(CONTENT_BITMAP_BYTES);
+    }
+    if (!contentBitmap_) {
+      contentBitmap_ = makeHeapByteBufferNoThrow(CONTENT_BITMAP_BYTES);
+    }
     if (!contentBitmap_) {
       LOG_ERR("SDCF", "Cannot allocate content-size glyph scratch");
       file.close();
@@ -829,7 +852,19 @@ bool SdCardFont::load(const char* path, const size_t residentLimit) {
       // Selected-font lifetime storage, up to 4096 * 12 bytes: too large for stack/static.
       // freeStyleAll() owns both allocations; shared styles borrow them without deleting.
       if (bmpCount > 0) {
-        s.bmpIntervals = new (std::nothrow) PerStyle::BmpInterval16[bmpCount];
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+        if (psramHeapAvailable()) {
+          s.bmpIntervals = static_cast<PerStyle::BmpInterval16*>(
+              heap_caps_malloc(bmpCount * sizeof(PerStyle::BmpInterval16), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+          if (s.bmpIntervals) {
+            s.bmpIntervalsInPsram = true;
+          }
+        }
+#endif
+        if (!s.bmpIntervals) {
+          s.bmpIntervals = new (std::nothrow) PerStyle::BmpInterval16[bmpCount];
+          s.bmpIntervalsInPsram = false;
+        }
         if (!s.bmpIntervals) {
           LOG_ERR("SDCF", "Failed to allocate compact intervals for style %u", i);
           freeAll();
@@ -846,7 +881,19 @@ bool SdCardFont::load(const char* path, const size_t residentLimit) {
         }
       }
       if (fullCount > 0) {
-        s.fullIntervals = new (std::nothrow) EpdUnicodeInterval[fullCount];
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+        if (psramHeapAvailable()) {
+          s.fullIntervals = static_cast<EpdUnicodeInterval*>(
+              heap_caps_malloc(fullCount * sizeof(EpdUnicodeInterval), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+          if (s.fullIntervals) {
+            s.fullIntervalsInPsram = true;
+          }
+        }
+#endif
+        if (!s.fullIntervals) {
+          s.fullIntervals = new (std::nothrow) EpdUnicodeInterval[fullCount];
+          s.fullIntervalsInPsram = false;
+        }
         if (!s.fullIntervals) {
           LOG_ERR("SDCF", "Failed to allocate %u full intervals for style %u", fullCount, i);
           freeAll();
@@ -1040,6 +1087,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
   // healthy. Subsequent pages hit `covered == true` in prewarmStyle() with zero
   // SD card reads across page turns.
   if (!metadataOnly && includeKerning && (styleMask & 0x01) && styles_[0].present &&
+      styles_[0].header.advanceY <= 28 &&
       styles_[0].miniGlyphCount == 0 && cpCount >= 16 && ESP.getFreeHeap() >= MINI_RETAIN_MIN_FREE_HEAP) {
     auto addPinnedCp = [&](const uint32_t vcp) {
       if (cpCount >= MAX_PAGE_GLYPHS) return;

@@ -1,3 +1,17 @@
+## [v0.23] - 2026-11-10
+
+### Đã sửa & Tối ưu (Fixed & Improved)
+- **Khắc phục Triệt để Lỗi Thiếu RAM khi Nạp Font `.cpfont` từ Thẻ nhớ (X3, X4 Classic, X4 Pro)**:
+  - **Tận dụng 8 MB PSRAM trên X4 Classic & X4 Pro (`SdCardFont.cpp`, `SdCardFont.h`):** Bảng tra cứu khoảng ký tự BMP/Full (`bmpIntervals`, `fullIntervals`) và bộ đệm glyph bitmap (`contentBitmap_`) của font `.cpfont` được phân bổ trực tiếp lên PSRAM, giải phóng hàng chục KB SRAM nội bộ quý giá, giúp các bộ font kích thước lớn (như Mali 1.0 MB - 2.3 MB) nạp mượt mà, không bao giờ bị nghẽn RAM.
+  - **Tối ưu Bộ nhớ Tinh gọn cho X3 (`SdCardFontManager.cpp`):** Tự động bỏ qua việc nạp ngầm 2 file font phụ (`loadContentSizes`) trên các thiết bị không có PSRAM (ESP32-C3), bảo toàn nguyên vẹn **24 KB SRAM** quý giá cho trình đọc sách như trên bản v0.16.
+  - **Ngăn ngừa Lỗi Tràn RAM khi Ghim Ký tự trên X3 (`SdCardFont.cpp`):** Giới hạn cơ chế pre-pin 230 ký tự tiếng Việt với font cỡ thường (`advanceY <= 28`), tránh cấp phát mảng bitmap quá lớn gây lỗi `STR_MEMORY_ERROR` khi người dùng đọc ở cỡ chữ lớn (18pt, 20pt).
+  - **Hạ Ngưỡng Bộ nhớ Quét Danh mục Font (`SdCardFontRegistry.cpp`):** Giảm mức RAM kiểm tra ban đầu từ 34 KB xuống mức tối ưu (reserve 32 families và 4 KB buffer kiểm tra), cho phép quét danh mục font thẻ nhớ mượt mà ngay cả khi đang đọc sách hoặc chạy WebServer.
+  - **Loại bỏ Tự động Rollback Font trong Drawer (`EpubReaderDrawerActivity.cpp`):** Không tự ý huỷ bỏ font người dùng đã chọn khi khung xem trước (preview) tạm thời thiếu RAM; đảm bảo thiết lập font luôn được lưu và áp dụng chuẩn xác cho trang sách.
+- **Đồng bộ Hoàn hảo Độ nét Chữ & Hinting theo Chuẩn v0.16 (Toàn bộ Thiết bị)**:
+  - Khôi phục mặt nạ `Plane::BWMonochrome = 0x0e` trong `GlyphBitmap.h` và `GfxRenderer.cpp`, đảm bảo các pixel coverage mức 1 (>= 25%) không bị gọt mỏng nét khi lật trang.
+  - Tắt mặc định `fastPageTurn = 0` / `textAntiAliasing = 0` trên dòng chip S3 (X4 Classic / X4 Pro), đưa trải nghiệm hiển thị sắc nét, đậm đà trở lại như v0.16.
+  - Đồng bộ chuẩn FreeType `advance.x` đã hinting trong `HalScalableFont.cpp`, chấm dứt hiện tượng co giãn nét chữ tiếng Việt.
+
 ## [v0.22] - 2026-11-09
 
 ### Đã thêm & Tối ưu (Added & Improved)

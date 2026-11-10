@@ -678,11 +678,11 @@ void EpubReaderDrawerActivity::commitSettings() {
   if (!mappedInput.hasTouchHardware() && draft.sdFontFamilyName[0] != '\0' &&
       (draft.sdFontFamilyName != lastGoodPreviewSettings.sdFontFamilyName ||
        draft.readerFontPointSize != lastGoodPreviewSettings.readerFontPointSize)) {
-    // A queued preview may not have rendered before Back or an external exit.
-    // Save only an SD font whose preview already loaded and prewarmed.
-    LOG_ERR("ERDM", "Selected SD font was not previewed; retaining previous reader font");
-    restoreReaderDraftFont(draft, lastGoodPreviewSettings);
-    state.pendingFontIndex = -1;
+    if (!sdFontSystem.registry().findFamily(draft.sdFontFamilyName.data())) {
+      LOG_ERR("ERDM", "Selected SD font not found; retaining previous reader font");
+      restoreReaderDraftFont(draft, lastGoodPreviewSettings);
+      state.pendingFontIndex = -1;
+    }
   }
   applySettings(draft);
   if (saveReaderSettingsCallback) {
@@ -2696,8 +2696,6 @@ bool EpubReaderDrawerActivity::renderPreview(int& previewFontId,
       return false;
     LOG_ERR("ERDM", "Button preview exhausted EPUB layout reserve: free=%u maxAlloc=%u", heap.freeHeap,
             heap.maxAllocHeap);
-    restoreReaderDraftFont(draft, lastGoodPreviewSettings);
-    state.pendingFontIndex = -1;
     previewUnavailable = true;
     previewFontId = -1;
     renderPreviewUnavailable();
@@ -2729,8 +2727,6 @@ bool EpubReaderDrawerActivity::renderPreview(int& previewFontId,
   applySettings(liveSettings);
   if (!fontLoaded && ownedPreviewModel) {
     LOG_ERR("ERDM", "Could not load selected SD font for button preview");
-    restoreReaderDraftFont(draft, lastGoodPreviewSettings);
-    state.pendingFontIndex = -1;
     previewUnavailable = true;
     previewFontId = -1;
     renderPreviewUnavailable();
@@ -2742,8 +2738,6 @@ bool EpubReaderDrawerActivity::renderPreview(int& previewFontId,
                           previewFontId);  // Scan the page text before loading the selected font's glyphs.
     if (!prewarmScope->endScanAndPrewarm() && ownedPreviewModel) {
       LOG_ERR("ERDM", "Could not prewarm selected font for button preview");
-      restoreReaderDraftFont(draft, lastGoodPreviewSettings);
-      state.pendingFontIndex = -1;
       previewUnavailable = true;
       previewFontId = -1;
       renderPreviewUnavailable();

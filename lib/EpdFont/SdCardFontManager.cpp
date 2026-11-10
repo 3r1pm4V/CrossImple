@@ -111,6 +111,7 @@ std::array<uint8_t, 2> SdCardFontManager::contentSizeTargets(const uint8_t bodyS
 }
 
 void SdCardFontManager::loadContentSizes(const SdCardFontFamilyInfo& family, GfxRenderer& renderer) {
+  if (!psramHeapAvailable()) return;
   if (loadedPointSize_ < 8 || loadedPointSize_ > 44) return;
   // At most 24KB for two complete optional font objects, tables and reusable
   // glyph scratch. Body font ownership/caches keep their existing policy.
