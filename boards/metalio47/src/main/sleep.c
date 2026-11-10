@@ -155,8 +155,6 @@ void app_lock_set_resume_ready(bool ready) { s_lock_deep_ready = ready; }
 
 
 
-extern const uint8_t lock_4bpp_bin_start[] asm("_binary_lock_4bpp_bin_start");
-
 // 中文：保留S31灭灯/按键边界，反馈期间的新按键留给锁屏唤醒。
 // English: Keep S31 lamp/key boundaries; preserve new presses during feedback for waking.
 void app_lock_feedback(EpdiyHighlevelState *hl) {

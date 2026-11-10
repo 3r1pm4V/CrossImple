@@ -154,7 +154,6 @@ idf_component_register(
     REQUIRES ${main_requires}
     INCLUDE_DIRS "." "app" "apps" "font" "ui" "factory" "book" "${DPREADER_SOURCE_ROOT}"
     EMBED_FILES
-        "assets/lock_4bpp.bin"
         "assets/startup_logo_4bpp.bin"
         "assets/builtin.ttf"
         "assets/Bitter-Regular.ttf"

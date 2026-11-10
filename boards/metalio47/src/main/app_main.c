@@ -76,9 +76,6 @@ static void restore_time_from_pmu(void) {
     if (settimeofday(&tv, NULL) == 0) ESP_LOGI(TAG, "system clock restored from Metalio PCF8563");
 }
 
-extern const uint8_t lock_4bpp_bin_start[] asm("_binary_lock_4bpp_bin_start");
-extern const uint8_t lock_4bpp_bin_end[] asm("_binary_lock_4bpp_bin_end");
-
 // VCOM 从 NVS 读取；未标定时用厂家默认 1200mV，因此本板不存在"未标定"状态，
 // 不需要像 Pico 那样拦住开机。V1.5 没有 Pico PMU，标定值只存本机 NVS。
 // Load VCOM from NVS; an uncalibrated unit falls back to the vendor default
@@ -107,18 +104,6 @@ static bool volume_key_held(void) {
     const bool pressed_first = ((first >> 8) & 0x03) != 0x03;
     const bool pressed_again = ((again >> 8) & 0x03) != 0x03;
     return pressed_first && pressed_again;
-}
-
-// Keep the panel-size check for fallback lock art; the startup logo is a separate flash asset.
-static bool images_match_panel(void) {
-    size_t lock_size = (size_t)(lock_4bpp_bin_end - lock_4bpp_bin_start);
-    size_t expected = (size_t)epd_width() * epd_height() / 2;
-    if (lock_size == expected) return true;
-    ESP_LOGE(
-        TAG, "Image size mismatch: lock %u expected %u",
-        (unsigned)lock_size, (unsigned)expected
-    );
-    return false;
 }
 
 extern const uint8_t startup_logo_start[] asm("_binary_startup_logo_4bpp_bin_start");
@@ -222,8 +207,6 @@ void app_main(void) {
         (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)/1024),
         (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)/1024));
     pmu_selftest_bind(hw.sensor);
-
-    if (!images_match_panel()) return;
 
     EpdiyHighlevelState hl = hw.hl;
     uint8_t* framebuffer = hw.framebuffer;
