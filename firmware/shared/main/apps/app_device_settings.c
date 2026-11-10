@@ -2108,7 +2108,7 @@ static void render_content(app_ctx_t *ctx, uint8_t *fb) {
             settings_line(fb, 60, 689, 29, "Cập nhật từ thẻ nhớ", EPD_DRAW_ALIGN_LEFT, false);
             settings_line(fb, 60, 739, 23, "Đặt tệp cập nhật ở thư mục gốc thẻ nhớ", EPD_DRAW_ALIGN_LEFT, false);
 #if DPREADER_BOARD_METALIO47
-            settings_line(fb, 60, 786, 21, s_local_update.ready ? s_local_update.candidate_version : "Chép dpReader-update.bin vào thẻ nhớ", EPD_DRAW_ALIGN_LEFT, false);
+            settings_line(fb, 60, 786, 21, s_local_update.ready ? s_local_update.candidate_version : "Chép CrossImple-update.bin (hoặc .bin) vào thẻ nhớ", EPD_DRAW_ALIGN_LEFT, false);
 #else
             settings_line(fb, 60, 786, 21, s_local_update.ready ? s_local_update.candidate_version : "Chép gói cập nhật vào thư mục gốc của thẻ nhớ", EPD_DRAW_ALIGN_LEFT, false);
 #endif

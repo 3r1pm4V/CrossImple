@@ -8,6 +8,7 @@
  */
 #include "kosync_client.h"
 #include "ota_online.h"
+#include "read_pico_pmu.h"
 #include "firmware_edition.h"
 #include "settings.h"
 #include "esp_private/cache_utils.h"
@@ -235,10 +236,10 @@ static bool check_feed(void) {
     // GitHub Pages清单优先，官网清单备用；同一缓冲区顺序请求，无并发TLS连接。
     // Prefer GitHub Pages metadata, falling back to the website with one shared buffer and no concurrent TLS clients.
     const char *feeds[] = {
-        s_target_love ? "https://dephia31.github.io/dpReader31/releases/love-book/metalio-s31-update.json"
-                      : "https://dephia31.github.io/dpReader31/metalio-s31-update.json",
-        s_target_love ? "https://raw.githubusercontent.com/dephia31/dpReader31/main/releases/love-book/metalio-s31-update.json"
-                      : "https://raw.githubusercontent.com/dephia31/dpReader31/main/releases/metalio-s31-update.json"
+        s_target_love ? "https://3r1pm4V.github.io/CrossImple/releases/love-book/metalio-s31-update.json"
+                      : "https://3r1pm4V.github.io/CrossImple/metalio-s31-update.json",
+        s_target_love ? "https://raw.githubusercontent.com/3r1pm4V/CrossImple/metalio4plus/releases/love-book/metalio-s31-update.json"
+                      : "https://raw.githubusercontent.com/3r1pm4V/CrossImple/metalio4plus/metalio-s31-update.json"
     };
     bool valid = false;
     for (size_t source = 0; source < sizeof(feeds) / sizeof(feeds[0]) && !atomic_load(&s_cancel); ++source) {
@@ -299,6 +300,15 @@ static bool header_valid(const uint8_t *data, const pico_release_t *release) {
         !strcmp(desc->project_name, current->project_name) && !strcmp(desc->version, release->version);
 }
 static bool download(void) {
+    const pmu_snapshot_t *pmu = read_pico_pmu_get();
+    if (pmu) {
+        int pct = pmu_battery_percent(pmu);
+        bool chg = pmu_battery_charging(pmu);
+        if (pct >= 0 && pct < 25 && !chg) {
+            state(PICO_UPDATE_FAILED, "Pin yếu (< 25%%). Vui lòng cắm sạc trước khi cập nhật");
+            return false;
+        }
+    }
     pico_release_t *release = heap_caps_malloc(sizeof(*release), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     uint8_t *buffer = heap_caps_malloc(4096, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     uint8_t *header = heap_caps_malloc(288, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -311,8 +321,8 @@ static bool download(void) {
     // 两个允许的 HTTPS 源使用同一固定文件名和 SHA，连接失败才切换备用源。
     // Both trusted HTTPS origins use the same immutable name/hash; switch only after connection failure.
     const char *origins[] = {
-        s_target_love ? "https://dephia31.github.io/dpReader31/releases/love-book/" : "https://dephia31.github.io/dpReader31/releases/",
-        s_target_love ? "https://raw.githubusercontent.com/dephia31/dpReader31/main/releases/love-book/" : "https://raw.githubusercontent.com/dephia31/dpReader31/main/releases/"
+        s_target_love ? "https://3r1pm4V.github.io/CrossImple/releases/love-book/" : "https://3r1pm4V.github.io/CrossImple/releases/",
+        s_target_love ? "https://raw.githubusercontent.com/3r1pm4V/CrossImple/metalio4plus/releases/love-book/" : "https://raw.githubusercontent.com/3r1pm4V/CrossImple/metalio4plus/releases/"
     };
     const char *filename = strrchr(release->url, '/');
     if (!filename || !pico_release_url_valid(release->url)) goto failed;

@@ -224,6 +224,6 @@ void ui_power_final_draw(uint8_t *fb, bool restarting) {
     ui_clear_page(fb);
     const int cx = UI_LOCK_WIDTH / 2;
     ui_draw_icon(fb, cx, 486, 72, restarting ? UI_ICON_ROTATE_CW : UI_ICON_POWER, UI_GRAY_BLACK);
-    ui_text(fb, cx, 548, 48, restarting ? "Đang khởi động lại" : "dpReader đã tắt máy", EPD_DRAW_ALIGN_CENTER, false);
+    ui_text(fb, cx, 548, 48, restarting ? "Đang khởi động lại" : "CrossImple đã tắt máy", EPD_DRAW_ALIGN_CENTER, false);
     if (!restarting) ui_text(fb, cx, 624, 26, "Nhấn giữ nút nguồn để bật máy", EPD_DRAW_ALIGN_CENTER, false);
 }

@@ -226,9 +226,9 @@ static app_home_component_t s_home_component = APP_HOME_FOLDER;
 static uint8_t s_home_goal_minutes = 30;
 static app_main_refresh_mode_t s_main_refresh;
 #if DPREADER_BOARD_METALIO47
-static char s_device_name[64] = "dpReader";
+static char s_device_name[64] = "CrossImple";
 #else
-static char s_device_name[64] = "dpReader";
+static char s_device_name[64] = "CrossImple";
 #endif
 static char s_kosync_url[128] = DPREADER_DEFAULT_KOSYNC_URL;
 static char s_kosync_user[64];
@@ -578,10 +578,10 @@ void app_settings_init(void) {
     if (nvs_get_u8(h, NVS_KEY_BLE_TIMEOUT, &raw) == ESP_OK && (raw == 0 || raw == 5 || raw == 10 || raw == 15 || raw == 30)) s_ble_timeout_minutes = raw;
     size_t value_len = sizeof(s_device_name);
     if (nvs_get_str(h, NVS_KEY_DEVICE_NAME, s_device_name, &value_len) != ESP_OK || !s_device_name[0])
-        strlcpy(s_device_name, "dpReader", sizeof(s_device_name));
+        strlcpy(s_device_name, "CrossImple", sizeof(s_device_name));
     // 仅迁移旧默认名字，保留用户填写的姓名。/ Migrate only the old default, preserving custom names.
-    if (!strcmp(s_device_name, "Pico") || !strcmp(s_device_name, "kiikoread") || !strcmp(s_device_name, "Metalio S31"))
-        strlcpy(s_device_name, "dpReader", sizeof(s_device_name));
+    if (!strcmp(s_device_name, "Pico") || !strcmp(s_device_name, "kiikoread") || !strcmp(s_device_name, "Metalio S31") || !strcmp(s_device_name, "dpReader"))
+        strlcpy(s_device_name, "CrossImple", sizeof(s_device_name));
     value_len = sizeof(s_kosync_url);
     if (nvs_get_str(h, NVS_KEY_KOSYNC_URL, s_kosync_url, &value_len) != ESP_OK || !s_kosync_url[0] ||
         !strcmp(s_kosync_url, "https://sync.nemmanquy.com") || !strcmp(s_kosync_url, "sync.nemmanquy.com"))
@@ -2664,7 +2664,7 @@ static esp_err_t backup_restore_workspace(backup_workspace_t *work, const char *
     work->adjust.encoded = 20;
     work->weight.encoded = 2;
 #if DPREADER_BOARD_METALIO47
-    strlcpy(work->profile.device_name, "Metalio S31", sizeof(work->profile.device_name));
+    strlcpy(work->profile.device_name, "CrossImple", sizeof(work->profile.device_name));
 #else
     strlcpy(work->profile.device_name, "dpReader", sizeof(work->profile.device_name));
 #endif

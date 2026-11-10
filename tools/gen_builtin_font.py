@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHARSET = ROOT / "main/font/charset.txt"
 OUT = ROOT / "main/assets/builtin.ttf"
 SCAN_DIRS = [
+    ROOT / "firmware",
     ROOT / "main/ui",
     ROOT / "main/app",
     ROOT / "main/apps",
@@ -202,10 +203,10 @@ def build_vietnamese_builtin(src: Path, text: str, dest: Path) -> int:
         copy_glyphs_from(f_base, existing_cjk_backup, needed_cps)
 
     for name_id, value in (
-        (1, "Bitter"),
-        (2, "Bold"),
-        (4, "Bitter Bold"),
-        (6, "Bitter-Bold"),
+        (1, "Lexica Ultralegible"),
+        (2, "Regular"),
+        (4, "Lexica Ultralegible"),
+        (6, "LexicaUltralegible-Regular"),
     ):
         f_base["name"].setName(value, name_id, 3, 1, 0x409)
 

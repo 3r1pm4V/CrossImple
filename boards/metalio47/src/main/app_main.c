@@ -150,6 +150,9 @@ static void draw_startup_frame(uint8_t *framebuffer) {
         ui_font_draw_text_px(framebuffer, x, baseline, px, caption[i], EPD_DRAW_ALIGN_LEFT, 7, 15, false);
         x += ui_font_text_width_px(px, caption[i]) + tracking;
     }
+    char ver_line[64];
+    snprintf(ver_line, sizeof(ver_line), "CrossImple v%s", DPREADER_FIRMWARE_VERSION);
+    ui_font_draw_text_px(framebuffer, cx, epd_rotated_display_height() - 48, 22, ver_line, EPD_DRAW_ALIGN_CENTER, 5, 15, false);
 }
 
 // 深睡保持原物理锁图；卡与参考帧稍后就绪，不能用临时圆锁覆盖。

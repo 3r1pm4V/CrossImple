@@ -15,7 +15,7 @@ static void render_root(uint8_t *fb) {
     snprintf(value,sizeof(value),"%u phút",seconds/60);fit(value,24,180);label(fb,490,118,24,value,EPD_DRAW_ALIGN_RIGHT,0x30);
     ring(fb,540,118,30,7,seconds,app_settings_home_goal_minutes()*60);
     if(s_avatar_ready)ui_wallpaper_draw_avatar(fb,s_avatar,(EpdRect){588,88,60,60},30);
-    else {epd_fill_circle(618,118,30,0x30,fb);label(fb,618,118,30,"K",EPD_DRAW_ALIGN_CENTER,0xff);}
+    else {epd_fill_circle(618,118,30,0x30,fb);label(fb,618,118,30,"C",EPD_DRAW_ALIGN_CENTER,0xff);}
     HOME_STAGE("header");
 #if DPREADER_BOARD_METALIO47
     const uint8_t card_gray=0xff;

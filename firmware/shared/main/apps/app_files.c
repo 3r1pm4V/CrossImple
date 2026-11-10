@@ -54,6 +54,7 @@
 #include "esp_attr.h"
 #include "esp_system.h"
 #include "ota_update.h"
+#include "read_pico_pmu.h"
 #include "epdiy.h"
 
 #define FILE_MAX 96
@@ -857,6 +858,15 @@ static void open_selected(app_ctx_t *ctx) {
         if (!(book_cover_jobs_quiesce(2000) && ui_avatar_quiesce(2000))) {
             snprintf(s_message, sizeof(s_message), "Đang xử lý ảnh bìa, vui lòng thử lại sau giây lát");
             return;
+        }
+        const pmu_snapshot_t *pmu = read_pico_pmu_get();
+        if (pmu) {
+            int pct = pmu_battery_percent(pmu);
+            bool chg = pmu_battery_charging(pmu);
+            if (pct >= 0 && pct < 25 && !chg) {
+                snprintf(s_message, sizeof(s_message), "Pin yếu (%d%% < 25%%). Hãy cắm sạc trước khi cập nhật", pct);
+                return;
+            }
         }
         epd_poweroff();
         if (pico_ota_install(s_selected.path, s_message, sizeof(s_message)) == ESP_OK) {

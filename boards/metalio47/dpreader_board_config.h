@@ -74,7 +74,7 @@
 /// and the default device name keep matching.
 /// Giữ định dạng từng byte của test31 đến test36 để dùng được bản sao lưu và tên mặc định cũ.
 #define DPREADER_BOARD_BACKUP_PREFIX "dpReader-settings"
-#define DPREADER_BOARD_PRODUCT_NAME "dpReader"
+#define DPREADER_BOARD_PRODUCT_NAME "CrossImple"
 
 /* ---- Chính sách hiển thị ---- */
 /// One epd_clear_checked baseline instead of the Pico blind-repair cycles.

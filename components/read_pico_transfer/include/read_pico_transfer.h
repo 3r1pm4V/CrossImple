@@ -17,7 +17,7 @@
 #include "read_pico_transfer_network.h"
 #include "transfer_network_activity.h"
 
-#define READ_PICO_TRANSFER_SSID "dpReader31"
+#define READ_PICO_TRANSFER_SSID "CrossImple-M4P"
 #define READ_PICO_TRANSFER_PASSWORD ""
 #define READ_PICO_TRANSFER_URL "http://192.168.4.1"
 

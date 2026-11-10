@@ -4091,7 +4091,7 @@ esp_err_t read_pico_transfer_start(const read_pico_transfer_cfg_t *cfg) {
     else if (err != ESP_ERR_INVALID_STATE) goto fail;
     err = transfer_create_netif(cfg->mode == READ_PICO_TRANSFER_MODE_AP, &s_netif);
     if (err != ESP_OK) goto fail;
-    (void)esp_netif_set_hostname(s_netif, "dpreader");
+    (void)esp_netif_set_hostname(s_netif, "crossimple");
     wifi_init_config_t init = WIFI_INIT_CONFIG_DEFAULT();
     err = esp_wifi_init(&init); if (err != ESP_OK) goto fail;
     s_wifi = true;

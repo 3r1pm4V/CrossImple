@@ -57,6 +57,11 @@ bool pico_release_url_valid(const char *url) {
     // 升级源限定官方 HTTPS 站点，避免重定向泄漏或被替换为任意下载源。
     // Limit updates to the official HTTPS origin; do not follow arbitrary redirects.
     static const char *const prefixes[] = {
+        "https://3r1pm4V.github.io/CrossImple/releases/love-book/",
+        "https://raw.githubusercontent.com/3r1pm4V/CrossImple/metalio4plus/releases/love-book/",
+        "https://3r1pm4V.github.io/CrossImple/releases/",
+        "https://3r1pm4V.github.io/CrossImple/",
+        "https://raw.githubusercontent.com/3r1pm4V/CrossImple/metalio4plus/releases/",
         "https://dephia31.github.io/dpReader31/releases/love-book/",
         "https://raw.githubusercontent.com/dephia31/dpReader31/main/releases/love-book/",
         "https://kiikoread.com/",

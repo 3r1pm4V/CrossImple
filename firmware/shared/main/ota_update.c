@@ -24,6 +24,9 @@
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "sdkconfig.h"
+#ifdef ESP_PLATFORM
+#include "read_pico_pmu.h"
+#endif
 #if CONFIG_DPREADER_AUTO_BACKUP
 #include "settings.h"
 #endif
@@ -55,6 +58,8 @@ static const char *TAG = "kiikoread_ota";
 static const char *resolve_ota_path(const char *path) {
     if (!path || strcmp(path, PICO_OTA_UPDATE_PATH) != 0) return path;
     static const char *const candidates[] = {
+        "/sdcard/CrossImple-update.bin",
+        "/sdcard/crossimple_metalio4plus.bin",
         "/sdcard/dpReader-update.bin",
         "/sdcard/dpReader_metalio47_firmware.bin",
         "/sdcard/Metalio-E-Ink4-Plus.bin",
@@ -131,7 +136,7 @@ esp_err_t pico_ota_inspect(const char *path, pico_ota_info_t *info) {
     fclose(file);
     if (err != ESP_OK) {
 #if DPREADER_BOARD_METALIO47
-        set_message(info->message, sizeof(info->message), "Gói cập nhật không phải firmware dpReader hợp lệ");
+        set_message(info->message, sizeof(info->message), "Gói cập nhật không phải firmware CrossImple hợp lệ");
 #else
         set_message(info->message, sizeof(info->message), "Gói cập nhật không phải firmware dpReader hợp lệ");
 #endif
@@ -153,7 +158,7 @@ esp_err_t pico_ota_inspect(const char *path, pico_ota_info_t *info) {
 #if DPREADER_BOARD_METALIO47
         set_message(info->message, sizeof(info->message), "Gói cập nhật không thuộc dòng máy Metalio 4.7");
 #else
-        set_message(info->message, sizeof(info->message), "Gói cập nhật không thuộc firmware dpReader hiện tại");
+        set_message(info->message, sizeof(info->message), "Gói cập nhật không thuộc firmware CrossImple hiện tại");
 #endif
         return ESP_ERR_INVALID_RESPONSE;
     }
@@ -174,6 +179,17 @@ esp_err_t pico_ota_inspect(const char *path, pico_ota_info_t *info) {
 }
 
 esp_err_t pico_ota_install(const char *path, char *message, size_t message_size) {
+#ifdef ESP_PLATFORM
+    const pmu_snapshot_t *pmu = read_pico_pmu_get();
+    if (pmu) {
+        int pct = pmu_battery_percent(pmu);
+        bool chg = pmu_battery_charging(pmu);
+        if (pct >= 0 && pct < 25 && !chg) {
+            set_message(message, message_size, "Pin yếu (< 25%%). Vui lòng cắm sạc trước khi cập nhật");
+            return ESP_ERR_INVALID_STATE;
+        }
+    }
+#endif
     path = resolve_ota_path(path);
     pico_ota_info_t info = {0};
     esp_err_t err = pico_ota_inspect(path, &info);
