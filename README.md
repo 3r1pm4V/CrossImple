@@ -51,6 +51,8 @@
   * Sau `400 ms` đứng yên đọc trang chữ thuần, thiết bị dựng sẵn trước trang kế tiếp + thanh trạng thái vào đệm `48 KB` trên **8 MB PSRAM** (`EpubReaderActivity.cpp`, không dùng trên X3). Khi bấm sang trang mới, đẩy thẳng buffer ra màn hình mà không phải dựng lại glyph.
 * **Bộ lọc Kéo Đậm Nét Chữ Bitmap `1/16 px` (`HalScalableFont.cpp` — X4 Classic & X4 Pro)** *(Nguồn: CrossImple Custom)*:
   * Áp dụng lọc biên độ phủ bitmap từng bước `1/16 px` trên PSRAM cho tùy chọn **Độ đậm (`Weight`)** của *TTF Render Options* (`-0.50 px` .. `+1.00 px`), giúp tăng giảm độ dày nét mà không biến dạng dấu Tiếng Việt hay đổi `advance` (mức *Default* giữ nguyên chuẩn `v0.23`).
+* **Tăng tốc Vào Chế độ Ngủ Tương đương v0.16 (`ImageFolderIndex.cpp`, `EpubReaderActivity.cpp`, `SyncState.cpp` — X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
+  * Tái sử dụng trực tiếp chỉ mục `.idx` của thư mục ảnh ngủ thay vì duyệt lại toàn bộ metadata ảnh trên thẻ SD mỗi lần bấm ngủ, đồng thời gộp thao tác đánh dấu đồng bộ khi thoát trình đọc và đọc `sync_state.bin` một lượt để giảm I/O thẻ nhớ lúc vào sleep.
 
 ### Phiên bản v0.23 (Khắc phục triệt để lỗi RAM Font .cpfont & Đồng bộ hiển thị chuẩn 0.16 trên toàn bộ máy)
 * **Khắc phục Triệt để Giới hạn RAM khi Nạp Font `.cpfont` từ Thẻ nhớ (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:

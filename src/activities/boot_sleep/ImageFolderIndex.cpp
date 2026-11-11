@@ -76,41 +76,6 @@ bool isCandidate(const FsFile& file, const std::string_view name, const bool inc
          (FsHelpers::hasBmpExtension(name) || (includePng && FsHelpers::hasPngExtension(name)));
 }
 
-void fingerprintEntry(uint64_t& fingerprint, FsFile& file, const std::string_view name) {
-  // Order matters: deck bits refer to positions in the index. Include metadata
-  // so replacing a previously invalid image also refreshes a validated index.
-  fingerprint ^= fnv1a64(name);
-  fingerprint *= 1099511628211ULL;
-  fingerprint ^= file.fileSize64();
-  fingerprint *= 1099511628211ULL;
-  fingerprint ^= file.modificationTime();
-  fingerprint *= 1099511628211ULL;
-}
-
-bool folderFingerprint(const std::string& directory, const bool includePng, uint64_t& fingerprint) {
-  FsFile dir = Storage.open(directory.c_str());
-  if (!dir || !dir.isDirectory()) {
-    dir.close();
-    LOG_ERR("IMGIDX", "Cannot scan sleep folder: %s", directory.c_str());
-    return false;
-  }
-  char name[NAME_BUFFER_SIZE];
-  fingerprint = 1469598103934665603ULL;
-  uint32_t scanned = 0;
-  for (auto file = dir.openNextFile(); file; file = dir.openNextFile()) {
-    const size_t length = file.getName(name, sizeof(name));
-    if (length > 0 && length <= MAX_FILENAME_LENGTH && isCandidate(file, std::string_view(name, length), includePng)) {
-      fingerprintEntry(fingerprint, file, std::string_view(name, length));
-    }
-    file.close();
-    if ((++scanned & 0xFF) == 0) delay(1);
-  }
-  const bool failed = FsHelpers::directoryIterationFailed(dir);
-  dir.close();
-  if (failed) LOG_ERR("IMGIDX", "Sleep folder scan failed before EOF: %s", directory.c_str());
-  return !failed;
-}
-
 bool pathHasPrefix(std::string_view path, std::string_view folder, const bool ignoreCase = false) {
   if (folder.empty()) return false;
   if (path.size() < folder.size()) return false;
@@ -305,7 +270,14 @@ bool buildIndex(const std::string& directory, const bool includePng, const bool 
     const bool isBmp = FsHelpers::hasBmpExtension(name);
     const bool isPng = includePng && FsHelpers::hasPngExtension(name);
     bool valid = nameLength > 0 && nameLength <= MAX_FILENAME_LENGTH && isCandidate(file, name, includePng);
-    if (valid) fingerprintEntry(header.fingerprint, file, name);
+    if (valid) {
+      header.fingerprint ^= fnv1a64(name);
+      header.fingerprint *= 1099511628211ULL;
+      header.fingerprint ^= file.fileSize64();
+      header.fingerprint *= 1099511628211ULL;
+      header.fingerprint ^= file.modificationTime();
+      header.fingerprint *= 1099511628211ULL;
+    }
 
     if (valid && validateBmpHeaders && isBmp) {
       Bitmap bitmap(file);
@@ -454,18 +426,16 @@ bool selectShuffled(const std::string& directory, const bool includePng, const b
   selection = Selection{};
   if (directory.empty() || directory.size() > MAX_FILENAME_LENGTH) return false;
 
-  uint64_t fingerprint = 0;
-  // There is no reliable FAT notification for external writes. Walk metadata
-  // on each sleep so direct card copies are visible on the very next pick;
-  // image contents/headers are still read only on rebuild or render failure.
-  if (!folderFingerprint(directory, includePng, fingerprint)) return false;
+  // Use the persisted index without walking the folder on every sleep entry;
+  // firmware file transfers/USB Drive invalidate the cache on changes, and a
+  // missing picked entry still triggers a one-shot rebuild below.
   char cachePath[MAX_CACHE_PATH] = {};
   IndexHeader header{};
   HalFile cache;
   const bool loaded = openValidIndex(directory, includePng, false, cache, header, cachePath, sizeof(cachePath));
   // Sleep retries filter the same stable collection instead of rebuilding a
   // smaller validated/BMP-only index and forgetting already displayed cards.
-  if (!loaded || header.fingerprint != fingerprint || (header.flags & FLAG_VALIDATED) != 0) {
+  if (!loaded || (header.flags & FLAG_VALIDATED) != 0) {
     cache.close();
     if (!buildIndex(directory, includePng, false, cachePath, sizeof(cachePath)) ||
         !openValidIndex(directory, includePng, false, cache, header, cachePath, sizeof(cachePath))) {
@@ -547,6 +517,29 @@ bool selectShuffled(const std::string& directory, const bool includePng, const b
   const bool read = readRecordName(cache, header, selection.index, filename, selection.isPng);
   cache.close();
   if (!read || !cacheRecordExists(directory, filename)) {
+    // External card edits can delete/rename an entry without invalidating the
+    // index; rebuild once before falling back to a full scan.
+    if (!validateBmpHeaders && !bmpOnly && buildIndex(directory, includePng, false, cachePath, sizeof(cachePath)) &&
+        openValidIndex(directory, includePng, false, cache, header, cachePath, sizeof(cachePath)) &&
+        header.recordCount > 0) {
+      const auto retryResult =
+          SleepImageDeck::select(cachePath, header.fingerprint, header.recordCount, selection.index, nullptr);
+      const bool retryRead = retryResult == SleepImageDeck::Result::Selected &&
+                             readRecordName(cache, header, selection.index, filename, selection.isPng);
+      cache.close();
+      if (retryRead && cacheRecordExists(directory, filename)) {
+        selection.path = directory;
+        if (selection.path.back() != '/') selection.path += '/';
+        selection.path += filename;
+        selection.indexPath = cachePath;
+        selection.fingerprint = header.fingerprint;
+        selection.count = header.recordCount;
+        return true;
+      }
+      if (retryResult == SleepImageDeck::Result::NoEligible) {
+        selection.noEligibleRemaining = true;
+      }
+    }
     LOG_ERR("IMGIDX", "Sleep image index entry is unavailable: %s", directory.c_str());
     invalidate();
     return false;

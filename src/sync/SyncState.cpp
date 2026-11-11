@@ -235,15 +235,18 @@ void SyncState::invalidateCatchup(const bool stats) {
   // out") the current identity matches nothing, yet re-entering it later must
   // still find the catch-up undone.
   SyncState state;
-  if (!readStored(state)) return;
-  bool recorded =
-      stats ? state.statsCaughtUp || state.statsCatchupId : state.clippingsCaughtUp || state.clippingsCatchupId;
+  bool recorded = false;
   {
     SyncFiles::Reader reader(PATH);
-    SyncState header;
     uint8_t version = 0;
-    if (!recorded && reader.open() != SyncFiles::Reader::Source::None && readHeader(reader, header, version) &&
-        version == VERSION) {
+    if (reader.open() == SyncFiles::Reader::Source::None) return;
+    if (!readHeader(reader, state, version)) {
+      LOG_ERR("SYNC", "Unreadable sync state; starting fresh");
+      return;
+    }
+    recorded =
+        stats ? state.statsCaughtUp || state.statsCatchupId : state.clippingsCaughtUp || state.clippingsCatchupId;
+    if (!recorded && version == VERSION) {
       SyncScope scope;
       while (!recorded && !reader.atEnd() && readScope(reader, scope))
         recorded =

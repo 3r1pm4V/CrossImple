@@ -9,6 +9,9 @@
   - Khi bấm lật sang trang tiếp theo (khớp chữ ký layout, font, bookmark, highlight, đồng hồ và pin), đẩy thẳng buffer đã dựng ra màn E-Ink, bỏ qua bước quét font và vẽ chữ lại từ đầu.
 - **Bộ lọc Kéo Đậm Nét Chữ Bitmap `1/16 px` cho Font `.ttf`/`.otf` (X4 Classic & X4 Pro)**:
   - Tích hợp thuật toán lọc đường bao độ phủ `applyStrokeFilterFine` trên vùng đệm tạm PSRAM (`HalScalableFont.cpp`) cho tùy chọn **Độ đậm (`Weight`)** trong *TTF Render Options* (`-0.50 px` đến `+1.00 px`), giữ nguyên outline/dấu Tiếng Việt sắc nét không biến dạng và giữ nguyên `advance`, kèm padding hộp ký tự tránh cắt viền nét. Mức *Default* giữ nguyên 100% đầu ra `v0.23`.
+- **Tăng tốc Vào Chế độ Ngủ (Sleep Entry) Tương đương v0.16 (X3, X4 Classic, X4 Pro)**:
+  - Bỏ quét lại `folderFingerprint()` toàn bộ thư mục ảnh ngủ trên thẻ SD mỗi lần nhấn ngủ (`ImageFolderIndex::selectShuffled`), tái sử dụng trực tiếp chỉ mục `.idx` đã lưu (tự đồng bộ lại khi đổi file qua File Browser/USB Drive/Web Transfer hoặc tự rebuild 1 lần nếu ảnh được chọn bị thiếu).
+  - Gộp cờ đồng bộ tiến độ và thống kê đọc trong `EpubReaderActivity::finalizeReadingStatsOnExit()` thành 1 lần đánh dấu thay vì ghi đè `sync_pending.bin` 2 lần liên tiếp lúc thoát đọc, đồng thời đọc `sync_state.bin` một lượt trong `SyncState::invalidateCatchup()` để giảm thao tác SD I/O khi vào ngủ.
 
 ## [v0.23] - 2026-11-10
 

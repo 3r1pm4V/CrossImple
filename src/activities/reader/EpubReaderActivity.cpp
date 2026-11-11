@@ -1597,7 +1597,10 @@ void EpubReaderActivity::finalizeReadingStatsOnExit() {
   if (statsTrackingActive || paceDirty || pendingStatsCommit || stats.estimatedTimeLeftSeconds != previousEstimate) {
     if (stats.save(epub->getCachePath())) {
       if (statsTrackingActive || pendingStatsCommit) globalStats.save();
-      pendingSync.mark(epub->getPath(), SyncPending::STATS_BIT);
+      const uint8_t syncBits =
+          SyncPending::STATS_BIT |
+          (pendingSyncDue.exchange(false, std::memory_order_relaxed) ? SyncPending::PROGRESS_BIT : uint8_t{0});
+      pendingSync.mark(epub->getPath(), syncBits);
     }
   }
 }
