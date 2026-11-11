@@ -462,8 +462,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t screenInverted = 0;
   // Sleep screen cover mode settings
   uint8_t sleepScreenCoverMode = FIT;
-  // Sleep screen cover filter
-  uint8_t sleepScreenCoverFilter = NO_FILTER;
+  // Sleep screen cover filter (default to crisp 1-bit B&W for fast single-pass sleep)
+  uint8_t sleepScreenCoverFilter = BLACK_AND_WHITE;
   // Status bar settings (statusBar retained for migration only)
   uint8_t statusBar = FULL;
   uint8_t statusBarChapterPageCount = 1;

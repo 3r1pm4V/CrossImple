@@ -13,13 +13,14 @@ namespace SleepCoverAssets {
 bool prepareXtc(const Xtc& xtc);
 bool prepareTxt(const Txt& txt);
 bool prepareFullCoverForPath(const std::string& bookPath, bool cropped, const GfxRenderer* renderer = nullptr,
-                             ImageToneProfile toneProfile = ImageToneProfile::Legacy);
+                             ImageToneProfile toneProfile = ImageToneProfile::Legacy, bool oneBit = false);
 bool prepareMinimalCoverForPath(const std::string& bookPath, const GfxRenderer* renderer = nullptr);
 bool prepareDashboardCoverForPath(const std::string& bookPath, const GfxRenderer* renderer = nullptr);
 
 std::string reusableCoverPathFor(const std::string& bookPath);
 std::string cachedCoverPathFor(const std::string& bookPath, bool cropped,
-                               ImageToneProfile toneProfile = ImageToneProfile::Legacy, bool* sourceBitmap = nullptr);
+                               ImageToneProfile toneProfile = ImageToneProfile::Legacy, bool* sourceBitmap = nullptr,
+                               bool oneBit = false);
 std::string cachedMinimalCoverPathFor(const std::string& bookPath);
 std::string cachedDashboardCoverPathFor(const std::string& bookPath);
 

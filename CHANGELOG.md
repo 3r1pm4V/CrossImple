@@ -12,6 +12,9 @@
 - **Tăng tốc Vào Chế độ Ngủ (Sleep Entry) Tương đương v0.16 (X3, X4 Classic, X4 Pro)**:
   - Bỏ quét lại `folderFingerprint()` toàn bộ thư mục ảnh ngủ trên thẻ SD mỗi lần nhấn ngủ (`ImageFolderIndex::selectShuffled`), tái sử dụng trực tiếp chỉ mục `.idx` đã lưu (tự đồng bộ lại khi đổi file qua File Browser/USB Drive/Web Transfer hoặc tự rebuild 1 lần nếu ảnh được chọn bị thiếu).
   - Gộp cờ đồng bộ tiến độ và thống kê đọc trong `EpubReaderActivity::finalizeReadingStatsOnExit()` thành 1 lần đánh dấu thay vì ghi đè `sync_pending.bin` 2 lần liên tiếp lúc thoát đọc, đồng thời đọc `sync_state.bin` một lượt trong `SyncState::invalidateCatchup()` để giảm thao tác SD I/O khi vào ngủ.
+- **Xuất Cache Bìa Ngủ 1-bit Đen Trắng (`_1bit`) Mặc định (X3, X4 Classic, X4 Pro)**:
+  - Mở rộng `JpegToBmpConverter::jpegFileToBmpStream()`, `PngToBmpConverter::pngFileToBmpStream()`, `GifToBmpConverter::gifFileToBmpStream()`, `Epub::generateCoverBmp()`, `Txt::generateCoverBmp()` và `SleepCoverAssets` để tự động chuyển bìa (kể cả ảnh nguồn 16-bit, 24-bit, 32-bit RGBA) qua `Atkinson1BitDitherer` thành file cache BMP 1-bit riêng (`cover_1bit_v2.bmp`, ~48 KB) khi dùng `Bộ lọc bìa` (`Tương phản` / `Đảo ngược`), ăn thẳng fast-path `GfxRenderer::drawBitmap1Bit()` và chỉ quét 1 nhịp `HALF_REFRESH`.
+  - Đặt mặc định `sleepScreenCoverFilter = BLACK_AND_WHITE` (kèm cờ migration `sleepCoverFilterSchema = 2` khi nâng cấp từ `<= v0.23`); người dùng muốn dùng lại bìa 4 mức xám chỉ cần chuyển `Bộ lọc bìa → Không`.
 
 ## [v0.23] - 2026-11-10
 

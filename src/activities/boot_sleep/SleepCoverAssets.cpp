@@ -66,11 +66,12 @@ bool prepareTxt(const Txt& txt) {
   if (!shouldPrepareFullCover() && !shouldPrepareMinimalCover() && !shouldPrepareDashboardCover()) {
     return true;
   }
-  return txt.generateCoverBmp();
+  const bool oneBit = shouldPrepareFullCover() && SETTINGS.sleepScreenCoverFilter != CrossPointSettings::NO_FILTER;
+  return txt.generateCoverBmp(ImageToneProfile::Legacy, oneBit);
 }
 
 bool prepareFullCoverForPath(const std::string& bookPath, const bool cropped, const GfxRenderer* renderer,
-                             ImageToneProfile toneProfile) {
+                             ImageToneProfile toneProfile, const bool oneBit) {
   if (bookPath.empty()) {
     return false;
   }
@@ -84,7 +85,7 @@ bool prepareFullCoverForPath(const std::string& bookPath, const bool cropped, co
     if (!epub.load(/*buildIfMissing=*/false, /*skipLoadingCss=*/true, Epub::XLocationLoadMode::Skip)) {
       return false;
     }
-    return epub.generateCoverBmp(cropped, renderer, readerFontIdForRenderer(renderer), toneProfile);
+    return epub.generateCoverBmp(cropped, renderer, readerFontIdForRenderer(renderer), toneProfile, oneBit);
   }
   if (FsHelpers::hasXtcExtension(bookPath)) {
     Xtc xtc(bookPath, "/.crosspoint");
@@ -95,7 +96,7 @@ bool prepareFullCoverForPath(const std::string& bookPath, const bool cropped, co
   }
   if (FsHelpers::hasTxtExtension(bookPath) || FsHelpers::hasMarkdownExtension(bookPath)) {
     Txt txt(bookPath, "/.crosspoint");
-    return txt.generateCoverBmp(toneProfile);
+    return txt.generateCoverBmp(toneProfile, oneBit);
   }
   return false;
 }
@@ -170,7 +171,7 @@ std::string reusableCoverPathFor(const std::string& bookPath) {
 }
 
 std::string cachedCoverPathFor(const std::string& bookPath, const bool cropped, ImageToneProfile toneProfile,
-                               bool* sourceBitmap) {
+                               bool* sourceBitmap, const bool oneBit) {
   if (sourceBitmap) *sourceBitmap = false;
   const std::string customCover = CustomCoverResolver::resolveCustomCoverBmpPath(bookPath);
   if (!customCover.empty() && fileExists(customCover)) {
@@ -178,12 +179,12 @@ std::string cachedCoverPathFor(const std::string& bookPath, const bool cropped, 
   }
   std::string coverPath;
   if (FsHelpers::hasEpubExtension(bookPath)) {
-    coverPath = Epub(bookPath, "/.crosspoint").getCoverBmpPath(cropped, toneProfile);
+    coverPath = Epub(bookPath, "/.crosspoint").getCoverBmpPath(cropped, toneProfile, oneBit);
   } else if (FsHelpers::hasXtcExtension(bookPath)) {
     if (sourceBitmap) *sourceBitmap = true;
     coverPath = Xtc(bookPath, "/.crosspoint").getCoverBmpPath();
   } else if (FsHelpers::hasTxtExtension(bookPath) || FsHelpers::hasMarkdownExtension(bookPath)) {
-    coverPath = Txt(bookPath, "/.crosspoint").getCoverBmpPath(toneProfile, sourceBitmap);
+    coverPath = Txt(bookPath, "/.crosspoint").getCoverBmpPath(toneProfile, sourceBitmap, oneBit);
   }
 
   return fileExists(coverPath) ? coverPath : std::string{};

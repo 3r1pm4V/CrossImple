@@ -391,10 +391,11 @@ bool GifToBmpConverter::gifFileToBmpStreamInternal(FsFile& gifFile, Print& bmpOu
   return true;
 }
 
-bool GifToBmpConverter::gifFileToBmpStream(FsFile& gifFile, Print& bmpOut, bool crop, ImageToneProfile toneProfile) {
+bool GifToBmpConverter::gifFileToBmpStream(FsFile& gifFile, Print& bmpOut, bool crop, ImageToneProfile toneProfile,
+                                           bool oneBit) {
   const int targetWidth = display.getDisplayHeight();
   const int targetHeight = display.getDisplayWidth();
-  return gifFileToBmpStreamInternal(gifFile, bmpOut, targetWidth, targetHeight, false, crop, toneProfile);
+  return gifFileToBmpStreamInternal(gifFile, bmpOut, targetWidth, targetHeight, oneBit, crop, toneProfile);
 }
 
 bool GifToBmpConverter::gifFileTo1BitBmpStreamWithSize(FsFile& gifFile, Print& bmpOut, int targetMaxWidth,

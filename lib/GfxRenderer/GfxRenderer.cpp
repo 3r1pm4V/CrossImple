@@ -2109,8 +2109,8 @@ void GfxRenderer::drawIconInverted(const uint8_t bitmap[], const int x, const in
 bool GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, const int maxWidth, const int maxHeight,
                              const float cropX, const float cropY, const bool monochromeMask) const {
   if (fontCacheManager_ && fontCacheManager_->isScanning()) return false;
-  // For 1-bit bitmaps, use optimized 1-bit rendering path (no crop support for 1-bit)
-  if (bitmap.is1Bit() && cropX == 0.0f && cropY == 0.0f) {
+  // For 1-bit bitmaps in BW mode, use optimized 1-bit rendering path (no crop support for 1-bit)
+  if (renderMode == BW && bitmap.is1Bit() && cropX == 0.0f && cropY == 0.0f) {
     return drawBitmap1Bit(bitmap, x, y, maxWidth, maxHeight);
   }
 

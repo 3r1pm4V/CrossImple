@@ -53,6 +53,8 @@
   * Áp dụng lọc biên độ phủ bitmap từng bước `1/16 px` trên PSRAM cho tùy chọn **Độ đậm (`Weight`)** của *TTF Render Options* (`-0.50 px` .. `+1.00 px`), giúp tăng giảm độ dày nét mà không biến dạng dấu Tiếng Việt hay đổi `advance` (mức *Default* giữ nguyên chuẩn `v0.23`).
 * **Tăng tốc Vào Chế độ Ngủ Tương đương v0.16 (`ImageFolderIndex.cpp`, `EpubReaderActivity.cpp`, `SyncState.cpp` — X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
   * Tái sử dụng trực tiếp chỉ mục `.idx` của thư mục ảnh ngủ thay vì duyệt lại toàn bộ metadata ảnh trên thẻ SD mỗi lần bấm ngủ, đồng thời gộp thao tác đánh dấu đồng bộ khi thoát trình đọc và đọc `sync_state.bin` một lượt để giảm I/O thẻ nhớ lúc vào sleep.
+* **Xuất Cache Bìa Ngủ 1-bit Đen Trắng Mặc định (`_1bit`, X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
+  * Chuyển mặc định `Bộ lọc bìa` (`sleepScreenCoverFilter`) sang `Tương phản` (`BLACK_AND_WHITE`) và xuất thẳng cache `.bmp` 1-bit (~48 KB) bằng `Atkinson1BitDitherer` cho cả ảnh nguồn 16/24/32-bit trong EPUB/TXT, giúp vẽ bìa qua đường nhanh `drawBitmap1Bit()` và chỉ tốn 1 nhịp `HALF_REFRESH` (chuyển `Bộ lọc bìa → Không` nếu muốn hiển thị 4 mức xám).
 
 ### Phiên bản v0.23 (Khắc phục triệt để lỗi RAM Font .cpfont & Đồng bộ hiển thị chuẩn 0.16 trên toàn bộ máy)
 * **Khắc phục Triệt để Giới hạn RAM khi Nạp Font `.cpfont` từ Thẻ nhớ (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:

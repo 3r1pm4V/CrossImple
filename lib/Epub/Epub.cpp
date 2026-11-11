@@ -1244,8 +1244,9 @@ bool Epub::hasCoverImage() const {
   return bookMetadataCache && bookMetadataCache->isLoaded() && !bookMetadataCache->coreMetadata.coverItemHref.empty();
 }
 
-std::string Epub::getCoverBmpPath(bool cropped, ImageToneProfile toneProfile) const {
-  const auto coverFileName = std::string("cover") + (cropped ? "_crop" : "") + coverToneSuffix(toneProfile);
+std::string Epub::getCoverBmpPath(bool cropped, ImageToneProfile toneProfile, bool oneBit) const {
+  const auto coverFileName =
+      std::string("cover") + (cropped ? "_crop" : "") + coverToneSuffix(toneProfile) + (oneBit ? "_1bit" : "");
   return cachePath + "/" + coverFileName + "_v2.bmp";
 }
 
@@ -1326,10 +1327,11 @@ bool generateGifBmp(const Epub& epub, const std::string& href, const std::string
 }  // namespace
 
 bool Epub::generateCoverBmp(bool cropped, const GfxRenderer* renderer, const int readerFontId,
-                            ImageToneProfile toneProfile) const {
+                            ImageToneProfile toneProfile, bool oneBit) const {
   if (!decryptor && !openProtection()) return false;
+  const std::string coverBmpPath = getCoverBmpPath(cropped, toneProfile, oneBit);
   // Already generated, return true
-  if (Storage.exists(getCoverBmpPath(cropped, toneProfile).c_str())) {
+  if (Storage.exists(coverBmpPath.c_str())) {
     return true;
   }
 
@@ -1356,19 +1358,19 @@ bool Epub::generateCoverBmp(bool cropped, const GfxRenderer* renderer, const int
     }
 
     FsFile coverBmp;
-    if (!Storage.openFileForWrite("EBP", getCoverBmpPath(cropped, toneProfile), coverBmp)) {
+    if (!Storage.openFileForWrite("EBP", coverBmpPath, coverBmp)) {
       coverJpg.close();
       return false;
     }
     releaseReaderSdFontCachesBeforeCoverDecode(renderer, readerFontId, "cover JPG decode");
-    const bool success = JpegToBmpConverter::jpegFileToBmpStream(coverJpg, coverBmp, cropped, toneProfile);
+    const bool success = JpegToBmpConverter::jpegFileToBmpStream(coverJpg, coverBmp, cropped, toneProfile, oneBit);
     // Explicitly close() files before leaving the converter path.
     coverJpg.close();
     coverBmp.close();
 
     if (!success) {
       LOG_ERR("EBP", "Failed to generate BMP from cover image");
-      Storage.remove(getCoverBmpPath(cropped, toneProfile).c_str());
+      Storage.remove(coverBmpPath.c_str());
     }
     return success;
   }
@@ -1385,28 +1387,28 @@ bool Epub::generateCoverBmp(bool cropped, const GfxRenderer* renderer, const int
     }
 
     FsFile coverBmp;
-    if (!Storage.openFileForWrite("EBP", getCoverBmpPath(cropped, toneProfile), coverBmp)) {
+    if (!Storage.openFileForWrite("EBP", coverBmpPath, coverBmp)) {
       coverPng.close();
       return false;
     }
     releaseReaderSdFontCachesBeforeCoverDecode(renderer, readerFontId, "cover PNG decode");
-    const bool success = PngToBmpConverter::pngFileToBmpStream(coverPng, coverBmp, cropped, toneProfile);
+    const bool success = PngToBmpConverter::pngFileToBmpStream(coverPng, coverBmp, cropped, toneProfile, oneBit);
     // Explicitly close() files before leaving the converter path.
     coverPng.close();
     coverBmp.close();
 
     if (!success) {
       LOG_ERR("EBP", "Failed to generate BMP from PNG cover image");
-      Storage.remove(getCoverBmpPath(cropped, toneProfile).c_str());
+      Storage.remove(coverBmpPath.c_str());
     }
     return success;
   }
 
   if (FsHelpers::hasGifExtension(coverImageHref)) {
     releaseReaderSdFontCachesBeforeCoverDecode(renderer, readerFontId, "cover GIF decode");
-    return generateGifBmp(*this, coverImageHref, getCoverBmpPath(cropped, toneProfile),
-                          [cropped, toneProfile](FsFile& gif, Print& bmp) {
-                            return GifToBmpConverter::gifFileToBmpStream(gif, bmp, cropped, toneProfile);
+    return generateGifBmp(*this, coverImageHref, coverBmpPath,
+                          [cropped, toneProfile, oneBit](FsFile& gif, Print& bmp) {
+                            return GifToBmpConverter::gifFileToBmpStream(gif, bmp, cropped, toneProfile, oneBit);
                           });
   }
 

@@ -54,6 +54,8 @@ ImageToneProfile bookCoverToneProfile(const GfxRenderer& renderer) {
   return imageToneProfile(renderer.supportsAbsoluteGrayscale());
 }
 
+bool useOneBitBookCover() { return SETTINGS.sleepScreenCoverFilter != CrossPointSettings::NO_FILTER; }
+
 bool sleepCoverFilterInvertsGeneratedScreen() {
   return SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::INVERTED_BLACK_AND_WHITE;
 }
@@ -567,7 +569,9 @@ void SleepActivity::onEnter() {
     if (!recentBookPath.empty()) {
       const bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
       sleepRequiresUncachedCoverDecode =
-          SleepCoverAssets::cachedCoverPathFor(recentBookPath, cropped, bookCoverToneProfile(renderer)).empty();
+          SleepCoverAssets::cachedCoverPathFor(recentBookPath, cropped, bookCoverToneProfile(renderer), nullptr,
+                                               useOneBitBookCover())
+              .empty();
     }
   }
   const bool showSleepPopup =
@@ -639,7 +643,9 @@ bool SleepActivity::rendersBeforeExit() const {
       if (path.empty()) return true;
       // Uncached covers still need the memory and file handles released on exit.
       const bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
-      return !SleepCoverAssets::cachedCoverPathFor(path, cropped, bookCoverToneProfile(renderer)).empty();
+      return !SleepCoverAssets::cachedCoverPathFor(path, cropped, bookCoverToneProfile(renderer), nullptr,
+                                                   useOneBitBookCover())
+                  .empty();
     }
     default:
       // Stats and overlay screens need the latest persisted reader state.
@@ -874,11 +880,14 @@ void SleepActivity::renderCoverSleepScreen() const {
   }
 
   const auto toneProfile = bookCoverToneProfile(renderer);
+  const bool oneBit = useOneBitBookCover();
   bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
   bool sourceBitmap = false;
-  std::string coverBmpPath = SleepCoverAssets::cachedCoverPathFor(path, cropped, toneProfile, &sourceBitmap);
-  if (coverBmpPath.empty() && SleepCoverAssets::prepareFullCoverForPath(path, cropped, &renderer, toneProfile)) {
-    coverBmpPath = SleepCoverAssets::cachedCoverPathFor(path, cropped, toneProfile, &sourceBitmap);
+  std::string coverBmpPath =
+      SleepCoverAssets::cachedCoverPathFor(path, cropped, toneProfile, &sourceBitmap, oneBit);
+  if (coverBmpPath.empty() &&
+      SleepCoverAssets::prepareFullCoverForPath(path, cropped, &renderer, toneProfile, oneBit)) {
+    coverBmpPath = SleepCoverAssets::cachedCoverPathFor(path, cropped, toneProfile, &sourceBitmap, oneBit);
   }
   if (coverBmpPath.empty()) {
     return renderNoCoverSleepScreen();

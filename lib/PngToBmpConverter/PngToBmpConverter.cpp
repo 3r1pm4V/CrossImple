@@ -889,11 +889,12 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(FsFile& pngFile, Print& bmpOu
   return success;
 }
 
-bool PngToBmpConverter::pngFileToBmpStream(FsFile& pngFile, Print& bmpOut, bool crop, ImageToneProfile toneProfile) {
+bool PngToBmpConverter::pngFileToBmpStream(FsFile& pngFile, Print& bmpOut, bool crop, ImageToneProfile toneProfile,
+                                           bool oneBit) {
   // Use runtime display dimensions (swapped for portrait cover sizing)
   const int targetWidth = display.getDisplayHeight();
   const int targetHeight = display.getDisplayWidth();
-  return pngFileToBmpStreamInternal(pngFile, bmpOut, targetWidth, targetHeight, false, crop, false, toneProfile);
+  return pngFileToBmpStreamInternal(pngFile, bmpOut, targetWidth, targetHeight, oneBit, crop, false, toneProfile);
 }
 
 bool PngToBmpConverter::pngFileTo1BitBmpStreamWithSize(FsFile& pngFile, Print& bmpOut, int targetMaxWidth,

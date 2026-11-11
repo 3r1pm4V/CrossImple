@@ -93,7 +93,7 @@ std::string Txt::findCoverImage() const {
   return "";
 }
 
-std::string Txt::getCoverBmpPath(ImageToneProfile toneProfile, bool* sourceBitmap) const {
+std::string Txt::getCoverBmpPath(ImageToneProfile toneProfile, bool* sourceBitmap, bool oneBit) const {
   if (sourceBitmap) *sourceBitmap = false;
   if (toneProfile == ImageToneProfile::PiccoCover) {
     // A copied sidecar still needs tone conversion. A JPEG-derived cache already has it.
@@ -103,12 +103,12 @@ std::string Txt::getCoverBmpPath(ImageToneProfile toneProfile, bool* sourceBitma
       return sourcePath;
     }
   }
-  return cachePath + "/cover" + coverToneSuffix(toneProfile) + ".bmp";
+  return cachePath + "/cover" + coverToneSuffix(toneProfile) + (oneBit ? "_1bit" : "") + ".bmp";
 }
 
-bool Txt::generateCoverBmp(ImageToneProfile toneProfile) const {
+bool Txt::generateCoverBmp(ImageToneProfile toneProfile, bool oneBit) const {
   // Already generated, return true
-  std::string destination = getCoverBmpPath(toneProfile);
+  std::string destination = getCoverBmpPath(toneProfile, nullptr, oneBit);
   if (Storage.exists(destination.c_str())) {
     return true;
   }
@@ -156,7 +156,7 @@ bool Txt::generateCoverBmp(ImageToneProfile toneProfile) const {
       coverJpg.close();
       return false;
     }
-    const bool success = JpegToBmpConverter::jpegFileToBmpStream(coverJpg, coverBmp, true, toneProfile);
+    const bool success = JpegToBmpConverter::jpegFileToBmpStream(coverJpg, coverBmp, true, toneProfile, oneBit);
 
     coverJpg.close();
     coverBmp.close();

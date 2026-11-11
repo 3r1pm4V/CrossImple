@@ -784,12 +784,13 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
   return true;
 }
 
-// Core function: Convert JPEG file to 2-bit BMP (uses default target size)
-bool JpegToBmpConverter::jpegFileToBmpStream(FsFile& jpegFile, Print& bmpOut, bool crop, ImageToneProfile toneProfile) {
+// Core function: Convert JPEG file to 2-bit or 1-bit BMP (uses default target size)
+bool JpegToBmpConverter::jpegFileToBmpStream(FsFile& jpegFile, Print& bmpOut, bool crop, ImageToneProfile toneProfile,
+                                             bool oneBit) {
   // Use runtime display dimensions (swapped for portrait cover sizing)
   const int targetWidth = display.getDisplayHeight();
   const int targetHeight = display.getDisplayWidth();
-  return jpegFileToBmpStreamInternal(jpegFile, bmpOut, targetWidth, targetHeight, false, crop, false, toneProfile);
+  return jpegFileToBmpStreamInternal(jpegFile, bmpOut, targetWidth, targetHeight, oneBit, crop, false, toneProfile);
 }
 
 // Convert to 1-bit BMP (black and white only, no grays) for fast home screen rendering

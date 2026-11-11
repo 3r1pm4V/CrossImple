@@ -13,7 +13,7 @@ class GifToBmpConverter {
 
  public:
   static bool gifFileToBmpStream(FsFile& gifFile, Print& bmpOut, bool crop = true,
-                                 ImageToneProfile toneProfile = ImageToneProfile::Legacy);
+                                 ImageToneProfile toneProfile = ImageToneProfile::Legacy, bool oneBit = false);
   static bool gifFileTo1BitBmpStreamWithSize(FsFile& gifFile, Print& bmpOut, int targetMaxWidth, int targetMaxHeight,
                                              bool adaptiveContain = false);
 };

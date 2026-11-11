@@ -29,8 +29,9 @@ class Txt {
 
   // Cover image support - looks for cover.bmp/jpg/jpeg/png in same folder as txt file
   [[nodiscard]] std::string getCoverBmpPath(ImageToneProfile toneProfile = ImageToneProfile::Legacy,
-                                            bool* sourceBitmap = nullptr) const;
-  [[nodiscard]] bool generateCoverBmp(ImageToneProfile toneProfile = ImageToneProfile::Legacy) const;
+                                            bool* sourceBitmap = nullptr, bool oneBit = false) const;
+  [[nodiscard]] bool generateCoverBmp(ImageToneProfile toneProfile = ImageToneProfile::Legacy,
+                                      bool oneBit = false) const;
   [[nodiscard]] std::string findCoverImage() const;
 
   // Read content from file

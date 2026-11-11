@@ -537,6 +537,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   if (keyboardLayouts != 0) doc["keyboardLayouts"] = keyboardLayouts;
   doc["tiltPageTurnDirectionSchema"] = TILT_DIRECTION_SCHEMA_CURRENT;
   doc["characterSpacingSchema"] = 2;
+  doc["sleepCoverFilterSchema"] = 2;
   doc["clockDateHasBeenSynced"] = clockDateHasBeenSynced;
   doc["screenInverted"] = screenInverted;
 }
@@ -677,6 +678,11 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
       textAntiAliasing = syncedTextAa;
       needsResave = true;
     }
+  }
+
+  if ((doc["sleepCoverFilterSchema"] | 1) < 2 && sleepScreenCoverFilter == NO_FILTER) {
+    sleepScreenCoverFilter = BLACK_AND_WHITE;
+    needsResave = true;
   }
 
   // The dynamic Images setting is intentionally absent from the generic field loop.
