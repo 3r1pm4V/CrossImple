@@ -2,6 +2,7 @@
 
 #include <FsHelpers.h>
 #include <Logging.h>
+#include <Utf8.h>
 #include <XmlParserUtils.h>
 
 #include "Epub/BookMetadataCache.h"
@@ -137,7 +138,7 @@ void XMLCALL TocNavParser::endElement(void* userData, const XML_Char* name) {
 
       if (self->cache) {
         // olDepth gives us the nesting level (1-based from the outer ol)
-        self->cache->createTocEntry(self->currentLabel, href, anchor, self->olDepth);
+        self->cache->createTocEntry(utf8ComposeNfc(self->currentLabel), href, anchor, self->olDepth);
       }
 
       self->currentLabel.clear();

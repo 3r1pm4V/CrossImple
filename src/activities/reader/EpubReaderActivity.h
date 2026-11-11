@@ -195,6 +195,33 @@ class EpubReaderActivity final : public Activity {
   int idlePrewarmSpine = -1;
   int idlePrewarmPage = -1;
   int idlePrewarmFontId = 0;
+#if defined(BOARD_HAS_PSRAM)
+  struct NextPageFrameCache {
+    HeapByteBuffer buffer;
+    HeapByteBuffer scratchBackup;
+    size_t bufferBytes = 0;
+    uint32_t layoutSignature = 0;
+    uint32_t dynamicSignature = 0;
+    int spineIndex = -1;
+    int pageNumber = -1;
+    uint16_t pageCount = 0;
+    int fontId = 0;
+    bool valid = false;
+
+    void invalidate() { valid = false; }
+    void release() {
+      valid = false;
+      buffer.reset();
+      scratchBackup.reset();
+      bufferBytes = 0;
+    }
+  } nextPageFrameCache;
+  void computeFrameCacheSignatures(int targetSpine, int targetPage, int renderFontId, uint32_t& layoutSig,
+                                   uint32_t& dynamicSig) const;
+  bool tryBlitPrefetchedNextPage(const Page& page, int renderFontId, int orientedMarginTop,
+                                 int orientedMarginLeft);
+  void preRenderNextPageToPsram(int renderFontId);
+#endif
   bool paceSampleWarmupPending = true;
   uint32_t sessionStartPaceMillis = 0;
   uint16_t sessionStartPaceSampleCount = 0;

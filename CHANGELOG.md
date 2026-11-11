@@ -1,3 +1,15 @@
+## [v0.24] - 2026-11-11
+
+### Đã thêm & Tối ưu (Added & Improved)
+- **Hoàn thiện Chuẩn hóa Dấu Tiếng Việt NFD -> NFC Toàn Diện (X3, X4 Classic, X4 Pro)**:
+  - Mở rộng cơ chế gộp dấu Unicode tổ hợp (`utf8ComposeNfc`) từ thân sách EPUB sang **trình đọc TXT** (`TxtReaderActivity.cpp`, `Txt.cpp` — vẫn giữ nguyên chính xác offset byte tệp và ngắt dòng theo cụm chữ có dấu) và **tiêu đề/tác giả/mục lục EPUB** (`ContentOpfParser.cpp`, `TocNcxParser.cpp`, `TocNavParser.cpp`).
+  - Dùng lại bảng `Utf8ComposeTable` có sẵn trong Flash (~`0 bytes` RAM tĩnh thêm trên X3).
+- **Dựng trước Framebuffer Trang Kế tiếp trên PSRAM (X4 Classic & X4 Pro)**:
+  - Thêm bộ đệm `NextPageFrameCache` trên PSRAM (`EpubReaderActivity.cpp`, chỉ biên dịch khi `BOARD_HAS_PSRAM`): sau khi đứng yên đọc 400 ms, tự động dựng trước toàn bộ trang văn bản kế tiếp + thanh trạng thái vào bộ đệm 48 KB PSRAM.
+  - Khi bấm lật sang trang tiếp theo (khớp chữ ký layout, font, bookmark, highlight, đồng hồ và pin), đẩy thẳng buffer đã dựng ra màn E-Ink, bỏ qua bước quét font và vẽ chữ lại từ đầu.
+- **Bộ lọc Kéo Đậm Nét Chữ Bitmap `1/16 px` cho Font `.ttf`/`.otf` (X4 Classic & X4 Pro)**:
+  - Tích hợp thuật toán lọc đường bao độ phủ `applyStrokeFilterFine` trên vùng đệm tạm PSRAM (`HalScalableFont.cpp`) cho tùy chọn **Độ đậm (`Weight`)** trong *TTF Render Options* (`-0.50 px` đến `+1.00 px`), giữ nguyên outline/dấu Tiếng Việt sắc nét không biến dạng và giữ nguyên `advance`, kèm padding hộp ký tự tránh cắt viền nét. Mức *Default* giữ nguyên 100% đầu ra `v0.23`.
+
 ## [v0.23] - 2026-11-10
 
 ### Đã sửa & Tối ưu (Fixed & Improved)

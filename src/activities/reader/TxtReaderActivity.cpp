@@ -38,6 +38,32 @@ constexpr uint32_t MAX_CACHE_PAGES = 65535;   // Sanity cap to prevent unbounded
 size_t parseAndWrapLines(const uint8_t* buffer, size_t chunkSize, size_t fileOffset, size_t fileSize, int linesPerPage,
                          GfxRenderer& renderer, int fontId, int vw, std::vector<std::string>& outLines,
                          int8_t characterSpacing) {
+  auto measureText = [&](const std::string& text) {
+    return renderer.getTextWidth(fontId, text.c_str(), EpdFontFamily::REGULAR, BidiUtils::BidiBaseDir::AUTO,
+                                 characterSpacing);
+  };
+  auto stepBackGrapheme = [](const std::string& text, size_t p) {
+    while (p > 0) {
+      p--;
+      while (p > 0 && (text[p] & 0xC0) == 0x80) p--;
+      const auto* ptr = reinterpret_cast<const unsigned char*>(text.c_str() + p);
+      if (!utf8IsCombiningMark(utf8NextCodepoint(&ptr))) break;
+    }
+    return p;
+  };
+  auto stepForwardGrapheme = [](const std::string& text, size_t p) {
+    if (p >= text.length()) return text.length();
+    p++;
+    while (p < text.length() && (text[p] & 0xC0) == 0x80) p++;
+    while (p < text.length()) {
+      const auto* ptr = reinterpret_cast<const unsigned char*>(text.c_str() + p);
+      const uint32_t cp = utf8NextCodepoint(&ptr);
+      if (!utf8IsCombiningMark(cp)) break;
+      p = static_cast<size_t>(ptr - reinterpret_cast<const unsigned char*>(text.c_str()));
+    }
+    return p;
+  };
+
   size_t pos = 0;
   while (pos < chunkSize && static_cast<int>(outLines.size()) < linesPerPage) {
     size_t lineEnd = pos;
@@ -49,6 +75,15 @@ size_t parseAndWrapLines(const uint8_t* buffer, size_t chunkSize, size_t fileOff
     bool hasCR = (lineContentLen > 0 && buffer[pos + lineContentLen - 1] == '\r');
     size_t displayLen = hasCR ? lineContentLen - 1 : lineContentLen;
     std::string line(reinterpret_cast<const char*>(buffer + pos), displayLen);
+    // Keep file byte tracking (lineBytePos) on raw bytes while composing NFD
+    // accents (common in Vietnamese TXT/EPUB) before width measurement and draw.
+    bool maybeNfd = false;
+    for (const unsigned char c : line) {
+      if (c == 0xCC || c == 0xCD || c == 0xE1) {
+        maybeNfd = true;
+        break;
+      }
+    }
     size_t lineBytePos = 0;
 
     do {
@@ -57,29 +92,30 @@ size_t parseAndWrapLines(const uint8_t* buffer, size_t chunkSize, size_t fileOff
         break;
       }
 
-      if (renderer.getTextWidth(fontId, line.c_str(), EpdFontFamily::REGULAR, BidiUtils::BidiBaseDir::AUTO,
-                                characterSpacing) <= vw) {
-        outLines.push_back(line);
+      std::string composedFull = maybeNfd ? utf8ComposeNfc(line) : line;
+      if (measureText(composedFull) <= vw) {
+        outLines.push_back(std::move(composedFull));
         lineBytePos = displayLen;
         line.clear();
         break;
       }
       size_t breakPos = line.length();
-      while (breakPos > 0 && renderer.getTextWidth(fontId, line.substr(0, breakPos).c_str(), EpdFontFamily::REGULAR,
-                                                   BidiUtils::BidiBaseDir::AUTO, characterSpacing) > vw) {
+      while (breakPos > 0) {
+        const std::string candidate = maybeNfd ? utf8ComposeNfc(line.substr(0, breakPos)) : line.substr(0, breakPos);
+        if (measureText(candidate) <= vw) break;
         size_t spacePos = line.rfind(' ', breakPos - 1);
         if (spacePos != std::string::npos && spacePos > 0) {
           breakPos = spacePos;
         } else {
-          breakPos--;
-          while (breakPos > 0 && (line[breakPos] & 0xC0) == 0x80) breakPos--;
+          breakPos = stepBackGrapheme(line, breakPos);
         }
       }
       if (breakPos == 0) {
-        breakPos = 1;
-        while (breakPos < line.length() && (line[breakPos] & 0xC0) == 0x80) breakPos++;
+        breakPos = stepForwardGrapheme(line, 0);
       }
-      outLines.push_back(line.substr(0, breakPos));
+      std::string wrapped = line.substr(0, breakPos);
+      if (maybeNfd) wrapped = utf8ComposeNfc(wrapped);
+      outLines.push_back(std::move(wrapped));
       size_t skipChars = breakPos;
       if (breakPos < line.length() && line[breakPos] == ' ') skipChars++;
       lineBytePos += skipChars;

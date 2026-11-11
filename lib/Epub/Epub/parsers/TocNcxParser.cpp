@@ -2,6 +2,7 @@
 
 #include <FsHelpers.h>
 #include <Logging.h>
+#include <Utf8.h>
 #include <XmlParserUtils.h>
 
 #include "Epub/BookMetadataCache.h"
@@ -156,7 +157,7 @@ void XMLCALL TocNcxParser::endElement(void* userData, const XML_Char* name) {
       }
 
       if (self->cache) {
-        self->cache->createTocEntry(self->currentLabel, href, anchor, self->currentDepth);
+        self->cache->createTocEntry(utf8ComposeNfc(self->currentLabel), href, anchor, self->currentDepth);
       }
 
       // Clear them so we don't re-add them if there are weird XML structures

@@ -695,11 +695,13 @@ void XMLCALL ContentOpfParser::endElement(void* userData, const XML_Char* name) 
   }
 
   if (self->state == IN_BOOK_TITLE && isDcElement(name, "title")) {
+    self->title = utf8ComposeNfc(self->title);
     self->state = IN_METADATA;
     return;
   }
 
   if (self->state == IN_BOOK_AUTHOR && isDcElement(name, "creator")) {
+    self->author = utf8ComposeNfc(self->author);
     self->state = IN_METADATA;
     return;
   }

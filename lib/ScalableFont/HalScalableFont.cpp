@@ -34,7 +34,7 @@ constexpr size_t KerningCacheSlots = 2048;
 static_assert((PixelCacheSlots & (PixelCacheSlots - 1)) == 0, "PixelCacheSlots must be a power of two");
 static_assert((MetricCacheSlots & (MetricCacheSlots - 1)) == 0, "MetricCacheSlots must be a power of two");
 static_assert((KerningCacheSlots & (KerningCacheSlots - 1)) == 0, "KerningCacheSlots must be a power of two");
-constexpr uint32_t AdapterRevision = 12;
+constexpr uint32_t AdapterRevision = 13;
 constexpr uint32_t SfntChecksumMagic = 0xB1B0AFBAu;
 // Unicode ends at 0x10FFFF, so the high bit safely marks a shaped glyph ID in
 // EpdGlyph::dataOffset without adding renderer-specific state to the SDK.
@@ -53,6 +53,54 @@ int ceil26_6(int32_t value) {
 int floor26_6(int32_t value) {
   const int64_t wide = value;
   return int(wide >= 0 ? wide / 64 : -((-wide + 63) / 64));
+}
+
+int strokeStepsFromEmbolden(const int32_t embolden26_6) {
+  return std::clamp<int>(embolden26_6 / 4, -32, 32);
+}
+
+int strokePadPixels(const int strokeSteps) {
+  return strokeSteps > 0 ? (strokeSteps + 15) / 16 : 0;
+}
+
+freeink::font::FtFont::RenderOptions freeTypeRenderOptions(freeink::font::FtFont::RenderOptions options) {
+  // Keep vector outlines/metrics untouched by FT_Outline_Embolden so accented glyphs and
+  // advances stay crisp; apply Weight via 1/16-px bitmap coverage contour filtering instead.
+  options.embolden26_6 = 0;
+  return options;
+}
+
+// Offset the 8-bit coverage contour in 1/16-pixel steps without distorting vector outlines
+// or adding muddy intermediate halos; dilation pads the glyph box cleanly by `padOut`.
+void applyStrokeFilterFine(uint8_t* dst, const uint8_t* src, const int srcW, const int srcH, const int padOut,
+                           int steps) {
+  steps = std::clamp(steps, -32, 32);
+  const int amount = steps < 0 ? -steps : steps;
+  const int searchR = std::clamp((amount + 15) / 16, 1, 2);
+  const int offset = (amount * 255 + 8) / 16;
+  const int dstW = srcW + 2 * padOut;
+  static constexpr int distance[3][3] = {{0, 255, 510}, {255, 361, 570}, {510, 570, 721}};
+  for (int y = -padOut; y < srcH + padOut; ++y) {
+    uint8_t* dstRow = dst + size_t(y + padOut) * dstW;
+    for (int x = -padOut; x < srcW + padOut; ++x) {
+      int best = -1024;
+      for (int dy = -searchR; dy <= searchR; ++dy) {
+        const int ny = y + dy;
+        const bool yValid = ny >= 0 && ny < srcH;
+        const uint8_t* srcRow = yValid ? src + size_t(ny) * srcW : nullptr;
+        for (int dx = -searchR; dx <= searchR; ++dx) {
+          const int nx = x + dx;
+          int value = (yValid && nx >= 0 && nx < srcW) ? srcRow[nx] : 0;
+          if (steps < 0) value = 255 - value;
+          if (!value) continue;
+          const int d = distance[dy < 0 ? -dy : dy][dx < 0 ? -dx : dx];
+          if (value - d > best) best = value - d;
+        }
+      }
+      int coverage = std::clamp(best + offset, 0, 255);
+      dstRow[x + padOut] = static_cast<uint8_t>(steps < 0 ? 255 - coverage : coverage);
+    }
+  }
 }
 
 const char* glyphFailureName(const freeink::font::FtFont::GlyphFailure failure) {
@@ -126,6 +174,8 @@ struct Runtime {
   HeapByteBuffer workspace;
   FontLoadError beginError = FontLoadError::None;
   HeapByteBuffer pixels;
+  HeapByteBuffer strokeScratch;
+  size_t strokeScratchBytes = 0;
   FixedArenaAllocator allocator;
   PixelEntry* pixelEntries = nullptr;
   MetricEntry* metricEntries = nullptr;
@@ -174,7 +224,7 @@ struct Runtime {
   }
 
   bool glyphMetrics(freeink::font::FtFont& font, const uint32_t cacheId, const uint32_t glyphOrCodepoint,
-                    const uint8_t points, EpdGlyph& glyph) {
+                    const uint8_t points, const int strokeSteps, EpdGlyph& glyph) {
     const uint64_t key = cacheKey(cacheId, glyphOrCodepoint, points);
     const size_t base = cacheSetBase(key, MetricCacheSlots);
     if (metricEntries[base].key == key) {
@@ -193,17 +243,20 @@ struct Runtime {
         glyphOrCodepoint & GlyphIdMarker
             ? font.metricsGlyph26_6(glyphOrCodepoint & ~GlyphIdMarker, scalableFontPixelSize26_6(points), metrics)
             : font.metrics26_6(glyphOrCodepoint, scalableFontPixelSize26_6(points), metrics);
-    failedMetricWidth = metrics.width;
-    failedMetricHeight = metrics.height;
-    if (!measured || metrics.width > UINT8_MAX || metrics.height > UINT8_MAX) return false;
+    const int pad = (metrics.width && metrics.height) ? strokePadPixels(strokeSteps) : 0;
+    const uint32_t outW = uint32_t(metrics.width) + uint32_t(2 * pad);
+    const uint32_t outH = uint32_t(metrics.height) + uint32_t(2 * pad);
+    failedMetricWidth = uint16_t(std::min<uint32_t>(outW, UINT16_MAX));
+    failedMetricHeight = uint16_t(std::min<uint32_t>(outH, UINT16_MAX));
+    if (!measured || outW > UINT8_MAX || outH > UINT8_MAX) return false;
 
     const auto advance16 = uint16_t(std::clamp<int32_t>(round26_6To16(metrics.advance26_6), 0, UINT16_MAX));
-    glyph = {uint8_t(metrics.width),
-             uint8_t(metrics.height),
+    glyph = {uint8_t(outW),
+             uint8_t(outH),
              advance16,
-             metrics.left,
-             metrics.top,
-             uint16_t((unsigned(metrics.width) * metrics.height + 3) / 4),
+             int16_t(std::max<int32_t>(INT16_MIN, int32_t(metrics.left) - pad)),
+             int16_t(std::min<int32_t>(INT16_MAX, int32_t(metrics.top) + pad)),
+             uint16_t((outW * outH + 3) / 4),
              glyphOrCodepoint};
     metricEntries[base + 1] = metricEntries[base];
     metricEntries[base] = {key, glyph};
@@ -232,7 +285,8 @@ struct Runtime {
   }
 
   const uint8_t* packedBitmap(freeink::font::FtFont& font, const uint32_t cacheId, uint32_t glyphOrCodepoint,
-                              uint8_t points, uint8_t width, uint8_t height, const bool stemDarkening) {
+                              uint8_t points, uint8_t width, uint8_t height, const int strokeSteps,
+                              const bool stemDarkening) {
     const uint64_t key = cacheKey(cacheId, glyphOrCodepoint, points);
     const size_t base = cacheSetBase(key, PixelCacheSlots);
     if (pixelEntries[base].key == key) return pixelData + pixelEntries[base].offset;
@@ -246,24 +300,46 @@ struct Runtime {
         glyphOrCodepoint & GlyphIdMarker
             ? font.rasterizeGlyph26_6(glyphOrCodepoint & ~GlyphIdMarker, scalableFontPixelSize26_6(points))
             : font.rasterize26_6(glyphOrCodepoint, scalableFontPixelSize26_6(points));
-    lastBitmapWidth = bitmap ? bitmap->width : 0;
-    lastBitmapHeight = bitmap ? bitmap->height : 0;
-    if (!bitmap || bitmap->width != width || bitmap->height != height) return nullptr;
+    const int pad = (bitmap && bitmap->width && bitmap->height) ? strokePadPixels(strokeSteps) : 0;
+    lastBitmapWidth = bitmap ? uint16_t(bitmap->width + 2 * pad) : 0;
+    lastBitmapHeight = bitmap ? uint16_t(bitmap->height + 2 * pad) : 0;
+    if (!bitmap || bitmap->width + unsigned(2 * pad) != width || bitmap->height + unsigned(2 * pad) != height) {
+      return nullptr;
+    }
     const size_t bytes = (size_t(width) * height + 3) / 4;
     if (!bytes || bytes > PixelBytes) return nullptr;
     if (pixelUsed + bytes > PixelBytes) clearPixels();
 
+    const uint8_t* coveragePixels = bitmap->pixels;
+    if (strokeSteps != 0) {
+      const size_t pixelCount = size_t(width) * height;
+      if (pixelCount > strokeScratchBytes) {
+        auto nextScratch = makeAlignedByteBufferNoThrow(pixelCount, Pool);
+        if (nextScratch) {
+          strokeScratch = std::move(nextScratch);
+          strokeScratchBytes = pixelCount;
+        }
+      }
+      if (strokeScratch && strokeScratchBytes >= pixelCount) {
+        applyStrokeFilterFine(strokeScratch.get(), bitmap->pixels, int(bitmap->width), int(bitmap->height), pad,
+                              strokeSteps);
+        coveragePixels = strokeScratch.get();
+      } else if (pad != 0) {
+        return nullptr;
+      }
+    }
+
     auto* dest = pixelData + pixelUsed;
     std::memset(dest, 0, bytes);
-    for (unsigned y = 0; y < bitmap->height; ++y) {
-      const uint8_t* row = bitmap->pixels + size_t(y) * bitmap->width;
-      for (unsigned x = 0; x < bitmap->width; ++x) {
+    for (unsigned y = 0; y < height; ++y) {
+      const uint8_t* row = coveragePixels + size_t(y) * width;
+      for (unsigned x = 0; x < width; ++x) {
         const unsigned value = row[x] >> 4;
         // Same 25/50/75% level thresholds as v0.16 (TtfEpdFont.cpp: a < 64/128/192),
         // paired with Plane::BW / Plane::BWMonochrome = 0x0e so every >= 25% pixel inks.
         (void)stemDarkening;
         const uint8_t coverage = value < 4 ? 0 : value < 8 ? 1 : value < 12 ? 2 : 3;
-        const size_t index = size_t(y) * bitmap->width + x;
+        const size_t index = size_t(y) * width + x;
         dest[index / 4] |= coverage << (6 - (index % 4) * 2);
       }
     }
@@ -414,7 +490,7 @@ bool HalScalableFont::openSource(const uint8_t* bytes, size_t size, const bool s
   runtime().allocator.clearFailure();
   const bool opened =
       streamed ? font_.initStream(streamRead, this, size, 1) : font_.init(bytes, static_cast<uint32_t>(size), 1);
-  const bool optionsAccepted = opened && font_.setRenderOptions(options);
+  const bool optionsAccepted = opened && font_.setRenderOptions(freeTypeRenderOptions(options));
   if (!optionsAccepted) {
     lastLoadError_ = streamFailureLogged_                      ? FontLoadError::Read
                      : runtime().allocator.lastFailedRequest() ? FontLoadError::Memory
@@ -470,7 +546,7 @@ bool HalScalableFont::openSource(const uint8_t* bytes, size_t size, const bool s
 }
 bool HalScalableFont::setRenderOptions(const freeink::font::FtFont::RenderOptions& options) {
   ScalableFontAccess access;
-  if (!font_.ready() || !font_.setRenderOptions(options)) return false;
+  if (!font_.ready() || !font_.setRenderOptions(freeTypeRenderOptions(options))) return false;
   renderOptions_ = options;
   runtime().clearCaches();
   for (size_t i = 0; i < SizeCount; ++i) {
@@ -903,8 +979,9 @@ const EpdGlyph* HalScalableFont::glyph(void* ctx, uint32_t cp) {
   s.owner->fontDataFailure_ = false;
   const auto ligatureGlyph = cp >= 0xfb00 && cp <= 0xfb04 ? s.owner->ligatureGlyphs_[cp - 0xfb00] : 0;
   auto& g = s.glyphs[s.cursor++ % 32];
+  const int strokeSteps = strokeStepsFromEmbolden(s.owner->renderOptions_.embolden26_6);
   if (!runtime().glyphMetrics(s.owner->font_, s.owner->cacheId_, ligatureGlyph ? GlyphIdMarker | ligatureGlyph : cp,
-                              s.points, g)) {
+                              s.points, strokeSteps, g)) {
     const auto failure = s.owner->font_.lastGlyphFailure();
     const int error = s.owner->font_.lastGlyphError();
     s.owner->fontDataFailure_ = !s.owner->streamFailureLogged_ && runtime().allocator.lastFailedRequest() == 0 &&
@@ -936,8 +1013,9 @@ const uint8_t* HalScalableFont::bitmap(void* ctx, const EpdGlyph* g) {
   ScalableFontAccess access;
   auto& s = *static_cast<Size*>(ctx);
   s.owner->fontDataFailure_ = false;
+  const int strokeSteps = strokeStepsFromEmbolden(s.owner->renderOptions_.embolden26_6);
   const auto* pixels = runtime().packedBitmap(s.owner->font_, s.owner->cacheId_, g->dataOffset, s.points, g->width,
-                                              g->height, s.owner->renderOptions_.stemDarkening);
+                                              g->height, strokeSteps, s.owner->renderOptions_.stemDarkening);
   if (!pixels && g->width && g->height) {
     const auto failure = s.owner->font_.lastGlyphFailure();
     const int error = s.owner->font_.lastGlyphError();

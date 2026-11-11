@@ -151,7 +151,7 @@ def rename_firmware(source, target, env):
     # Gated by CROSSIMPLE_EXPORT_BIN=1 so .bin files are only exported to root upon explicit approval.
     if os.environ.get('CROSSIMPLE_EXPORT_BIN') == '1':
         dev_name = 'x3' if env['PIOENV'] == 'default' else ('x4-classic' if env['PIOENV'] == 'x4-classic' else device_type)
-        ver = _get_release_version(env) or 'v0.23'
+        ver = _get_release_version(env) or 'v0.24'
         root_dst = os.path.abspath(os.path.join(project_dir, '..', '..', f'crossimple_{dev_name}_{ver}.bin'))
         _copy_artifact(src, root_dst)
 

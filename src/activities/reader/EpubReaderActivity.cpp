@@ -2549,6 +2549,9 @@ void EpubReaderActivity::onExit() {
   ImageBlock::setExtractor(nullptr, nullptr, nullptr);
   releaseGrayscaleStripScratch(true);
   ImageBlock::releaseSessionPixelCache();
+#if defined(BOARD_HAS_PSRAM)
+  nextPageFrameCache.release();
+#endif
 
   // SD-font caches live in the renderer singleton and can fragment the Home heap.
   // Release every rebuildable cache, including fonts used before the current one.
@@ -2792,6 +2795,9 @@ void EpubReaderActivity::showBuildPopup() {
 
 void EpubReaderActivity::invalidatePageBufferAfterBuild(const uint32_t loansBefore) {
   if (renderer.frameBufferLoanCount() == loansBefore) return;
+#if defined(BOARD_HAS_PSRAM)
+  nextPageFrameCache.invalidate();
+#endif
   pageBufferStale.store(true, std::memory_order_relaxed);
   // This runs under RenderLock. Recompose in RAM before releasing it: global
   // badges, sleep overlays and dictionary selection can reuse the frame before
@@ -2862,46 +2868,270 @@ void EpubReaderActivity::idlePrewarmNextPage() {
   }
 
   const int renderFontId = activeSectionFontId != 0 ? activeSectionFontId : SETTINGS.getReaderFontId();
-  if (!renderer.isSdCardFont(renderFontId) ||
-      (idlePrewarmSpine == currentSpineIndex && idlePrewarmPage == section->currentPage &&
-       idlePrewarmFontId == renderFontId)) {
+  const int nextPage = section->currentPage + 1;
+  if (nextPage < section->pageCount) {
+    if (renderer.isSdCardFont(renderFontId) &&
+        !(idlePrewarmSpine == currentSpineIndex && idlePrewarmPage == section->currentPage &&
+          idlePrewarmFontId == renderFontId)) {
+      const auto heap = MemoryBudget::snapshot();
+      if (MemoryBudget::hasHeap(heap, IDLE_SD_FONT_PREWARM_MIN_FREE, IDLE_SD_FONT_PREWARM_MIN_MAX_ALLOC)) {
+        // The scan loads one serialized page and may grow persistent SD-font mini buffers. Keep it
+        // behind both free-heap and contiguous-block gates, and run it once per visible page/font.
+        idlePrewarmSpine = currentSpineIndex;
+        idlePrewarmPage = section->currentPage;
+        idlePrewarmFontId = renderFontId;
+
+        auto page = section->loadPage(nextPage);
+        if (!page) {
+          LOG_DBG("ERS", "Idle SD font prewarm skipped: failed to load spine=%d page=%d", currentSpineIndex, nextPage);
+        } else if (auto* fcm = renderer.getFontCacheManager()) {
+          const unsigned long startedAt = millis();
+          auto scope = fcm->createPrewarmScope();
+          page->renderText(renderer, renderFontId, 0, 0);
+          scope.endScanAndPrewarm();
+          LOG_DBG("ERS", "Idle SD font prewarm: spine=%d page=%d in %lums", currentSpineIndex, nextPage,
+                  millis() - startedAt);
+        } else {
+          LOG_DBG("ERS", "Idle SD font prewarm skipped: no font cache manager");
+        }
+      }
+    }
+#if defined(BOARD_HAS_PSRAM)
+    preRenderNextPageToPsram(renderFontId);
+#endif
+  }
+}
+
+#if defined(BOARD_HAS_PSRAM)
+void EpubReaderActivity::computeFrameCacheSignatures(const int targetSpine, const int targetPage, const int renderFontId,
+                                                     uint32_t& layoutSig, uint32_t& dynamicSig) const {
+  auto mix = [](uint32_t& h, const uint32_t v) {
+    h ^= v;
+    h *= 16777619U;
+  };
+  uint32_t lSig = 2166136261U;
+  mix(lSig, static_cast<uint32_t>(renderFontId));
+  mix(lSig, static_cast<uint32_t>(sdFontSystem.scalableRenderOptionsGeneration()));
+  for (const char c : SETTINGS.sdFontFamilyName) {
+    if (c == '\0') break;
+    mix(lSig, static_cast<uint8_t>(c));
+  }
+  mix(lSig, static_cast<uint32_t>(renderer.getScreenWidth()));
+  mix(lSig, static_cast<uint32_t>(renderer.getScreenHeight()));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.fontFamily));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.readerFontPointSize));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.getReaderLineCompression() * 1000.0f));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.extraParagraphSpacing));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.forceParagraphIndents));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.paragraphAlignment));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.hyphenationEnabled));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.embeddedStyle));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.publisherFonts));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.publisherPageNumbers));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.imageRendering));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.focusReadingEnabled));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.guideReadingEnabled));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.wordSpacing));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.characterSpacing));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.epubRenderMode));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.orientation));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.fastPageTurn));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.textAntiAliasing));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.screenMarginVertical));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.screenMarginHorizontal));
+  mix(lSig, static_cast<uint32_t>(renderer.isDisplayInverted()));
+  mix(lSig, static_cast<uint32_t>(statusBarVisible));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.clockUtcOffsetQ));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.clockFormat));
+  mix(lSig, static_cast<uint32_t>(SETTINGS.dateFormat));
+  mix(lSig, static_cast<uint32_t>(filenameFontSystem.fingerprint()));
+  const auto topBar = SETTINGS.readerStatusBar(ReaderStatusBarPosition::Top);
+  const auto bottomBar = SETTINGS.readerStatusBar(ReaderStatusBarPosition::Bottom);
+  for (unsigned i = 0; i < ReaderStatusBarConfig::SLOT_COUNT; ++i) {
+    mix(lSig, static_cast<uint32_t>(topBar.slots[i]));
+    mix(lSig, static_cast<uint32_t>(bottomBar.slots[i]));
+  }
+  mix(lSig, static_cast<uint32_t>(topBar.hidden ? 1 : 0) | (static_cast<uint32_t>(bottomBar.hidden ? 1 : 0) << 1) |
+                (static_cast<uint32_t>(topBar.centered ? 1 : 0) << 2) |
+                (static_cast<uint32_t>(bottomBar.centered ? 1 : 0) << 3));
+  mix(lSig, static_cast<uint32_t>(topBar.progressBar) | (static_cast<uint32_t>(bottomBar.progressBar) << 8) |
+                (static_cast<uint32_t>(topBar.batteryStyle) << 16) |
+                (static_cast<uint32_t>(bottomBar.batteryStyle) << 24));
+  layoutSig = lSig;
+
+  uint32_t dSig = 2166136261U;
+  const auto uses = [&](const ReaderStatusBarItem item) { return topBar.contains(item) || bottomBar.contains(item); };
+  const int estPages = section ? section->estimatedTotalPages() : 0;
+  mix(dSig, static_cast<uint32_t>(targetSpine));
+  mix(dSig, static_cast<uint32_t>(targetPage));
+  mix(dSig, static_cast<uint32_t>(estPages));
+  mix(dSig, static_cast<uint32_t>(section && section->isBuilding() ? 1 : 0));
+  mix(dSig, static_cast<uint32_t>(section && section->isPartial() ? 1 : 0));
+  mix(dSig, static_cast<uint32_t>(chapterGroupEstimate.valid ? 1 : 0));
+  mix(dSig, static_cast<uint32_t>(chapterGroupEstimate.unknownSiblingCount));
+  mix(dSig, static_cast<uint32_t>(BOOKMARKS.getBookmarks().size()));
+  mix(dSig, static_cast<uint32_t>(CLIPPINGS.clippingCount()));
+  if (estPages > 0 && statusBarVisible) {
+    const float rawProgress = static_cast<float>(targetPage) / static_cast<float>(estPages);
+    mix(dSig, static_cast<uint32_t>(BOOKMARKS.hasBookmarkForPage(static_cast<uint16_t>(targetSpine), rawProgress, estPages)));
+  }
+  if (statusBarVisible && uses(ReaderStatusBarItem::Battery)) {
+    mix(dSig, static_cast<uint32_t>(powerManager.getBatteryPercentage()));
+  }
+  if (statusBarVisible && (uses(ReaderStatusBarItem::Clock) || uses(ReaderStatusBarItem::Date)) &&
+      halClock.isAvailable()) {
+    uint8_t h = 0;
+    uint8_t m = 0;
+    if (halClock.getTime(h, m)) {
+      mix(dSig, static_cast<uint32_t>(h) * 60U + m);
+    }
+  }
+  dynamicSig = dSig;
+}
+
+void EpubReaderActivity::preRenderNextPageToPsram(const int renderFontId) {
+  if (!epub || !section || section->isBuilding() || activeFootnotePreview || automaticPageTurnActive ||
+      !renderer.hasFrameBuffer() || renderer.isStripTargetActive() || !backgroundBuildCanUsePageBuffer() ||
+      pageBufferStale.load(std::memory_order_relaxed) || !psramHeapAvailable()) {
     return;
   }
 
   const int nextPage = section->currentPage + 1;
-  if (nextPage >= section->pageCount) {
+  if (nextPage < 0 || nextPage >= section->pageCount) return;
+
+  uint32_t layoutSig = 0;
+  uint32_t dynamicSig = 0;
+  computeFrameCacheSignatures(currentSpineIndex, nextPage, renderFontId, layoutSig, dynamicSig);
+  if (nextPageFrameCache.valid && nextPageFrameCache.spineIndex == currentSpineIndex &&
+      nextPageFrameCache.pageNumber == nextPage && nextPageFrameCache.pageCount == section->pageCount &&
+      nextPageFrameCache.fontId == renderFontId && nextPageFrameCache.layoutSignature == layoutSig &&
+      nextPageFrameCache.dynamicSignature == dynamicSig) {
     return;
   }
 
-  const auto heap = MemoryBudget::snapshot();
-  if (!MemoryBudget::hasHeap(heap, IDLE_SD_FONT_PREWARM_MIN_FREE, IDLE_SD_FONT_PREWARM_MIN_MAX_ALLOC)) {
-    return;
+  // Only pre-render pure-text fast BW frames so image FrameBufferLoans and
+  // grayscale pass baselines remain untouched.
+  const bool foregroundBlack = ReaderUtils::readerForegroundBlack();
+  const bool grayscaleAvailable = !renderer.isDisplayInverted();
+  const bool needsTextGrayscale =
+      grayscaleAvailable && SETTINGS.textAntiAliasing && foregroundBlack && !SETTINGS.fastPageTurn &&
+      !sdFontSystem.fontUsesMonochromeRaster(renderer, renderFontId, SETTINGS.sdFontFamilyName);
+  if (needsTextGrayscale) return;
+
+  auto nextPageObj = section->loadPage(nextPage);
+  if (!nextPageObj || nextPageObj->hasImages()) return;
+
+  const size_t fbBytes = renderer.getFrameBufferSize();
+  uint8_t* const fb = renderer.getWriteTarget();
+  if (!fb || fbBytes == 0) return;
+
+  if (!nextPageFrameCache.buffer || !nextPageFrameCache.scratchBackup || nextPageFrameCache.bufferBytes != fbBytes) {
+    nextPageFrameCache.release();
+    nextPageFrameCache.buffer = makePsramByteBufferNoThrow(fbBytes);
+    if (nextPageFrameCache.buffer) {
+      nextPageFrameCache.scratchBackup = makePsramByteBufferNoThrow(fbBytes);
+    }
+    if (!nextPageFrameCache.buffer || !nextPageFrameCache.scratchBackup) {
+      nextPageFrameCache.release();
+      return;
+    }
+    nextPageFrameCache.bufferBytes = fbBytes;
   }
 
-  // The scan loads one serialized page and may grow persistent SD-font mini buffers. Keep it
-  // behind both free-heap and contiguous-block gates, and run it once per visible page/font.
-  idlePrewarmSpine = currentSpineIndex;
-  idlePrewarmPage = section->currentPage;
-  idlePrewarmFontId = renderFontId;
+  const ReaderViewportLayout layout = computeReaderViewportLayout(renderer, automaticPageTurnActive);
+  const int contentBottom = renderer.getScreenHeight() - layout.marginBottom;
 
-  auto page = section->loadPage(nextPage);
-  if (!page) {
-    LOG_DBG("ERS", "Idle SD font prewarm skipped: failed to load spine=%d page=%d", currentSpineIndex, nextPage);
-    return;
+  std::memcpy(nextPageFrameCache.scratchBackup.get(), fb, fbBytes);
+  const int savedCurrentPage = section->currentPage;
+  section->currentPage = nextPage;
+  bool preRendered = true;
+
+  std::optional<FontCacheManager::PrewarmScope> scope;
+  if (auto* fcm = renderer.getFontCacheManager()) {
+    scope.emplace(*fcm, FontCacheManager::PreparationPolicy::Normal);
+    nextPageObj->renderText(renderer, renderFontId, layout.marginLeft, layout.marginTop);
+    renderStatusBar();
+    if (!scope->endScanAndPrewarm()) {
+      scope.reset();
+      preRendered = false;
+    }
   }
 
-  auto* fcm = renderer.getFontCacheManager();
-  if (!fcm) {
-    LOG_DBG("ERS", "Idle SD font prewarm skipped: no font cache manager");
-    return;
+  if (preRendered) {
+    renderer.clearScreen(ReaderUtils::readerBackgroundColor());
+    {
+      const GfxRenderer::MonochromeTextScope monoScope(renderer, true);
+      nextPageObj->render(renderer, renderFontId, layout.marginLeft, layout.marginTop, foregroundBlack,
+                          SETTINGS.imageGrayscale);
+    }
+    drawClippingHighlights(*nextPageObj, renderFontId, layout.marginTop, layout.marginLeft);
+    drawPublisherPageMarkers(renderer, *nextPageObj, layout.marginTop, contentBottom, foregroundBlack);
+    renderStatusBar();
+    std::memcpy(nextPageFrameCache.buffer.get(), fb, fbBytes);
   }
 
-  const unsigned long startedAt = millis();
-  auto scope = fcm->createPrewarmScope();
-  page->renderText(renderer, renderFontId, 0, 0);
-  scope.endScanAndPrewarm();
-  LOG_DBG("ERS", "Idle SD font prewarm: spine=%d page=%d in %lums", currentSpineIndex, nextPage, millis() - startedAt);
+  section->currentPage = savedCurrentPage;
+  std::memcpy(fb, nextPageFrameCache.scratchBackup.get(), fbBytes);
+
+  if (preRendered) {
+    nextPageFrameCache.spineIndex = currentSpineIndex;
+    nextPageFrameCache.pageNumber = nextPage;
+    nextPageFrameCache.pageCount = static_cast<uint16_t>(section->pageCount);
+    nextPageFrameCache.fontId = renderFontId;
+    nextPageFrameCache.layoutSignature = layoutSig;
+    nextPageFrameCache.dynamicSignature = dynamicSig;
+    nextPageFrameCache.valid = true;
+  } else {
+    nextPageFrameCache.invalidate();
+  }
 }
+
+bool EpubReaderActivity::tryBlitPrefetchedNextPage(const Page& page, const int renderFontId,
+                                                  const int orientedMarginTop, const int orientedMarginLeft) {
+  if (!nextPageFrameCache.valid || activeFootnotePreview || automaticPageTurnActive || page.hasImages() ||
+      renderer.isStripTargetActive() || !renderer.hasFrameBuffer() || !section) {
+    return false;
+  }
+  if (pendingBookmarkFeedback || pendingCompletedFeedback || pendingTiltPageTurnFeedback ||
+      pendingRenderModeToast || pendingSafeModeToast || pendingFontDamagedToast) {
+    return false;
+  }
+
+  const bool foregroundBlack = ReaderUtils::readerForegroundBlack();
+  const bool grayscaleAvailable = !renderer.isDisplayInverted();
+  const bool needsTextGrayscale =
+      grayscaleAvailable && SETTINGS.textAntiAliasing && foregroundBlack && page.hasText() && !SETTINGS.fastPageTurn &&
+      !sdFontSystem.fontUsesMonochromeRaster(renderer, renderFontId, SETTINGS.sdFontFamilyName);
+  if (needsTextGrayscale) return false;
+
+  uint32_t layoutSig = 0;
+  uint32_t dynamicSig = 0;
+  computeFrameCacheSignatures(currentSpineIndex, section->currentPage, renderFontId, layoutSig, dynamicSig);
+  if (nextPageFrameCache.spineIndex != currentSpineIndex ||
+      nextPageFrameCache.pageNumber != section->currentPage ||
+      nextPageFrameCache.pageCount != section->pageCount || nextPageFrameCache.fontId != renderFontId ||
+      nextPageFrameCache.layoutSignature != layoutSig || nextPageFrameCache.dynamicSignature != dynamicSig) {
+    return false;
+  }
+
+  const size_t fbBytes = renderer.getFrameBufferSize();
+  uint8_t* const fb = renderer.getWriteTarget();
+  if (!fb || fbBytes != nextPageFrameCache.bufferBytes) return false;
+
+  queuedTurnRendering.clear();
+  openingFeedback.finish();
+#if CROSSINK_APP_CAP_TOUCH
+  buildFootnoteTouchTargets(page, renderFontId, orientedMarginTop, orientedMarginLeft);
+#else
+  (void)orientedMarginTop;
+  (void)orientedMarginLeft;
+#endif
+  std::memcpy(fb, nextPageFrameCache.buffer.get(), fbBytes);
+  nextPageFrameCache.invalidate();
+  ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
+  return true;
+}
+#endif
 
 // One dismissal rule for every transient reader confirmation: it clears when its
 // dwell time elapses or the reader presses a navigation button.
@@ -7482,6 +7712,9 @@ void EpubReaderActivity::cacheCurrentSectionPosition() {
 }
 
 void EpubReaderActivity::prepareCurrentSectionForRelayout(const bool preserveStatusBarAnchor) {
+#if defined(BOARD_HAS_PSRAM)
+  nextPageFrameCache.invalidate();
+#endif
   hasStableTextPosition = false;
   pendingStableReadSeconds = 0;
   bookPageEstimate = {};
@@ -7508,6 +7741,11 @@ bool EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int fo
                                           orientedMarginTop)) {
       LOG_DBG("ERDM", "Skipping touch reader preview outside the 8 KiB/256-run snapshot budget");
     }
+  }
+#endif
+#if defined(BOARD_HAS_PSRAM)
+  if (updatePanel && tryBlitPrefetchedNextPage(*page, fontId, orientedMarginTop, orientedMarginLeft)) {
+    return true;
   }
 #endif
   // Font prewarm: scan pass accumulates text, then prewarm, then real render.

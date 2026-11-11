@@ -447,6 +447,7 @@ class GfxRenderer {
   void releaseFrameBufferForBuild();
   bool restoreFrameBufferAfterBuild();
   bool hasFrameBuffer() const { return frameBuffer != nullptr; }
+  uint32_t getFrameBufferSize() const { return frameBufferSize; }
   // RenderLock protects the counter. Every loan returns blank storage, so
   // incremental callers compare it to detect destruction of the visible page.
   uint32_t frameBufferLoanCount() const { return frameBufferLoans; }

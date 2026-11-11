@@ -3,6 +3,7 @@
 #include <FsHelpers.h>
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
+#include <Utf8.h>
 
 Txt::Txt(std::string path, std::string cacheBasePath)
     : filepath(std::move(path)), cacheBasePath(std::move(cacheBasePath)) {
@@ -44,7 +45,7 @@ std::string Txt::getTitle() const {
     filename.resize(filename.length() - 4);
   }
 
-  return filename;
+  return utf8ComposeNfc(filename);
 }
 
 void Txt::setupCacheDir() const {
