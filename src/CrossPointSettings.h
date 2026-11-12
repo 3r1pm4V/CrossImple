@@ -46,6 +46,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     NO_FILTER = 0,
     BLACK_AND_WHITE = 1,
     INVERTED_BLACK_AND_WHITE = 2,
+    FOUR_LEVEL_GRAYSCALE = 3,
     SLEEP_SCREEN_COVER_FILTER_COUNT
   };
 
@@ -463,7 +464,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Sleep screen cover mode settings
   uint8_t sleepScreenCoverMode = FIT;
   // Sleep screen cover filter (default to crisp 1-bit B&W for fast single-pass sleep)
-  uint8_t sleepScreenCoverFilter = BLACK_AND_WHITE;
+  uint8_t sleepScreenCoverFilter = NO_FILTER;
   // Status bar settings (statusBar retained for migration only)
   uint8_t statusBar = FULL;
   uint8_t statusBarChapterPageCount = 1;
@@ -520,7 +521,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t disablePageTurnGestures = 0;
   uint8_t pageTurnGesture = TAP_AND_SWIPE;
   uint8_t previousPageGesture = TAP_AND_SWIPE;
-  uint8_t customBootscreenEnabled = 1;
+  uint8_t customBootscreenEnabled = 0;
   uint8_t tapToHideStatusBar = 1;
   // Disables all touchscreen input while a reader is active. Reader menus temporarily override this.
   uint8_t disableReaderTouchscreen = 0;

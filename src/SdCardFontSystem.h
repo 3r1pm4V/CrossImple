@@ -25,7 +25,7 @@ class SdCardFontSystem {
   SdCardFontSystem& operator=(const SdCardFontSystem&) = delete;
   /// Register the font resolver. On scalable-font devices, defer all reader
   /// font loading until the reader or a font preview requests it.
-  void begin(GfxRenderer& renderer);
+  void begin(GfxRenderer& renderer, bool preloadSelectedFont = true);
 
   /// Ensure the correct SD font family is loaded for the current settings.
   /// Call before entering the reader or after settings change.

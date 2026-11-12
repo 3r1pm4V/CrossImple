@@ -49,12 +49,16 @@ namespace {
 constexpr bool TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH = true;
 constexpr int sleepBuildInfoSideMargin = 20;
 
+bool useGrayscaleSleepCover() {
+  return SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::FOUR_LEVEL_GRAYSCALE;
+}
+
 ImageToneProfile bookCoverToneProfile(const GfxRenderer& renderer) {
-  if (SETTINGS.sleepScreenCoverFilter != CrossPointSettings::NO_FILTER) return ImageToneProfile::Legacy;
+  if (!useGrayscaleSleepCover()) return ImageToneProfile::Legacy;
   return imageToneProfile(renderer.supportsAbsoluteGrayscale());
 }
 
-bool useOneBitBookCover() { return SETTINGS.sleepScreenCoverFilter != CrossPointSettings::NO_FILTER; }
+bool useOneBitBookCover() { return !useGrayscaleSleepCover(); }
 
 bool sleepCoverFilterInvertsGeneratedScreen() {
   return SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::INVERTED_BLACK_AND_WHITE;
@@ -666,8 +670,7 @@ void SleepActivity::renderCustomSleepScreen() const {
     // Use image-specific gray levels only when the panel accepts complete planes.
     Bitmap bitmap(
         file, true,
-        imageToneProfile(renderer.supportsAbsoluteGrayscale() &&
-                         SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::NO_FILTER));
+        imageToneProfile(renderer.supportsAbsoluteGrayscale() && useGrayscaleSleepCover()));
     const BmpReaderError parseResult = bitmap.parseHeaders();
     if (parseResult != BmpReaderError::Ok) {
       LOG_ERR("SLP", "Failed to parse custom sleep BMP %s: %s", selection.path.c_str(),
@@ -710,8 +713,7 @@ void SleepActivity::renderCustomSleepScreen() const {
   if (Storage.openFileForRead("SLP", "/sleep.bmp", file)) {
     Bitmap bitmap(
         file, true,
-        imageToneProfile(renderer.supportsAbsoluteGrayscale() &&
-                         SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::NO_FILTER));
+        imageToneProfile(renderer.supportsAbsoluteGrayscale() && useGrayscaleSleepCover()));
     if (bitmap.parseHeaders() == BmpReaderError::Ok) {
       const bool success = renderBitmapSleepScreen(bitmap);
       file.close();
@@ -809,7 +811,7 @@ bool SleepActivity::drawSleepBitmap(Bitmap& bitmap, const BitmapPlacement& place
     return false;
   }
   const auto mode = renderer.getRenderMode();
-  const bool filtered = SETTINGS.sleepScreenCoverFilter != CrossPointSettings::NO_FILTER;
+  const bool filtered = !useGrayscaleSleepCover();
   // A filtered cover is monochrome in both absolute gray planes. Switching
   // the render mode to BW here would cancel the active grayscale session.
   renderer.clearScreen(mode == GfxRenderer::BW || renderer.grayPlanesAreAbsolute() ? 0xFF : 0x00);
@@ -823,8 +825,7 @@ bool SleepActivity::renderBitmapSleepScreen(Bitmap& bitmap) const {
   const auto placement = prepareSleepBitmap(bitmap);
   renderer.clearScreen();
 
-  const bool hasGreyscale = bitmap.hasGreyscale() &&
-                            SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::NO_FILTER;
+  const bool hasGreyscale = bitmap.hasGreyscale() && useGrayscaleSleepCover();
   const bool absolute = renderer.supportsAbsoluteGrayscale();
   const bool direct = absolute && renderer.supportsDirectGrayscale();
 
@@ -835,7 +836,7 @@ bool SleepActivity::renderBitmapSleepScreen(Bitmap& bitmap) const {
   }
 
   if (!hasGreyscale) {
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);
+    renderer.displayBuffer(HalDisplay::FAST_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);
     return true;
   }
 
@@ -1145,7 +1146,7 @@ void SleepActivity::renderOverlaySleepScreen(Bitmap* cover) const {
       file.close();
       return OverlayDrawResult::Failed;
     }
-    if (cover && cover->hasGreyscale() && SETTINGS.sleepScreenCoverFilter == CrossPointSettings::NO_FILTER &&
+    if (cover && cover->hasGreyscale() && useGrayscaleSleepCover() &&
         renderer.supportsAbsoluteGrayscale() &&
         (renderer.supportsDirectGrayscale() ? renderer.displayDirectGrayscaleBase()
                                             : renderer.displayAbsoluteGrayscaleBase())) {

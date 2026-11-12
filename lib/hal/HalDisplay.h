@@ -131,7 +131,9 @@ class HalDisplay {
 
  private:
   void beginHardware();
+  void applyX3HalfRefreshResync(RefreshMode mode, bool includeFullFallback = false);
   bool hardwareReady = false;
+  bool x3PendingInitialWakeClear = false;
 #ifndef SIMULATOR
   StaticSemaphore_t beginDoneStorage{};
   SemaphoreHandle_t beginDone = nullptr;

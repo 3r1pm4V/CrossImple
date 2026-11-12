@@ -967,10 +967,9 @@ void GfxRenderer::drawGlyphBitmap(const uint8_t* bitmap, const int width, const 
   physical.dyX = nextX - physical.x;
   physical.dyY = nextY - physical.y;
 
-  const glyphBitmap::Plane plane =
-      mode == BW ? (monochromeTextThreshold_ ? glyphBitmap::Plane::BWMonochrome : glyphBitmap::Plane::BW)
-      : mode == GRAYSCALE_MSB ? glyphBitmap::Plane::GrayMSB
-                              : glyphBitmap::Plane::GrayLSB;
+  const glyphBitmap::Plane plane = mode == BW              ? glyphBitmap::Plane::BW
+                                   : mode == GRAYSCALE_MSB ? glyphBitmap::Plane::GrayMSB
+                                                           : glyphBitmap::Plane::GrayLSB;
   glyphBitmap::draw(bitmap, width, height, twoBit, plane, state, target, clip);
 }
 

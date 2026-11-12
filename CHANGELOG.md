@@ -1,20 +1,21 @@
-## [v0.24] - 2026-11-11
+## [v0.24] - 2026-11-12
 
 ### Đã thêm & Tối ưu (Added & Improved)
 - **Hoàn thiện Chuẩn hóa Dấu Tiếng Việt NFD -> NFC Toàn Diện (X3, X4 Classic, X4 Pro)**:
-  - Mở rộng cơ chế gộp dấu Unicode tổ hợp (`utf8ComposeNfc`) từ thân sách EPUB sang **trình đọc TXT** (`TxtReaderActivity.cpp`, `Txt.cpp` — vẫn giữ nguyên chính xác offset byte tệp và ngắt dòng theo cụm chữ có dấu) và **tiêu đề/tác giả/mục lục EPUB** (`ContentOpfParser.cpp`, `TocNcxParser.cpp`, `TocNavParser.cpp`).
-  - Dùng lại bảng `Utf8ComposeTable` có sẵn trong Flash (~`0 bytes` RAM tĩnh thêm trên X3).
+  - Mở rộng cơ chế gộp dấu Unicode tổ hợp (`utf8ComposeNfc`) từ thân sách EPUB sang **trình đọc TXT** (`TxtReaderActivity.cpp`, `Txt.cpp` — giữ nguyên offset byte tệp và ngắt dòng theo cụm chữ có dấu) và **tiêu đề/tác giả/mục lục EPUB** (`ContentOpfParser.cpp`, `TocNcxParser.cpp`, `TocNavParser.cpp`), tái sử dụng bảng `Utf8ComposeTable` có sẵn (~`0 bytes` RAM tĩnh thêm trên X3).
 - **Dựng trước Framebuffer Trang Kế tiếp trên PSRAM (X4 Classic & X4 Pro)**:
-  - Thêm bộ đệm `NextPageFrameCache` trên PSRAM (`EpubReaderActivity.cpp`, chỉ biên dịch khi `BOARD_HAS_PSRAM`): sau khi đứng yên đọc 400 ms, tự động dựng trước toàn bộ trang văn bản kế tiếp + thanh trạng thái vào bộ đệm 48 KB PSRAM.
-  - Khi bấm lật sang trang tiếp theo (khớp chữ ký layout, font, bookmark, highlight, đồng hồ và pin), đẩy thẳng buffer đã dựng ra màn E-Ink, bỏ qua bước quét font và vẽ chữ lại từ đầu.
+  - Thêm bộ đệm `NextPageFrameCache` trên PSRAM (`EpubReaderActivity.cpp`, chỉ biên dịch khi `BOARD_HAS_PSRAM`): sau khi đứng yên đọc 400 ms, tự động dựng trước trang văn bản kế tiếp + thanh trạng thái vào bộ đệm 48 KB PSRAM để lật trang tiếp theo tức thì.
 - **Bộ lọc Kéo Đậm Nét Chữ Bitmap `1/16 px` cho Font `.ttf`/`.otf` (X4 Classic & X4 Pro)**:
-  - Tích hợp thuật toán lọc đường bao độ phủ `applyStrokeFilterFine` trên vùng đệm tạm PSRAM (`HalScalableFont.cpp`) cho tùy chọn **Độ đậm (`Weight`)** trong *TTF Render Options* (`-0.50 px` đến `+1.00 px`), giữ nguyên outline/dấu Tiếng Việt sắc nét không biến dạng và giữ nguyên `advance`, kèm padding hộp ký tự tránh cắt viền nét. Mức *Default* giữ nguyên 100% đầu ra `v0.23`.
-- **Tăng tốc Vào Chế độ Ngủ (Sleep Entry) Tương đương v0.16 (X3, X4 Classic, X4 Pro)**:
-  - Bỏ quét lại `folderFingerprint()` toàn bộ thư mục ảnh ngủ trên thẻ SD mỗi lần nhấn ngủ (`ImageFolderIndex::selectShuffled`), tái sử dụng trực tiếp chỉ mục `.idx` đã lưu (tự đồng bộ lại khi đổi file qua File Browser/USB Drive/Web Transfer hoặc tự rebuild 1 lần nếu ảnh được chọn bị thiếu).
-  - Gộp cờ đồng bộ tiến độ và thống kê đọc trong `EpubReaderActivity::finalizeReadingStatsOnExit()` thành 1 lần đánh dấu thay vì ghi đè `sync_pending.bin` 2 lần liên tiếp lúc thoát đọc, đồng thời đọc `sync_state.bin` một lượt trong `SyncState::invalidateCatchup()` để giảm thao tác SD I/O khi vào ngủ.
-- **Xuất Cache Bìa Ngủ 1-bit Đen Trắng (`_1bit`) Mặc định (X3, X4 Classic, X4 Pro)**:
-  - Mở rộng `JpegToBmpConverter::jpegFileToBmpStream()`, `PngToBmpConverter::pngFileToBmpStream()`, `GifToBmpConverter::gifFileToBmpStream()`, `Epub::generateCoverBmp()`, `Txt::generateCoverBmp()` và `SleepCoverAssets` để tự động chuyển bìa (kể cả ảnh nguồn 16-bit, 24-bit, 32-bit RGBA) qua `Atkinson1BitDitherer` thành file cache BMP 1-bit riêng (`cover_1bit_v2.bmp`, ~48 KB) khi dùng `Bộ lọc bìa` (`Tương phản` / `Đảo ngược`), ăn thẳng fast-path `GfxRenderer::drawBitmap1Bit()` và chỉ quét 1 nhịp `HALF_REFRESH`.
-  - Đặt mặc định `sleepScreenCoverFilter = BLACK_AND_WHITE` (kèm cờ migration `sleepCoverFilterSchema = 2` khi nâng cấp từ `<= v0.23`); người dùng muốn dùng lại bìa 4 mức xám chỉ cần chuyển `Bộ lọc bìa → Không`.
+  - Tích hợp thuật toán `applyStrokeFilterFine` trên PSRAM (`HalScalableFont.cpp`) cho tùy chọn **Độ đậm (`Weight`)** trong *TTF Render Options* (`-0.50 px` đến `+1.00 px`), giữ nét/dấu Tiếng Việt sắc nét và không đổi `advance` (mức *Default* giữ nguyên đầu ra `v0.23`).
+- **Tăng tốc Sleep Siêu Nhanh với Bìa 1-bit `FAST_REFRESH` & 4 Chế độ Bộ lọc Bìa (X3, X4 Classic, X4 Pro)**:
+  - Mở rộng mục *Bộ lọc bìa* (`SLEEP_SCREEN_COVER_FILTER`) thành 4 tùy chọn: **Không** (`NO_FILTER`, mặc định), **Tương phản** (`BLACK_AND_WHITE`), **Đảo ngược** (`INVERTED_BLACK_AND_WHITE`) và **4 mức xám** (`FOUR_LEVEL_GRAYSCALE`).
+  - Ba mode 1-bit (`Không`, `Tương phản`, `Đảo ngược`) tự động cache bìa BMP 1-bit (~48 KB) qua `Atkinson1BitDitherer` và vẽ thẳng qua `drawBitmap1Bit()` + `HalDisplay::FAST_REFRESH` (1 pass siêu nhanh ~435 ms trên X3, không chớp full màn hình); chọn **4 mức xám** nếu muốn hiển thị bìa đa sắc xám.
+  - Bỏ quét lại `folderFingerprint()` toàn bộ thư mục ảnh ngủ mỗi lần vào sleep (`ImageFolderIndex`), gộp ghi đồng bộ khi thoát reader (`EpubReaderActivity.cpp`, `SyncState.cpp`).
+- **Tăng tốc Wake trên X3 & Giảm SD I/O Khởi động (X3, X4 Classic, X4 Pro)**:
+  - Trên UC8253 X3, [`HalDisplay::applyX3HalfRefreshResync()`](lib/hal/HalDisplay.cpp) chạy thẳng **1 pass `_half` scrub** cho frame Wake đầu tiên thay vì ép `requestResync` (`_full + 200ms + _fast`), rút ngắn mạnh thời gian chờ màn hình khi đánh thức máy (các lần làm sạch định kỳ/thủ công trong lúc đọc vẫn giữ `requestResync(1)`).
+  - Hoãn pre-pin ~230 ký tự tiếng Việt `.cpfont` sang lần prewarm thứ hai trên X3 (`SdCardFont.cpp`), tắt mặc định `customBootscreenEnabled = 0`, và hoãn nạp font `.cpfont` khi Wake về Home (`SdCardFontSystem.cpp`, `main.cpp`).
+  - Cache marker `optimizer-images.absent` theo kích thước `.epub` (`Epub.cpp`) để khỏi mở `.epub` duyệt lại ZIP Central Directory mỗi lần Wake; bỏ `pruneMissing()` 18 sách ở `RecentBooksStore::addOrUpdateBook()`, bỏ `Dictionary::isValidDictionary()` khỏi `setup()`, và tránh `APP_STATE.saveToFile()` thừa khi `openEpubPath` không đổi.
+  - Dọn bỏ nhánh `MonochromeTextScope` / `monochromeTextThreshold_` / `Plane::BWMonochrome` không còn tác dụng.
 
 ## [v0.23] - 2026-11-10
 

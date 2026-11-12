@@ -1911,6 +1911,33 @@ bool Epub::ensureOptimizerImageIndex() {
   if (optimizerIndexReady) return true;
   if (optimizerManifestAbsent) return false;
   optimizerLastHit = {};
+  constexpr uint32_t kOptimizerAbsentMagic = 0x5342414F;  // "OABS"
+  struct OptimizerAbsentMarker {
+    uint32_t magic;
+    uint64_t epubSize;
+  };
+  const std::string absentPath = cachePath + "/optimizer-images.absent";
+  uint64_t currentEpubSize = 0;
+  {
+    FsFile epubFile;
+    if (Storage.openFileForRead("EBP", filepath, epubFile)) {
+      currentEpubSize = epubFile.size();
+      epubFile.close();
+    }
+  }
+  if (currentEpubSize > 0) {
+    FsFile absentFile;
+    OptimizerAbsentMarker marker{};
+    if (Storage.openFileForRead("EBP", absentPath, absentFile)) {
+      const bool match = absentFile.read(&marker, sizeof(marker)) == static_cast<int>(sizeof(marker)) &&
+                         marker.magic == kOptimizerAbsentMagic && marker.epubSize == currentEpubSize;
+      absentFile.close();
+      if (match) {
+        optimizerManifestAbsent = true;
+        return false;
+      }
+    }
+  }
   const size_t length = strlen(kOptimizerManifestPath);
   ZipFile::EntryTarget target{ZipFile::fnvHash64(kOptimizerManifestPath, length), static_cast<uint16_t>(length), 0,
                               kOptimizerManifestPath};
@@ -1919,8 +1946,17 @@ bool Epub::ensureOptimizerImageIndex() {
   if (!identity.found) {
     // Only a successful directory scan proves absence. I/O failures remain retryable.
     optimizerManifestAbsent = true;
+    if (currentEpubSize > 0) {
+      FsFile absentFile;
+      if (Storage.openFileForWrite("EBP", absentPath, absentFile)) {
+        const OptimizerAbsentMarker marker{kOptimizerAbsentMagic, currentEpubSize};
+        absentFile.write(&marker, sizeof(marker));
+        absentFile.close();
+      }
+    }
     return false;
   }
+  Storage.remove(absentPath.c_str());
   if (!identity.uncompressedSize || identity.uncompressedSize > kOptimizerManifestMaxBytes) return false;
   const std::string path = cachePath + "/optimizer-images.idx";
   const std::string temp = path + ".tmp";

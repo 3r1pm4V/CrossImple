@@ -35,7 +35,7 @@
 | **Hỗ trợ Font CJK 16MB/32MB, Streaming FreeType & Reader Font Fallback (EPUB & TXT song ngữ)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont` & `GfxRenderer`) | `lib/ScalableFont/`, `lib/GfxRenderer/`, `src/FilenameFontSystem.cpp`, `src/SdCardFontSystem.cpp` |
 | **Tinh giản Hệ thống theo Triết lý Simple (Gỡ bỏ Plugins, Nearby Transfer, Cloud Stats, Auto Backup ngầm)** | **CrossImple Custom** (Tối ưu theo triết lý Simple) | `src/SettingsList.cpp`, `src/activities/home/HomeActivity.cpp`, `src/activities/network/NetworkModeSelectionActivity.cpp` |
 | **Lật trang 1-Bit Siêu tốc, Tự động ngắt WiFi thông minh, Bộ lọc Thư mục Rác HĐH & Làm mới Toàn trang Thông minh** | **CrossImple Custom** (Tự phát triển theo triết lý Simple) | `src/activities/reader/EpubReaderActivity.cpp`, `src/network/CrossPointWebServerActivity.cpp`, `lib/FsHelpers/FsHelpers.cpp` |
-| **Negative Cache cho EPUB (`optimizerIndexChecked` & `xLocationsChecked`), Gộp ghi trạng thái Wake (`main.cpp`), Tắt máy tức thì (`SleepActivity.cpp`)** | **CrossImple Custom** (Tự phát triển) | `lib/Epub/Epub.cpp`, `src/main.cpp`, `src/activities/boot_sleep/SleepActivity.cpp` |
+| **Tối ưu Sleep/Wake cho X3 & X4 (Bìa ngủ 1-bit `FAST_REFRESH`, 1-pass `_half` Wake trên UC8253, Cache `optimizer-images.absent`, Gộp trạng thái Wake)** | **CrossImple Custom** (Tự phát triển) | `lib/hal/HalDisplay.cpp`, `lib/Epub/Epub.cpp`, `src/main.cpp`, `src/activities/boot_sleep/SleepActivity.cpp` |
 | **8x8 Fine Bayer Dithering, E-Ink Optical Clamping (`45`–`225`), Tăng tương phản bìa sách (`1.20f`) & OOM Guard trên X3 (`8KB` trần)** | **CrossImple Custom** (Tự phát triển trên `JpegToBmpConverter` & `BitmapHelpers` của `CrossInk`) | `lib/JpegToBmpConverter/JpegToBmpConverter.cpp`, `lib/BitmapHelpers/BitmapHelpers.cpp` |
 | **Flash trực tiếp file `.bin` bất kỳ từ thẻ nhớ SD (`SdFirmwareUpdateActivity` & `FileBrowserActivity`)** | **CrossImple Custom** (Kế thừa và nâng cấp từ nhánh `CrossPet` / `CrossInk v1.6.1`) | `src/activities/util/SdFirmwareUpdateActivity.cpp`, `src/activities/files/FileBrowserActivity.cpp` |
 | **Bộ nhận diện Bunny Reader, Đồng bộ thương hiệu `CrossImple` (Boot/Sleep/Device Name), Việt hóa & Chuẩn hóa xuất bản `.bin`** | **CrossImple Custom** (Tự phát triển) | `src/activities/boot_sleep/BootActivity.cpp`, `src/activities/boot_sleep/SleepActivity.cpp`, `src/CrossPointSettings.cpp`, `scripts/rename_firmware.py` |
@@ -44,17 +44,20 @@
 
 ## 📝 Nhật ký thay đổi (Changelog)
 
-### Phiên bản v0.24 (Hoàn thiện NFC Tiếng Việt trên TXT/Mục lục, Prefetch trang PSRAM & Bộ lọc đậm nét chữ `1/16 px` trên X4)
+### Phiên bản v0.24 (Sleep/Wake Siêu Nhanh, 4 Chế độ Bìa Ngủ, NFC TXT/Mục lục, Prefetch PSRAM & Độ đậm chữ `1/16 px`)
+* **Sleep Bìa 1-bit `FAST_REFRESH` Siêu Nhanh & 4 Tùy chọn Bộ lọc Bìa (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
+  * Chia *Bộ lọc bìa* (`SLEEP_SCREEN_COVER_FILTER`) thành 4 lựa chọn: **Không** (mặc định, 1-bit sắc nét), **Tương phản**, **Đảo ngược** và **4 mức xám** (`FOUR_LEVEL_GRAYSCALE`).
+  * Ba chế độ 1-bit (`Không`, `Tương phản`, `Đảo ngược`) tự động cache BMP 1-bit (~48 KB) qua `Atkinson1BitDitherer` và đẩy thẳng qua `drawBitmap1Bit()` + `HalDisplay::FAST_REFRESH` (~435 ms trên X3, 1 pass không nháy full màn hình). Chuyển sang **4 mức xám** nếu muốn hiển thị bìa đa sắc xám.
+  * Tái sử dụng chỉ mục `.idx` thư mục ảnh ngủ thay vì quét lại toàn bộ metadata trên thẻ SD mỗi lần ngủ, và gộp ghi đồng bộ khi thoát trình đọc.
+* **Tăng tốc Wake trên X3 & Giảm Đọc/Quét Thẻ SD Lúc Khởi động (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
+  * **1-Pass `_half` Wake trên X3 (`HalDisplay::applyX3HalfRefreshResync`):** Frame Wake đầu tiên trên UC8253 X3 chạy thẳng 1 lượt quét `_half` scrub thay vì chạy chu kỳ 2 lượt `_full + 200ms + settle`, rút ngắn đáng kể độ trễ mở màn hình mà vẫn giữ làm sạch định kỳ 2 pass khi đang đọc.
+  * **Cắt giảm SD I/O lúc Wake:** Lưu marker `optimizer-images.absent` theo kích thước `.epub` để không quét lại ZIP Central Directory mỗi lần thức dậy, bỏ quét 18 sách ở `RecentBooksStore::addOrUpdateBook()`, bỏ kiểm tra từ điển lúc `setup()`, hoãn pre-pin `.cpfont` và hoãn nạp font đọc sách khi Wake về Home.
 * **Chuẩn hóa Tiếng Việt NFD -> NFC cho TXT & Metadata/Mục lục EPUB (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
   * Bổ sung `utf8ComposeNfc` vào luồng đo/ngắt dòng và hiển thị của **trình đọc TXT** (`TxtReaderActivity.cpp`, `Txt.cpp`) cùng tiêu đề sách, tên tác giả và mục lục NCX/NAV EPUB (`ContentOpfParser.cpp`, `TocNcxParser.cpp`, `TocNavParser.cpp`), tái sử dụng bảng `Utf8ComposeTable` có sẵn (~0 byte SRAM thêm trên X3).
 * **Dựng trước Framebuffer Trang Kế tiếp trên PSRAM (X4 Classic & X4 Pro)** *(Nguồn: CrossImple Custom)*:
   * Sau `400 ms` đứng yên đọc trang chữ thuần, thiết bị dựng sẵn trước trang kế tiếp + thanh trạng thái vào đệm `48 KB` trên **8 MB PSRAM** (`EpubReaderActivity.cpp`, không dùng trên X3). Khi bấm sang trang mới, đẩy thẳng buffer ra màn hình mà không phải dựng lại glyph.
 * **Bộ lọc Kéo Đậm Nét Chữ Bitmap `1/16 px` (`HalScalableFont.cpp` — X4 Classic & X4 Pro)** *(Nguồn: CrossImple Custom)*:
   * Áp dụng lọc biên độ phủ bitmap từng bước `1/16 px` trên PSRAM cho tùy chọn **Độ đậm (`Weight`)** của *TTF Render Options* (`-0.50 px` .. `+1.00 px`), giúp tăng giảm độ dày nét mà không biến dạng dấu Tiếng Việt hay đổi `advance` (mức *Default* giữ nguyên chuẩn `v0.23`).
-* **Tăng tốc Vào Chế độ Ngủ Tương đương v0.16 (`ImageFolderIndex.cpp`, `EpubReaderActivity.cpp`, `SyncState.cpp` — X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * Tái sử dụng trực tiếp chỉ mục `.idx` của thư mục ảnh ngủ thay vì duyệt lại toàn bộ metadata ảnh trên thẻ SD mỗi lần bấm ngủ, đồng thời gộp thao tác đánh dấu đồng bộ khi thoát trình đọc và đọc `sync_state.bin` một lượt để giảm I/O thẻ nhớ lúc vào sleep.
-* **Xuất Cache Bìa Ngủ 1-bit Đen Trắng Mặc định (`_1bit`, X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * Chuyển mặc định `Bộ lọc bìa` (`sleepScreenCoverFilter`) sang `Tương phản` (`BLACK_AND_WHITE`) và xuất thẳng cache `.bmp` 1-bit (~48 KB) bằng `Atkinson1BitDitherer` cho cả ảnh nguồn 16/24/32-bit trong EPUB/TXT, giúp vẽ bìa qua đường nhanh `drawBitmap1Bit()` và chỉ tốn 1 nhịp `HALF_REFRESH` (chuyển `Bộ lọc bìa → Không` nếu muốn hiển thị 4 mức xám).
 
 ### Phiên bản v0.23 (Khắc phục triệt để lỗi RAM Font .cpfont & Đồng bộ hiển thị chuẩn 0.16 trên toàn bộ máy)
 * **Khắc phục Triệt để Giới hạn RAM khi Nạp Font `.cpfont` từ Thẻ nhớ (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:

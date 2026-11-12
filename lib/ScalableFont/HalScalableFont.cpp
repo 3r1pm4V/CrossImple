@@ -336,7 +336,7 @@ struct Runtime {
       for (unsigned x = 0; x < width; ++x) {
         const unsigned value = row[x] >> 4;
         // Same 25/50/75% level thresholds as v0.16 (TtfEpdFont.cpp: a < 64/128/192),
-        // paired with Plane::BW / Plane::BWMonochrome = 0x0e so every >= 25% pixel inks.
+        // paired with Plane::BW = 0x0e so every >= 25% pixel inks.
         (void)stemDarkening;
         const uint8_t coverage = value < 4 ? 0 : value < 8 ? 1 : value < 12 ? 2 : 3;
         const size_t index = size_t(y) * width + x;

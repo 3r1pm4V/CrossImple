@@ -97,7 +97,7 @@ bool findInstalledFontFile(const char* familyName, const uint8_t targetPointSize
 
 }  // namespace
 
-void SdCardFontSystem::begin(GfxRenderer& renderer) {
+void SdCardFontSystem::begin(GfxRenderer& renderer, const bool preloadSelectedFont) {
   // Register this system as the SD font ID resolver in settings.
   // Uses a static trampoline since CrossPointSettings stores a plain function pointer.
   SETTINGS.sdFontIdResolver = [](void* ctx, const char* familyName, uint8_t pointSize) -> int {
@@ -111,8 +111,13 @@ void SdCardFontSystem::begin(GfxRenderer& renderer) {
   }
 
 #if CROSSINK_SCALABLE_FONTS
+  (void)preloadSelectedFont;
   LOG_DBG("SDFS", "SD font resolver ready; selected font load deferred until requested");
 #else
+  if (!preloadSelectedFont) {
+    LOG_DBG("SDFS", "SD font resolver ready; Home boot defers font load until reader entry");
+    return;
+  }
   // C3 bitmap fonts retain their existing load timing and memory budget.
   ensureLoaded(renderer);
   releaseRegistry();

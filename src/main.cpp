@@ -1164,7 +1164,8 @@ void enterDeepSleep(bool fromTimeout) {
   powerManager.startDeepSleep(gpio);
 }
 
-void setupDisplayAndFonts(const bool seamless, const bool loadReaderResources, const bool useReaderRenderStack) {
+void setupDisplayAndFonts(const bool seamless, const bool loadReaderResources, const bool useReaderRenderStack,
+                          const bool preloadSdReaderFont = true) {
 #ifdef SIMULATOR
   (void)seamless;
   display.begin();
@@ -1202,7 +1203,7 @@ void setupDisplayAndFonts(const bool seamless, const bool loadReaderResources, c
   renderer.insertFont(UI_12_FONT_ID, ui12FontFamily);
   renderer.insertFont(SMALL_FONT_ID, smallFontFamily);
   if (loadReaderResources) {
-    sdFontSystem.begin(renderer);
+    sdFontSystem.begin(renderer, preloadSdReaderFont);
   } else {
     LOG_DBG("MAIN", "Skipping EPUB scratch workspace and SD reader fonts for minimal network boot");
   }
@@ -1394,11 +1395,9 @@ void setup() {
   // Normal boot store deferral adapted from Sichroteph/YACP commit
   // 20af8aee8d3e1d560456753b08d1f52e5488621f (MIT). Accessors load these
   // stores when Home, reader bookkeeping, or sync actually need them.
-  if (!isNetworkResume) {
-    Dictionary::isValidDictionary();
-  } else if (snapshotTarget == static_cast<uint32_t>(NetworkBootTarget::KOREADER_SYNC) ||
-             snapshotTarget == static_cast<uint32_t>(NetworkBootTarget::KOREADER_AUTH) ||
-             snapshotTarget == static_cast<uint32_t>(NetworkBootTarget::FILE_TRANSFER)) {
+  if (isNetworkResume && (snapshotTarget == static_cast<uint32_t>(NetworkBootTarget::KOREADER_SYNC) ||
+                          snapshotTarget == static_cast<uint32_t>(NetworkBootTarget::KOREADER_AUTH) ||
+                          snapshotTarget == static_cast<uint32_t>(NetworkBootTarget::FILE_TRANSFER))) {
     KOREADER_STORE.loadFromFile();
   }
   UITheme::getInstance().reload();
@@ -1487,8 +1486,13 @@ void setup() {
   // A retained page is useful opening feedback even when a fast refresh is unavailable.
   bool quickResumeFrameVisible = false;
 
+  const bool bootToReaderFromState =
+      !recoveryFirmwareMode && !rebootedFromPanic && resume != BootResume::Network && resume != BootResume::Silent &&
+      !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader &&
+      !mappedInputManager.isPressed(MappedInputManager::Button::Back) && APP_STATE.readerActivityLoadCount == 0;
+
   setupDisplayAndFonts(SleepWakePolicy::shouldInitializeSeamlessly(resume, isUc8279X3, hasValidSleepFrame),
-                       resume != BootResume::Network, useReaderRenderStack);
+                       resume != BootResume::Network, useReaderRenderStack, bootToReaderFromState);
   logBootHeap("display and font resolver ready");
 
   switch (resume) {
@@ -1555,10 +1559,6 @@ void setup() {
       break;
   }
 
-  const bool bootToReaderFromState =
-      !recoveryFirmwareMode && !rebootedFromPanic && resume != BootResume::Network && resume != BootResume::Silent &&
-      !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader &&
-      !mappedInputManager.isPressed(MappedInputManager::Button::Back) && APP_STATE.readerActivityLoadCount == 0;
   if (!bootToReaderFromState) {
     flushStateIfNeeded();
   }

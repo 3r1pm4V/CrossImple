@@ -151,6 +151,7 @@ void SdCardFont::freeStyleMiniData(PerStyle& s) {
   s.miniBitmapUsed = 0;
   s.miniUnderuseRuns = 0;
   s.miniMetadataOnly = false;
+  s.miniCorePinned = false;
   s.miniHysteresisPending = false;
   freeStyleMiniKern(s);
   memset(&s.miniData, 0, sizeof(s.miniData));
@@ -1083,12 +1084,12 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
 
 #if defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3 && (!defined(FREEINK_DEVICE_X4) || !FREEINK_DEVICE_X4)
   // On X3 (ESP32-C3, no PSRAM), pre-pin the core ASCII + Vietnamese alphabet
-  // (~230 glyphs, ~8-10 KB bitmap) on the first full body prewarm when heap is
-  // healthy. Subsequent pages hit `covered == true` in prewarmStyle() with zero
-  // SD card reads across page turns.
+  // (~230 glyphs, ~8-10 KB bitmap) on the second full body prewarm when heap is
+  // healthy. Deferring past the initial wake/open page avoids ~230 SD reads on
+  // wake, while subsequent turns hit `covered == true` with zero SD I/O.
   if (!metadataOnly && includeKerning && (styleMask & 0x01) && styles_[0].present &&
-      styles_[0].header.advanceY <= 28 &&
-      styles_[0].miniGlyphCount == 0 && cpCount >= 16 && ESP.getFreeHeap() >= MINI_RETAIN_MIN_FREE_HEAP) {
+      styles_[0].header.advanceY <= 28 && styles_[0].miniGlyphCount > 0 && !styles_[0].miniMetadataOnly &&
+      !styles_[0].miniCorePinned && cpCount >= 16 && ESP.getFreeHeap() >= MINI_RETAIN_MIN_FREE_HEAP) {
     auto addPinnedCp = [&](const uint32_t vcp) {
       if (cpCount >= MAX_PAGE_GLYPHS) return;
       for (uint32_t i = 0; i < cpCount; ++i) {
@@ -1107,6 +1108,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
         0x2026};
     for (const uint16_t vcp : kVnExtra) addPinnedCp(vcp);
     for (uint32_t vcp = 0x1EA0; vcp <= 0x1EF9; ++vcp) addPinnedCp(vcp);
+    styles_[0].miniCorePinned = true;
   }
 #endif
 

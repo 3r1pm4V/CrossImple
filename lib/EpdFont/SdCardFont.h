@@ -230,6 +230,7 @@ class SdCardFont {
     // hysteresis to one evaluation per rebuild (scopes reset twice, and subset
     // hits load nothing new to judge).
     bool miniHysteresisPending = false;
+    bool miniCorePinned = false;  // Defer bulk ASCII/VN pre-pinning until after the initial wake/open page.
 
     // Per-page mini kern matrix (built by buildMiniKernMatrix on each full
     // prewarm). miniKernLeftClasses/miniKernRightClasses map ONLY the codepoints

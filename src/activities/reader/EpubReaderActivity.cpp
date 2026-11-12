@@ -2525,8 +2525,10 @@ void EpubReaderActivity::onEnter() {
   initializeCompletionPromptTrigger();
 
   // Save current epub as last opened epub and add to recent books
-  APP_STATE.openEpubPath = epub->getPath();
-  APP_STATE.saveToFile();
+  if (APP_STATE.openEpubPath != epub->getPath()) {
+    APP_STATE.openEpubPath = epub->getPath();
+    APP_STATE.saveToFile();
+  }
   const RecentBook::CoverState coverState =
       epub->hasCoverImage() ? RecentBook::CoverState::Unknown : RecentBook::CoverState::Missing;
   if (!skipRecentBookUpdateOnEntry) {
@@ -3062,11 +3064,8 @@ void EpubReaderActivity::preRenderNextPageToPsram(const int renderFontId) {
 
   if (preRendered) {
     renderer.clearScreen(ReaderUtils::readerBackgroundColor());
-    {
-      const GfxRenderer::MonochromeTextScope monoScope(renderer, true);
-      nextPageObj->render(renderer, renderFontId, layout.marginLeft, layout.marginTop, foregroundBlack,
-                          SETTINGS.imageGrayscale);
-    }
+    nextPageObj->render(renderer, renderFontId, layout.marginLeft, layout.marginTop, foregroundBlack,
+                        SETTINGS.imageGrayscale);
     drawClippingHighlights(*nextPageObj, renderFontId, layout.marginTop, layout.marginLeft);
     drawPublisherPageMarkers(renderer, *nextPageObj, layout.marginTop, contentBottom, foregroundBlack);
     renderStatusBar();
@@ -7840,7 +7839,6 @@ bool EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int fo
   };
 
   const auto composePageBuffer = [&]() {
-    const GfxRenderer::MonochromeTextScope monoScope(renderer, !needsTextGrayscale);
     if (deferImageLoading) {
       page->renderWithImagePlaceholders(renderer, fontId, orientedMarginLeft, orientedMarginTop, foregroundBlack,
                                         /*renderCachedImages=*/false, SETTINGS.imageGrayscale);

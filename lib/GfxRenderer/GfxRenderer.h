@@ -56,7 +56,6 @@ class GfxRenderer {
   HalDisplay& display;
   RenderMode renderMode;
   mutable bool absoluteGrayPlanes = false;
-  mutable bool monochromeTextThreshold_ = false;
   Orientation orientation;
   bool fadingFix;
   uint8_t* frameBuffer = nullptr;
@@ -217,24 +216,6 @@ class GfxRenderer {
 
   // Fading fix control
   void setFadingFix(const bool enabled) { fadingFix = enabled; }
-
-  // 1-bit monochrome text thresholding (50% coverage cutoff when grayscale pass is skipped)
-  void setMonochromeTextThreshold(const bool enabled) const { monochromeTextThreshold_ = enabled; }
-  bool monochromeTextThreshold() const { return monochromeTextThreshold_; }
-
-  class MonochromeTextScope {
-    const GfxRenderer& renderer_;
-    bool prev_;
-
-   public:
-    MonochromeTextScope(const GfxRenderer& renderer, const bool enabled)
-        : renderer_(renderer), prev_(renderer.monochromeTextThreshold()) {
-      renderer_.setMonochromeTextThreshold(enabled);
-    }
-    ~MonochromeTextScope() { renderer_.setMonochromeTextThreshold(prev_); }
-    MonochromeTextScope(const MonochromeTextScope&) = delete;
-    MonochromeTextScope& operator=(const MonochromeTextScope&) = delete;
-  };
 
   // Screen ops
   int getScreenWidth() const;

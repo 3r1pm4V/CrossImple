@@ -66,7 +66,8 @@ bool prepareTxt(const Txt& txt) {
   if (!shouldPrepareFullCover() && !shouldPrepareMinimalCover() && !shouldPrepareDashboardCover()) {
     return true;
   }
-  const bool oneBit = shouldPrepareFullCover() && SETTINGS.sleepScreenCoverFilter != CrossPointSettings::NO_FILTER;
+  const bool oneBit =
+      shouldPrepareFullCover() && SETTINGS.sleepScreenCoverFilter != CrossPointSettings::FOUR_LEVEL_GRAYSCALE;
   return txt.generateCoverBmp(ImageToneProfile::Legacy, oneBit);
 }
 

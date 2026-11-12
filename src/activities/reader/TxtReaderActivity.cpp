@@ -923,10 +923,7 @@ void TxtReaderActivity::renderPage() {
   const bool useTextAa = SETTINGS.textAntiAliasing && !SETTINGS.fastPageTurn;
 
   // BW rendering
-  {
-    const GfxRenderer::MonochromeTextScope monoScope(renderer, !useTextAa);
-    renderLines();
-  }
+  renderLines();
   renderStatusBar();
 
   const bool deferred =

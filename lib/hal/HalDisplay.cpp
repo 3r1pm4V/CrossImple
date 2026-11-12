@@ -70,8 +70,10 @@ void HalDisplay::begin(bool seamless) {
     // so the first paint isn't promoted to FULL (~770ms). Skips the wakeup-
     // gated requestResync() below for the same reason.
     einkDisplay.skipInitialResync();
+    x3PendingInitialWakeClear = gpio.deviceIsX3();
     return;
   }
+  x3PendingInitialWakeClear = false;
   // Request resync after specific wakeup events to ensure clean display state.
   const auto wakeupReason = gpio.getWakeupReason();
   if (wakeupReason == HalGPIO::WakeupReason::PowerButton || wakeupReason == HalGPIO::WakeupReason::AfterFlash ||
@@ -104,12 +106,23 @@ EInkDisplay::RefreshMode convertRefreshMode(HalDisplay::RefreshMode mode) {
   }
 }
 
-void HalDisplay::displayBuffer(HalDisplay::RefreshMode mode, bool turnOffScreen) {
-  HalSpiBus::Lock spiLock;
-
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
+void HalDisplay::applyX3HalfRefreshResync(const RefreshMode mode, const bool includeFullFallback) {
+  const bool firstWakeClear = x3PendingInitialWakeClear;
+  x3PendingInitialWakeClear = false;
+  // On UC8253 X3 seamless wake (after skipInitialResync() marked DTM1 synced),
+  // avoid forcing requestResync() on the initial wake clear so HALF_REFRESH
+  // runs UC8253's single-pass _half scrub instead of a ~1.5s full+delay+settle cycle.
+  // Subsequent in-session periodic/manual HALF refreshes still call requestResync(1).
+  const bool needsResync =
+      includeFullFallback ? (mode != RefreshMode::FAST_REFRESH) : (mode == RefreshMode::HALF_REFRESH);
+  if (gpio.deviceIsX3() && needsResync && (!firstWakeClear || mode == RefreshMode::FULL_REFRESH)) {
     einkDisplay.requestResync(1);
   }
+}
+
+void HalDisplay::displayBuffer(HalDisplay::RefreshMode mode, bool turnOffScreen) {
+  HalSpiBus::Lock spiLock;
+  applyX3HalfRefreshResync(mode);
 
   einkDisplay.displayBuffer(convertRefreshMode(mode), turnOffScreen);
 }
@@ -129,9 +142,7 @@ bool HalDisplay::restoreVisibleFrame() {
 }
 
 void HalDisplay::displayBufferAsync(HalDisplay::RefreshMode mode) {
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
-    einkDisplay.requestResync(1);
-  }
+  applyX3HalfRefreshResync(mode);
 
   einkDisplay.displayBufferAsyncNoShadow(convertRefreshMode(mode));
 }
@@ -148,16 +159,13 @@ bool HalDisplay::supportsAsyncGrayscaleBase() const { return grayscaleCapabiliti
 
 bool HalDisplay::displayGrayscaleBase(GrayscaleMode mode, RefreshMode fallback, bool turnOffScreen) {
   HalSpiBus::Lock spiLock;
-  if (gpio.deviceIsX3() && fallback == HALF_REFRESH) einkDisplay.requestResync(1);
+  applyX3HalfRefreshResync(fallback);
   return einkDisplay.displayGrayscaleBase(mode, convertRefreshMode(fallback), turnOffScreen);
 }
 
 void HalDisplay::refreshDisplay(HalDisplay::RefreshMode mode, bool turnOffScreen) {
   HalSpiBus::Lock spiLock;
-
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
-    einkDisplay.requestResync(1);
-  }
+  applyX3HalfRefreshResync(mode);
 
   einkDisplay.refreshDisplay(convertRefreshMode(mode), turnOffScreen);
 }
@@ -180,15 +188,7 @@ void HalDisplay::copyGrayscaleBuffers(const uint8_t* lsbBuffer, const uint8_t* m
 }
 
 void HalDisplay::displayGrayscaleBase(RefreshMode fallback, bool turnOffScreen) {
-  // X3: a HALF or FULL fallback means the caller wants a clean base (e.g. the
-  // sleep cover, a full-screen swap from arbitrary prior content). Without
-  // this, the X3 grayscale base takes its gentle differential happy path and
-  // the prior home/reader frame ghosts through the soft aa_pre_bw_mid
-  // waveform. Forcing a resync makes displayGrayscaleBase clear first,
-  // matching displayBuffer(HALF)/displayBuffer(FULL).
-  if (gpio.deviceIsX3() && fallback != RefreshMode::FAST_REFRESH) {
-    einkDisplay.requestResync(1);
-  }
+  applyX3HalfRefreshResync(fallback, true);
 
   einkDisplay.displayGrayscaleBase(convertRefreshMode(fallback), turnOffScreen);
 }
