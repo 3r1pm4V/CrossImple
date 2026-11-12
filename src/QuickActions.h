@@ -63,7 +63,7 @@ inline constexpr std::array<StrId, CrossPointSettings::QUICK_ACTION_SLOT_ACTION_
 
 // Shared display order for shortcut pickers. The values remain the persisted
 // SHORT_PWRBTN IDs; only their presentation order is centralized here.
-inline constexpr std::array<CrossPointSettings::SHORT_PWRBTN, 36> shortcutActionOrder = {
+inline constexpr std::array<CrossPointSettings::SHORT_PWRBTN, 35> shortcutActionOrder = {
     CrossPointSettings::IGNORE,
     CrossPointSettings::SLEEP,
     CrossPointSettings::PAGE_TURN,
@@ -90,7 +90,6 @@ inline constexpr std::array<CrossPointSettings::SHORT_PWRBTN, 36> shortcutAction
     CrossPointSettings::FOOTNOTES,
     CrossPointSettings::FILE_BROWSER,
     CrossPointSettings::CREATE_CLIPPING,
-    CrossPointSettings::LOOKUP_WORD,
     CrossPointSettings::TOGGLE_HOME_BUTTON_IN_READER,
     CrossPointSettings::QUICK_ACTIONS,
     CrossPointSettings::QUICK_LOCK,
@@ -104,6 +103,7 @@ inline constexpr std::array<CrossPointSettings::SHORT_PWRBTN, 36> shortcutAction
 inline bool supportsTiltPageTurn() { return halTiltSensor.isAvailable(); }
 
 inline bool isActionAvailable(const uint8_t action) {
+  if (action == CrossPointSettings::LOOKUP_WORD) return false;
   if (action == CrossPointSettings::READING_STATS && !SETTINGS.shouldTrackReadingStats()) return false;
   if (action == CrossPointSettings::PREVIOUS_PAGE ||
       action == CrossPointSettings::LIBRARY || action == CrossPointSettings::SELECT_CHAPTER ||

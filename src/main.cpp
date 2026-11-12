@@ -102,7 +102,6 @@ inline esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_
 #include "activities/reader/KOReaderSyncActivity.h"
 #include "activities/reader/ReaderUtils.h"
 #include "activities/reader/ReadingStatsUtils.h"
-#include "activities/reader/StatsBackup.h"
 #include "activities/settings/AssetDownloadActivity.h"
 #include "activities/settings/FontDownloadActivity.h"
 #include "activities/settings/KOReaderAuthActivity.h"
@@ -122,8 +121,6 @@ inline esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause() { return ESP_SLEEP_
 #include "util/BatteryDiagnosticLog.h"
 #include "util/ButtonNavigator.h"
 #include "util/ButtonShortcutController.h"
-#include "util/Dictionary.h"
-#include "util/DictionaryRegistry.h"
 #include "util/FrontlightSchedule.h"
 #include "util/ScreenshotUtil.h"
 #include "util/SleepWakePolicy.h"
@@ -134,7 +131,6 @@ MappedInputManager mappedInputManager(gpio, renderer);
 ActivityManager activityManager(renderer, mappedInputManager);
 FontDecompressor fontDecompressor;
 SdCardFontSystem sdFontSystem;
-DictionaryRegistry dictionaryRegistry;
 FontCacheManager fontCacheManager(renderer.getFontMap(), renderer.getSdCardFonts());
 static unsigned long allowSleepAt = 0;
 static ButtonShortcutController buttonShortcutController;
@@ -797,7 +793,7 @@ CrossPointSettings::SHORT_PWRBTN chordPowerAction(const ButtonShortcutController
     case Chord::CreateClipping:
       return Power::CREATE_CLIPPING;
     case Chord::LookupWord:
-      return Power::LOOKUP_WORD;
+      return Power::IGNORE;
     case Chord::ToggleHomeButton:
       return Power::TOGGLE_HOME_BUTTON_IN_READER;
     case Chord::QuickActions:

@@ -46,8 +46,6 @@
 #include "components/icons/listIcons.h"
 #include "components/icons/touchHeaderIcons.h"
 #include "fontIds.h"
-#include "util/Dictionary.h"
-#include "util/DictionaryRegistry.h"
 #include "util/FontFamilyLabel.h"
 #include "util/ReaderBookProgress.h"
 
@@ -434,16 +432,13 @@ EpubReaderDrawerActivity::EpubReaderDrawerActivity(
     GfxRenderer& renderer, MappedInputManager& mappedInput, std::shared_ptr<Epub> epub,
     const EpubReaderPreviewModel* previewModel, const float bookProgressPercent, const uint32_t chapterPage,
     const uint32_t chapterPageCount, const bool chapterPageCountEstimated, const bool hasFootnotes,
-    const bool hasDictionary, const bool hasBookmarks, const bool hasClippings, const bool isCurrentPageBookmarked,
-    const bool isBookCompleted, const bool showReadingPaceReset, const bool globalStatsEnabled,
-    const bool bookStatsEnabled, const uint32_t stableCurrentPage, const uint32_t stablePageCount,
-    const uint16_t autoPageTurnIntervalSeconds, const bool automaticPageTurnActive,
-    SaveSettingsCallback saveReaderSettingsCallback, void* saveReaderSettingsContext,
+    const bool hasBookmarks, const bool hasClippings, const bool isCurrentPageBookmarked, const bool isBookCompleted,
+    const bool showReadingPaceReset, const bool globalStatsEnabled, const bool bookStatsEnabled,
+    const uint32_t stableCurrentPage, const uint32_t stablePageCount, const uint16_t autoPageTurnIntervalSeconds,
+    const bool automaticPageTurnActive, SaveSettingsCallback saveReaderSettingsCallback, void* saveReaderSettingsContext,
     SaveGlobalSettingsCallback saveGlobalSettingsCallback, void* saveGlobalSettingsContext,
     GlobalSettingsEditCallback beginGlobalSettingsEditCallback, void* beginGlobalSettingsEditContext,
     GlobalSettingsEditCallback endGlobalSettingsEditCallback, void* endGlobalSettingsEditContext,
-    const char* dictionaryFontFamilyName, const uint8_t dictionaryFontPointSize, const bool hasDictionaryFontOverride,
-    DictionaryFontChangedCallback dictionaryFontChangedCallback, void* dictionaryFontChangedContext,
     const ReaderDrawerState initialState, std::unique_ptr<EpubReaderPreviewModel> ownedPreviewModel)
     : Activity("EpubReaderDrawer", renderer, mappedInput),
       epub(std::move(epub)),
@@ -461,7 +456,6 @@ EpubReaderDrawerActivity::EpubReaderDrawerActivity(
       chapterPageCountEstimated(chapterPageCountEstimated),
       stablePageSeed(stablePage),
       hasFootnotes(hasFootnotes),
-      hasDictionary(hasDictionary),
       hasBookmarks(hasBookmarks),
       hasClippings(hasClippings),
       globalStatsEnabled(globalStatsEnabled),
@@ -484,16 +478,9 @@ EpubReaderDrawerActivity::EpubReaderDrawerActivity(
       beginGlobalSettingsEditContext(beginGlobalSettingsEditContext),
       endGlobalSettingsEditCallback(endGlobalSettingsEditCallback),
       endGlobalSettingsEditContext(endGlobalSettingsEditContext),
-      dictionaryFontPointSize(dictionaryFontPointSize),
-      hasDictionaryFontOverride(hasDictionaryFontOverride),
-      dictionaryFontChangedCallback(dictionaryFontChangedCallback),
-      dictionaryFontChangedContext(dictionaryFontChangedContext),
       uiTarget(makeUiTarget(renderer)),
       app(uiTarget, uiTarget.deviceContext()) {
   ReaderSliderHints::bindFont(uiTarget);
-  if (dictionaryFontFamilyName) {
-    std::strncpy(this->dictionaryFontFamilyName, dictionaryFontFamilyName, sizeof(this->dictionaryFontFamilyName) - 1);
-  }
   if (!this->previewModel) this->previewModel = this->ownedPreviewModel.get();
   previewUnavailable = !mappedInput.hasTouchHardware() && !this->previewModel;
   // The button menu paints the whole screen, including its sample preview.
@@ -510,7 +497,7 @@ void EpubReaderDrawerActivity::onEnter() {
   if (mappedInput.hasTouchHardware()) mappedInput.setReaderTouchscreenOverride(true);
 
   const ReaderDrawerCatalog catalog = makeReaderDrawerCatalog(
-      {hasFootnotes, hasDictionary, hasBookmarks, hasClippings, showReadingPaceReset, stablePageCount > 0,
+      {hasFootnotes, hasBookmarks, hasClippings, showReadingPaceReset, stablePageCount > 0,
        !mappedInput.hasTouchHardware(), globalStatsEnabled, bookStatsEnabled});
   for (size_t tab = 0; tab < rootRows.size(); ++tab) {
     rootRows[tab].reserve(catalog[tab].count);
@@ -525,7 +512,6 @@ void EpubReaderDrawerActivity::onEnter() {
     }
   }
   paneRows.reserve(7);
-  discoverDictionaries();
   applySharedUiTheme(app, uiTarget);
   app.on(ACTION_ROW, &EpubReaderDrawerActivity::onRowEvent, this);
   app.on(ACTION_TAB, &EpubReaderDrawerActivity::onTabEvent, this);
@@ -553,7 +539,6 @@ void EpubReaderDrawerActivity::onExit() {
     LOG_DBG("ERDM", "Button preview released: free=%u maxAlloc=%u", heap.freeHeap, heap.maxAllocHeap);
     (void)heap;
   }
-  dictionaryRegistry.clear();
   // The reader remains active beneath this drawer. Keep the small catalog for
   // its resident scalable family so reopening Font Size avoids an SD rescan.
 #if CROSSINK_SCALABLE_FONTS
@@ -657,21 +642,6 @@ void EpubReaderDrawerActivity::showTtfRenderingOptions(const RowId row) {
                   TtfRenderOptionsActivity::selectedOption(ttfRenderProfile, optionRow));
 }
 #endif
-
-void EpubReaderDrawerActivity::discoverDictionaries() {
-  dictionaryRegistry.discover();
-  dictionaryLabels.clear();
-  dictionaryPaths.clear();
-  dictionaryLabels.reserve(dictionaryRegistry.getEntries().size() + 1);
-  dictionaryPaths.reserve(dictionaryRegistry.getEntries().size() + 1);
-  dictionaryLabels.emplace_back(tr(STR_DICT_USE_GLOBAL));
-  dictionaryPaths.emplace_back();
-  for (const auto& entry : dictionaryRegistry.getEntries()) {
-    dictionaryLabels.push_back(entry.name);
-    dictionaryPaths.push_back(entry.basePath);
-  }
-  bookDictionaryPath = epub ? Dictionary::readDictPath(epub->getCachePath().c_str()) : std::string{};
-}
 
 void EpubReaderDrawerActivity::commitSettings() {
   if (!settingsChanged) return;
@@ -1034,9 +1004,6 @@ void EpubReaderDrawerActivity::buildDrawer(UiApp::ScreenType& screen) {
       break;
     case ReaderDrawerPane::AutoPageTurn:
       buildAutoPageTurnPane(screen);
-      break;
-    case ReaderDrawerPane::Dictionary:
-      buildDictionaryPane(screen);
       break;
     case ReaderDrawerPane::FontFamily:
       buildFontFamilyPane(screen);
@@ -1470,30 +1437,6 @@ void EpubReaderDrawerActivity::buildConfirmButton(UiApp::ScreenType& screen) {
   screen.button(confirm, rect);
 }
 
-void EpubReaderDrawerActivity::buildDictionaryPane(UiApp::ScreenType& screen) {
-  buildPaneHeader(screen);
-  const int total = static_cast<int>(dictionaryLabels.size());
-  fui::ListProps props;
-  visibleRows = configureDrawerList(props, screen.theme(), screen.body());
-  const int top = std::clamp<int>(state.paneTopIndex, 0, std::max(0, total - visibleRows));
-  state.paneTopIndex = static_cast<int16_t>(top);
-  const int drawCount = std::min<int>({visibleRows, WINDOW_SIZE, total - top});
-  for (int i = 0; i < drawCount; ++i) {
-    itemWindow[static_cast<size_t>(i)] = fui::ListItem{};
-    itemWindow[static_cast<size_t>(i)].label = dictionaryLabels[static_cast<size_t>(top + i)].c_str();
-    itemWindow[static_cast<size_t>(i)].actionValue = static_cast<int16_t>(top + i);
-  }
-  props.items = itemWindow.data();
-  props.count = static_cast<uint16_t>(std::max(0, drawCount));
-  props.action = ACTION_ROW;
-  props.selectedIndex = readerDrawerFocusedWindowIndex(buttonFocusActive, state.selectedIndex, top);
-  props.inputMask = fui::InputTouch;
-  screen.list(props);
-  fui::drawListScrollIndicator(screen.target(), drawerScrollbarBounds(screen.body()), total, visibleRows, top,
-                               screen.theme().listScrollWidth, screen.theme().listScrollSide,
-                               screen.theme().listScrollInset);
-}
-
 int EpubReaderDrawerActivity::currentFontSelectionIndex() const {
   int selectedFontIndex = state.pendingFontIndex;
   if (selectedFontIndex < 0) {
@@ -1561,9 +1504,7 @@ void EpubReaderDrawerActivity::buildEnumOptionsPane(UiApp::ScreenType& screen) {
   const int top = std::clamp<int>(state.paneTopIndex, 0, std::max(0, total - visibleRows));
   state.paneTopIndex = static_cast<int16_t>(top);
   const int drawCount = std::min<int>({visibleRows, WINDOW_SIZE, total - top});
-  if (!CROSSINK_APP_READER_SAMPLE_PREVIEW &&
-      (enumOptionRow == RowId::FontSize || enumOptionRow == RowId::DictionaryFontFamily ||
-       enumOptionRow == RowId::DictionaryFontSize)) {
+  if (!CROSSINK_APP_READER_SAMPLE_PREVIEW && enumOptionRow == RowId::FontSize) {
     evenlySpaceDrawerListRows(props, listBounds, drawCount);
   }
   const int selectedIndex = previewedEnumOptionIndex >= 0 ? previewedEnumOptionIndex : enumOptionSelectedIndex;
@@ -1645,9 +1586,6 @@ void EpubReaderDrawerActivity::openPane(const ReaderDrawerPane pane) {
     paneRows = {RowId::FontFamily, RowId::FontSize, RowId::CharacterSpacing};
     refreshTtfRenderingRow();
   }
-  if (pane == ReaderDrawerPane::DictionaryFont) {
-    paneRows = {RowId::DictionaryFontFamily, RowId::DictionaryFontSize};
-  }
 #if CROSSINK_SCALABLE_FONTS
   if (pane == ReaderDrawerPane::TtfRendering) {
     ttfRenderProfile = TTF_RENDER_PROFILES.profileFor(draft.sdFontFamilyName.data());
@@ -1683,9 +1621,6 @@ void EpubReaderDrawerActivity::closePane() {
     paneRows = {RowId::FontFamily, RowId::FontSize, RowId::CharacterSpacing};
     refreshTtfRenderingRow();
   }
-  if (state.pane == ReaderDrawerPane::DictionaryFont) {
-    paneRows = {RowId::DictionaryFontFamily, RowId::DictionaryFontSize};
-  }
 #if CROSSINK_SCALABLE_FONTS
   if (state.pane == ReaderDrawerPane::TtfRendering) rebuildTtfRenderingRows();
 #endif
@@ -1710,17 +1645,6 @@ void EpubReaderDrawerActivity::changeTab(const ReaderDrawerTab tab) {
 void EpubReaderDrawerActivity::activateListIndex(const int index) {
   if (state.pane == ReaderDrawerPane::EnumOptions) {
     selectEnumOption(index);
-    return;
-  }
-  if (state.pane == ReaderDrawerPane::Dictionary) {
-    if (index < 0 || index >= static_cast<int>(dictionaryPaths.size())) return;
-    if (saveBookDictionary(dictionaryPaths[static_cast<size_t>(index)])) {
-      bookDictionaryPath = dictionaryPaths[static_cast<size_t>(index)];
-      state.tab = ReaderDrawerTab::Settings;
-      state.pane = ReaderDrawerPane::Root;
-      state.selectedIndex = 1;
-      requestUpdate();
-    }
     return;
   }
   if (state.pane == ReaderDrawerPane::FontFamily) {
@@ -1803,8 +1727,6 @@ void EpubReaderDrawerActivity::activateRow(const RowId row) {
       openPane(ReaderDrawerPane::FontFamily);
       return;
     case RowId::FontSize:
-    case RowId::DictionaryFontFamily:
-    case RowId::DictionaryFontSize:
     case RowId::Orientation:
     case RowId::Alignment:
     case RowId::Images:
@@ -1838,12 +1760,6 @@ void EpubReaderDrawerActivity::activateRow(const RowId row) {
       return;
     case RowId::AutoPageTurn:
       openPane(ReaderDrawerPane::AutoPageTurn);
-      return;
-    case RowId::BookDictionary:
-      openPane(ReaderDrawerPane::Dictionary);
-      return;
-    case RowId::DictionaryFont:
-      openPane(ReaderDrawerPane::DictionaryFont);
       return;
     case RowId::StatusBar:
       if (!mappedInput.hasTouchHardware()) {
@@ -1932,12 +1848,6 @@ void EpubReaderDrawerActivity::activateRow(const RowId row) {
     case RowId::Footnotes:
       action = EpubReaderMenuAction::FOOTNOTES;
       break;
-    case RowId::Lookup:
-      action = EpubReaderMenuAction::LOOKUP;
-      break;
-    case RowId::LookupHistory:
-      action = EpubReaderMenuAction::LOOKUP_HISTORY;
-      break;
     case RowId::SaveClipping:
       action = EpubReaderMenuAction::SAVE_CLIPPING;
       break;
@@ -1998,10 +1908,9 @@ void EpubReaderDrawerActivity::showEnumOptions(const RowId row) {
   RenderLock lock;
   const bool fontSizeNeedsLoading = row == RowId::FontSize && draft.sdFontFamilyName[0] != '\0' &&
                                     ReaderUtils::shouldShowFontPreviewLoading(draft.sdFontFamilyName.data());
-  if (row == RowId::DictionaryFontFamily || row == RowId::DictionaryFontSize || fontSizeNeedsLoading) {
+  if (fontSizeNeedsLoading) {
     GUI.drawPopup(renderer, tr(STR_LOADING), true);
   }
-  if (row == RowId::DictionaryFontFamily || row == RowId::DictionaryFontSize) sdFontSystem.refreshIfDirty();
   std::vector<std::string> labels;
   std::vector<uint8_t> raw;
   StrId title = StrId::STR_NONE_OPT;
@@ -2059,61 +1968,12 @@ void EpubReaderDrawerActivity::showEnumOptions(const RowId row) {
       raw = {0, 1, 2};
       currentRaw = draft.epubRenderMode;
       break;
-    case RowId::DictionaryFontFamily: {
-      title = StrId::STR_FONT_FAMILY;
-      labels.emplace_back(tr(STR_DICT_USE_GLOBAL));
-      raw.emplace_back(0);
-      const auto& families = sdFontSystem.registry().getFamilies();
-      for (size_t i = 0; i < families.size(); ++i) {
-        labels.push_back(families[i].name);
-        raw.push_back(static_cast<uint8_t>(i + 1));
-      }
-      if (hasDictionaryFontOverride && dictionaryFontFamilyName[0] != '\0' &&
-          sdFontSystem.registry().findSummary(dictionaryFontFamilyName) == nullptr) {
-        labels.push_back(std::string(dictionaryFontFamilyName) + " (" + tr(STR_UNAVAILABLE) + ")");
-        raw.push_back(0);
-      }
-      if (hasDictionaryFontOverride && dictionaryFontFamilyName[0] != '\0') {
-        for (size_t i = 1; i < labels.size(); ++i) {
-          if (labels[i] == dictionaryFontFamilyName) {
-            currentRaw = raw[i];
-            break;
-          }
-        }
-      }
-      break;
-    }
-    case RowId::DictionaryFontSize: {
-      title = StrId::STR_DICTIONARY_FONT_SIZE;
-      labels.emplace_back(tr(STR_DICT_USE_GLOBAL));
-      raw.emplace_back(0);
-      const char* familyName =
-          dictionaryFontFamilyName[0] != '\0' ? dictionaryFontFamilyName : SETTINGS.sdFontFamilyName;
-      if (familyName[0] != '\0') {
-        if (const auto* family = sdFontSystem.registry().findFamily(familyName)) {
-          const auto sizes = family->availableSizes();
-          labels.reserve(sizes.size() + 1);
-          raw.reserve(sizes.size() + 1);
-          for (const uint8_t size : sizes) {
-            labels.push_back(fontSizePointLabel(size));
-            raw.push_back(size);
-          }
-        }
-      }
-      currentRaw = hasDictionaryFontOverride ? dictionaryFontPointSize : 0;
-      break;
-    }
     default:
       return;
   }
   int current = 0;
-  if (row == RowId::DictionaryFontFamily && hasDictionaryFontOverride && dictionaryFontFamilyName[0] != '\0' &&
-      sdFontSystem.registry().findSummary(dictionaryFontFamilyName) == nullptr) {
-    current = static_cast<int>(labels.size()) - 1;
-  } else {
-    const auto rawIt = std::find(raw.begin(), raw.end(), currentRaw);
-    if (rawIt != raw.end()) current = static_cast<int>(std::distance(raw.begin(), rawIt));
-  }
+  const auto rawIt = std::find(raw.begin(), raw.end(), currentRaw);
+  if (rawIt != raw.end()) current = static_cast<int>(std::distance(raw.begin(), rawIt));
   openEnumOptions(row, title, std::move(labels), std::move(raw), current);
 }
 
@@ -2133,14 +1993,6 @@ void EpubReaderDrawerActivity::openEnumOptions(const RowId row, const StrId titl
   state.paneTopIndex = state.selectedIndex;
   buttonFocusActive = true;
   requestUpdate();
-}
-
-void EpubReaderDrawerActivity::notifyDictionaryFontChanged() {
-  if (dictionaryFontChangedCallback) {
-    dictionaryFontChangedCallback(dictionaryFontChangedContext,
-                                  hasDictionaryFontOverride ? dictionaryFontFamilyName : nullptr,
-                                  dictionaryFontPointSize);
-  }
 }
 
 void EpubReaderDrawerActivity::selectEnumOption(const int index) {
@@ -2187,39 +2039,6 @@ void EpubReaderDrawerActivity::selectEnumOption(const int index) {
     case RowId::RenderMode:
       draft.epubRenderMode = value;
       markSettingChanged(ReaderSettingsChangeMask::Relayout);
-      break;
-    case RowId::DictionaryFontFamily:
-      if (index == 0) {
-        hasDictionaryFontOverride = false;
-        std::strncpy(dictionaryFontFamilyName, SETTINGS.dictionarySdFontFamilyName,
-                     sizeof(dictionaryFontFamilyName) - 1);
-        dictionaryFontFamilyName[sizeof(dictionaryFontFamilyName) - 1] = '\0';
-        dictionaryFontPointSize = SETTINGS.dictionaryFontPointSize;
-      } else if (const auto* family =
-                     sdFontSystem.registry().findFamily(enumOptionLabels[static_cast<size_t>(index)].c_str())) {
-        hasDictionaryFontOverride = true;
-        std::strncpy(dictionaryFontFamilyName, family->name.c_str(), sizeof(dictionaryFontFamilyName) - 1);
-        dictionaryFontFamilyName[sizeof(dictionaryFontFamilyName) - 1] = '\0';
-      }
-      notifyDictionaryFontChanged();
-      break;
-    case RowId::DictionaryFontSize:
-      if (!hasDictionaryFontOverride) {
-        if (index == 0) {
-          dictionaryFontPointSize = SETTINGS.dictionaryFontPointSize;
-        } else if (dictionaryFontFamilyName[0] != '\0') {
-          hasDictionaryFontOverride = true;
-          dictionaryFontPointSize = value;
-        } else if (SETTINGS.sdFontFamilyName[0] != '\0') {
-          std::strncpy(dictionaryFontFamilyName, SETTINGS.sdFontFamilyName, sizeof(dictionaryFontFamilyName) - 1);
-          dictionaryFontFamilyName[sizeof(dictionaryFontFamilyName) - 1] = '\0';
-          hasDictionaryFontOverride = true;
-          dictionaryFontPointSize = value;
-        }
-      } else {
-        dictionaryFontPointSize = value;
-      }
-      notifyDictionaryFontChanged();
       break;
 #if CROSSINK_SCALABLE_FONTS
     case RowId::TtfHinting:
@@ -2504,8 +2323,6 @@ void EpubReaderDrawerActivity::moveSelection(const bool forward, const bool page
   int count = 0;
   if (state.pane == ReaderDrawerPane::EnumOptions) {
     count = static_cast<int>(enumOptionLabels.size());
-  } else if (state.pane == ReaderDrawerPane::Dictionary) {
-    count = static_cast<int>(dictionaryLabels.size());
   } else if (state.pane == ReaderDrawerPane::FontFamily) {
     count = static_cast<int>(fontLabels.size());
   } else {
@@ -2536,8 +2353,6 @@ void EpubReaderDrawerActivity::scrollBy(const int delta) {
   int count = 0;
   if (state.pane == ReaderDrawerPane::EnumOptions)
     count = enumOptionLabels.size();
-  else if (state.pane == ReaderDrawerPane::Dictionary)
-    count = dictionaryLabels.size();
   else if (state.pane == ReaderDrawerPane::FontFamily)
     count = fontLabels.size();
   else
@@ -2550,21 +2365,6 @@ void EpubReaderDrawerActivity::scrollBy(const int delta) {
   else
     state.paneTopIndex = next;
   requestUpdate();
-}
-
-bool EpubReaderDrawerActivity::saveBookDictionary(const std::string& path) {
-  if (!epub) return false;
-  HalFile file;
-  const std::string target = epub->getCachePath() + "/dictionary.bin";
-  if (!Storage.openFileForWrite("ERDM", target, file)) {
-    LOG_ERR("ERDM", "Could not save per-book dictionary");
-    return false;
-  }
-  const bool ok =
-      path.empty() || file.write(reinterpret_cast<const uint8_t*>(path.c_str()), path.size()) == path.size();
-  file.close();
-  if (!ok) LOG_ERR("ERDM", "Short write saving per-book dictionary");
-  return ok;
 }
 
 void EpubReaderDrawerActivity::renderPreviewContents(const ReaderSettingsDraft& previewSettings,
@@ -3080,8 +2880,6 @@ const char* EpubReaderDrawerActivity::paneTitle() const {
   switch (state.pane) {
     case ReaderDrawerPane::ReaderFont:
       return tr(STR_READER_FONT);
-    case ReaderDrawerPane::DictionaryFont:
-      return tr(STR_DICTIONARY_FONT);
     case ReaderDrawerPane::FontFamily:
       return tr(STR_FONT_FAMILY);
     case ReaderDrawerPane::CharacterSpacing:
@@ -3096,8 +2894,6 @@ const char* EpubReaderDrawerActivity::paneTitle() const {
       return tr(STR_GO_TO_STABLE_PAGE);
     case ReaderDrawerPane::AutoPageTurn:
       return tr(STR_AUTO_TURN_INTERVAL_SECONDS);
-    case ReaderDrawerPane::Dictionary:
-      return tr(STR_BOOK_DICTIONARY);
     case ReaderDrawerPane::EnumOptions:
       return I18N.get(enumOptionTitle);
 #if CROSSINK_SCALABLE_FONTS
@@ -3120,8 +2916,6 @@ const char* EpubReaderDrawerActivity::rowLabel(const RowId row) const {
       return tr(STR_READER_FONT);
     case RowId::TtfRendering:
       return tr(STR_TTF_RENDERING);
-    case RowId::DictionaryFont:
-      return tr(STR_DICTIONARY_FONT);
     case RowId::Spacing:
       return tr(STR_SPACING);
     case RowId::TextAa:
@@ -3166,10 +2960,6 @@ const char* EpubReaderDrawerActivity::rowLabel(const RowId row) const {
       return tr(STR_DISPLAY_QR);
     case RowId::Footnotes:
       return tr(STR_FOOTNOTES);
-    case RowId::Lookup:
-      return tr(STR_LOOKUP);
-    case RowId::LookupHistory:
-      return tr(STR_LOOKUP_HISTORY);
     case RowId::SaveClipping:
       return tr(STR_SAVE_CLIPPING);
     case RowId::ViewClippings:
@@ -3178,8 +2968,6 @@ const char* EpubReaderDrawerActivity::rowLabel(const RowId row) const {
       return tr(STR_DELETE_BOOKMARKS);
     case RowId::StatusBar:
       return tr(STR_STATUS_BARS);
-    case RowId::BookDictionary:
-      return tr(STR_BOOK_DICTIONARY);
     case RowId::RenderMode:
       return tr(STR_EPUB_RENDER_MODE);
     case RowId::IndexingMethod:
@@ -3209,10 +2997,6 @@ const char* EpubReaderDrawerActivity::rowLabel(const RowId row) const {
     case RowId::CharacterSpacing:
       return tr(STR_CHARACTER_SPACING);
     case RowId::FontSize:
-      return tr(STR_FONT_SIZE);
-    case RowId::DictionaryFontFamily:
-      return tr(STR_FONT_FAMILY);
-    case RowId::DictionaryFontSize:
       return tr(STR_FONT_SIZE);
 #if CROSSINK_SCALABLE_FONTS
     case RowId::TtfHinting:
@@ -3293,18 +3077,6 @@ const char* EpubReaderDrawerActivity::rowValue(const RowId row, char* buffer, co
     }
     case RowId::IndexingMethod:
       return draft.indexingMethod == 0 ? tr(STR_INDEXING_INCREMENTAL) : tr(STR_INDEXING_FULL_SECTION);
-    case RowId::BookDictionary:
-      if (bookDictionaryPath.empty()) return tr(STR_DICT_USE_GLOBAL);
-      for (size_t i = 1; i < dictionaryPaths.size(); ++i) {
-        if (dictionaryPaths[i] == bookDictionaryPath) return dictionaryLabels[i].c_str();
-      }
-      return tr(STR_UNAVAILABLE);
-    case RowId::DictionaryFontFamily:
-      return hasDictionaryFontOverride ? dictionaryFontFamilyName : tr(STR_DICT_USE_GLOBAL);
-    case RowId::DictionaryFontSize:
-      if (!hasDictionaryFontOverride || dictionaryFontPointSize == 0) return tr(STR_DICT_USE_GLOBAL);
-      std::snprintf(buffer, bufferSize, "%upt", dictionaryFontPointSize);
-      return buffer;
     case RowId::AutoPageTurn:
       std::snprintf(buffer, bufferSize, "%us", autoPageTurnIntervalSeconds);
       return buffer;
@@ -3342,7 +3114,6 @@ bool EpubReaderDrawerActivity::rowShowsNavigationCaret(const RowId row) const {
     case RowId::ToggleCompleted:
     case RowId::Screenshot:
     case RowId::DisplayQr:
-    case RowId::Lookup:
     case RowId::SaveClipping:
     case RowId::ResetReadingPace:
     case RowId::ResetBookReaderSettings:

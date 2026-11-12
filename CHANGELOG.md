@@ -1,3 +1,20 @@
+## [v0.25] - 2026-11-12
+
+### Đã gỡ bỏ & Dọn dẹp (Removed & Cleaned Up)
+- **Gỡ bỏ Từ điển StarDict (X3, X4 Classic, X4 Pro)**:
+  - Loại bỏ toàn bộ hệ thống tra từ điển StarDict (`Dictionary*`, `DictionarySelectActivity`, `DictionaryWordSelectActivity`, `DictionaryDefinitionActivity`, `DictionarySuggestionsActivity`, `LookedUpWordsActivity`, `DictHtmlRenderer`, `LookupHistory`, `WordSelectNavigator`, `TextSelectionOverlay`) cùng các mục cài đặt/menu từ điển liên quan, giúp giải phóng dung lượng Flash lớn và đơn giản hóa trình đọc.
+  - Bảo toàn trọn vẹn tính năng **Clippings (`ClipSelectionActivity` / Lưu trích dẫn)**, **Quick Actions**, toàn bộ bộ font tích hợp (`bitter`, `lexenddeca`, `inter_`) và khả năng tương thích ngược schema cấu hình cũ (`SHORT_PWRBTN`, `BookReaderSettingsData`).
+- **Tỉa Driver Màn hình & Tách Driver IMU `QMI8658` Thuần cho X3/X4 (Không sửa submodule `freeink-sdk`)**:
+  - Thêm [`scripts/prune_freeink_sdk.py`](scripts/prune_freeink_sdk.py) lọc bỏ các driver e-paper không dùng trong `FreeInkDisplay` theo từng dòng máy (`Ed2208M5`, `It8951`, `LgfxEpd`, `M5Official`, `PaperMono`, `Ssd2677`, `Uc8253Murphy`, `Uc8279cA4` và tách chéo driver giữa X3 và X4).
+  - Loại khỏi biên dịch `freeink-sdk/libs/hardware/Imu/src/Imu.cpp` (chứa bảng firmware BMI270 `8,712 B`) và thay bằng [`src/platform/ImuQmi8658.cpp`](src/platform/ImuQmi8658.cpp) chỉ dùng cảm biến QMI8658 cho tính năng nghiêng lật trang trên X3 & X4 Classic.
+- **Dọn mã thừa & Đồng bộ thương hiệu `CrossImple`**:
+  - Xóa mã `BackupStats`/`StatsBackup` không còn đường gọi, giao diện Web Portal plugin cũ (`RunnerPageHtml`, `PluginHostJs`, `runner.*`), 15 header/icon & ảnh `crossink*.png` không sử dụng, và target CI `sticky`/`picco` trong `.github/workflows/release.yml`.
+  - Chặn biên dịch `-<simulator/>` trên firmware thật trong `platformio.ini`, đồng bộ URL/tiền tố OTA (`3r1pm4V/CrossImple`, `crossimple_<board>_v`), `ReleaseNotes.h` (`0.25`) và giao diện WebUI về tên **CrossImple**.
+- **Kích thước firmware `v0.25` (so với `v0.24`)**:
+  - `crossimple_x3_v0.25.bin`: `5,736,896 B` (giảm `134,768 B`, còn trống `816,704 B` trên phân vùng OTA).
+  - `crossimple_x4-classic_v0.25.bin`: `5,185,120 B` (giảm `129,328 B`, còn trống `1,368,480 B` trên phân vùng OTA).
+  - `crossimple_x4-pro_v0.25.bin`: `5,303,136 B` (giảm `139,200 B`, còn trống `1,250,464 B` trên phân vùng OTA).
+
 ## [v0.24] - 2026-11-12
 
 ### Đã thêm & Tối ưu (Added & Improved)
@@ -35,24 +52,25 @@
 
 ### Đã thêm & Tối ưu (Added & Improved)
 - **Bộ 4 Tối ưu Chuyên sâu dành riêng cho Xteink X3 (`crossimple_x3_v0.22.bin`, giữ nguyên X4 Classic & X4 Pro)**:
-  - **Vietnamese Core Pre-Pinning (`SdCardFont.cpp`):** Tự động ghim cố định bảng chữ cái ASCII + 134 ký tự Tiếng Việt có dấu & dấu câu (~230 ký tự) vào `miniBitmap` ngay từ trang đầu tiên khi RAM trống >= 40 KB, giúp các lần lật trang tiếp theo trên X3 đạt 100% Cache Hit mà không cần đọc lại thẻ nhớ SD.
-  - **ROM Thuần X3 (`-DFREEINK_DEVICE_X4=0 -DFORCE_DEVICE_X3=1`):** Tách hẳn driver màn hình `SSD1677` của X4 C3 đời đầu và bỏ qua bước probe `XteinkDetect` lúc khởi động để tối ưu tốc độ Wake và dung lượng Flash cho X3.
-  - **Tắt Serial Log ở bản Release X3 (`-DLOG_LEVEL=0`):** Giải phóng dung lượng Flash `.rodata` và giảm tải CPU đơn nhân `ESP32-C3` khi mở sách nặng.
-  - **Adaptive Idle Polling (`InputWake.cpp` & `main.cpp`):** Tự động giãn chu kỳ quét ADC phím từ `10 ms` lên `20 ms` và chu kỳ nghỉ vòng lặp chính từ `50 ms` lên `100 ms` sau 3 giây không chạm phím (phản hồi tức thì ở `2 ms` ngay khi bấm nút), tiết kiệm thêm 15–20% pin khi đang đọc.
+  - **Vietnamese Core Pre-Pinning (`SdCardFont.cpp`):** Tự động ghim cố định bảng chữ cái ASCII + 134 ký tự Tiếng Việt có dấu & dấu câu (~230 ký tự, chỉ ~8–10 KB RAM) vào `miniBitmap` ngay từ trang đầu tiên khi RAM trống >= 40 KB, giúp các lần lật trang tiếp theo trên X3 đạt tỷ lệ Cache Hit gần như 100%, **0 lần đọc thẻ nhớ SD** và giảm hao pin thẻ nhớ SPI.
+  - **ROM Thuần X3 (`-DFREEINK_DEVICE_X3=1 -DFREEINK_DEVICE_X4=0 -DFORCE_DEVICE_X3=1`):** Tách hẳn driver màn hình `SSD1677` (`800×480`), bảng xung LUT của X4 ver 1 (C3) và bỏ qua bước probe `XteinkDetect` lúc khởi động để tối ưu tốc độ Wake và dung lượng Flash cho X3 *(Lưu ý: File `crossimple_x3_v0.22.bin` dành riêng cho phần cứng Xteink X3)*.
+  - **Tắt `ENABLE_SERIAL_LOG` ở bản Release X3 (`-DLOG_LEVEL=0`):** Loại bỏ hàng ngàn chuỗi format log, lệnh ghi FIFO USB-Serial/JTAG trong lúc mở chương EPUB, giải nén ZIP và dựng trang trên chip đơn nhân RISC-V `ESP32-C3`.
+  - **Adaptive Idle Polling (`InputWake.cpp` & `main.cpp`):** Tự động giãn tần số quét thang điện trở ADC ngầm từ `10 ms` (100 Hz) xuống `20 ms` (50 Hz) và chu kỳ nghỉ vòng lặp chính từ `50 ms` lên `100 ms` sau 3 giây không chạm phím (phản hồi tức thì ở `2 ms` ngay khi bấm nút), tiết kiệm thêm ~15–20% pin khi đang đọc.
 - **Đồng bộ 100% hiển thị Font `.ttf` / `.otf` & `.cpfont` chuẩn `v0.16` (X4 Classic, X4 Pro & X3)**:
-  - Khôi phục mặt nạ `Plane::BWMonochrome = 0x0e` trong `GlyphBitmap.h` và `bwLimit = 3` trong `GfxRenderer.cpp`, giữ nguyên trọn vẹn cả 3 mức độ đậm (`1, 2, 3` — từ ngưỡng `>= 25%` coverage) ngay cả khi bật `Fast Page Turn = ON`, loại bỏ triệt để hiện tượng chữ bị gọt mảnh hoặc đứt nét.
+  - Khôi phục mặt nạ `Plane::BWMonochrome = 0x0e` trong `GlyphBitmap.h` và `bwLimit = 3` trong `GfxRenderer.cpp`, giữ nguyên trọn vẹn cả 3 mức độ đậm (`1, 2, 3` — từ ngưỡng `>= 25%` coverage) ngay cả khi bật **Lật trang siêu tốc (`Fast Page Turn = ON`)**, loại bỏ triệt để hiện tượng chữ bị gọt mảnh hoặc đứt nét.
   - Chuẩn hóa pipeline FreeType `AF_LATIN_HINTS_STEM_ADJUST` kết hợp `stemDarkening = true` mặc định, lượng tử hóa 4 mức xám `(4, 8, 12)` và làm tròn chiều cao dòng `((height26_6 + 32) >> 6)` giống hệt `v0.16`.
-  - Bổ sung cơ chế tự động chuyển đổi `characterSpacing` từ giá trị mặc định cũ `2` (`0px` ở `v0.16`) sang `5` (`0px` ở `v0.22`) kèm cờ `characterSpacingSchema = 2` trong `settings.json`, khắc phục lỗi chữ bị ép sát `-1.5px` khi nâng cấp từ `v0.16`.
-  - Tự động nâng cấp cấu hình `ttf-rendering.json` và tự động dàn trang lại trong trình đọc `TXT` khi thay đổi `TTF Render Options`.
+  - Bổ sung cơ chế tự động chuyển đổi `"characterSpacing": 2` (`0px` ở `v0.16`) sang mốc trung tâm mới `5` (`0px` ở `v0.22`) kèm cờ `characterSpacingSchema = 2` trong `settings.json`, khắc phục lỗi chữ bị ép sát `-1.5px` khi nâng cấp từ `v0.16`.
+  - Tự động nâng cấp cấu hình `ttf-rendering.json` và tự động dàn trang lại trong trình đọc `TXT` khi thay đổi `TTF Render Options` mà vẫn giữ nguyên vị trí trang đang đọc.
 - **Nâng cấp Bộ đệm Font PSRAM lên 2048 Slot (2-Way Set-Associative LRU + MurmurHash3 64-bit)**:
   - Mở rộng `PixelCacheSlots`, `MetricCacheSlots`, `KerningCacheSlots` từ `512` lên `2048` slot trên PSRAM (0 byte RAM nội).
-  - Thay hàm modulo tuyến tính bằng bộ trộn bit 64-bit MurmurHash3 (`fmix64`) và cấu trúc 2-Way Set-Associative LRU, loại bỏ triệt để hiện tượng đụng độ băm chu kỳ `0x1E00 = 15 × 512` giữa khối Latin-1 (`U+00C0..U+00F9`) và khối dấu tiếng Việt mở rộng (`U+1EA0..U+1EF9`).
+  - Thay hàm modulo tuyến tính bằng bộ trộn bit 64-bit MurmurHash3 (`fmix64`) và cấu trúc 2-Way Set-Associative LRU, loại bỏ triệt để hiện tượng đụng độ băm chu kỳ `0x1E00 = 15 × 512` giữa hai vùng dấu tiếng Việt (`U+00C0..U+00F9` và `U+1EA0..U+1EF9`) cũng như giữa 4 kiểu chữ (`Regular`/`Bold`/`Italic`/`BoldItalic`).
 
 ### Đã gỡ bỏ (Removed)
 - Gỡ bỏ hoàn toàn mã nguồn của tính năng chia sẻ ngang hàng (Nearby File Transfer, Nearby Stats Sync, Nearby Position Sync) và thư viện liên kết `NearbyTransfer`.
 - Gỡ bỏ hoàn toàn hệ thống Plugin (Plugin System, Plugin Hub, Plugin Server, Plugin Reader Events, các API Web `/api/plugin*` và route liên quan).
 - Dọn dẹp tàn dư cài đặt cũ: xóa cờ cấu hình `autoBackupStats` và chuỗi dịch tự động sao lưu ngầm không còn dùng.
 - Gỡ bỏ các môi trường build thử nghiệm upstream không sử dụng: Picco (`picco`, `picco-debug`) và Sticky (`sticky`, `sticky-debug`, `sticky-simulator`).
+- Giảm ~200–220 KB dung lượng Flash và ~1.9 KB RAM tĩnh trên mọi thiết bị.
 
 ### Đã thay đổi (Changed)
 - Đơn giản hóa thanh điều hướng trang chủ CoverGrid từ 5 tab động thành 4 tab cố định (File Browser, Library, File Transfer, Settings).

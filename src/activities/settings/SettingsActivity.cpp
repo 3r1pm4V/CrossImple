@@ -17,7 +17,6 @@
 #include "AboutActivity.h"
 #include "AppCapabilities.h"
 #include "AppVersion.h"
-#include "BackupStatsActivity.h"
 #include "ButtonRemapActivity.h"
 #include "ClearCacheActivity.h"
 #include "ClockOffsetActivity.h"
@@ -59,7 +58,6 @@
 #include "components/UiAppHelpers.h"
 #include "components/icons/frontlightHeaderIcons.h"
 #include "fontIds.h"
-#include "util/DictionaryRegistry.h"
 #include "util/FrontlightSchedule.h"
 
 namespace fui = freeink::ui;
@@ -342,8 +340,7 @@ void SettingsActivity::rebuildSettingsLists() {
   const bool needsFonts = activeSubmenu == SettingAction::ReaderFontOptions;
   if (needsFonts) sdFontSystem.refreshIfDirty();
 
-  dictionaryRegistry.refreshIfDirty();
-  const auto allSettings = getSettingsList(needsFonts ? &sdFontSystem.registry() : nullptr, &dictionaryRegistry);
+  const auto allSettings = getSettingsList(needsFonts ? &sdFontSystem.registry() : nullptr);
   displaySettings = buildGroupedDisplaySettingsList(allSettings);
 #ifndef SIMULATOR
   if (BoardConfig::isX4Pro() || CROSSINK_APP_DEVICE_X4CLASSIC) {
@@ -1026,12 +1023,6 @@ void SettingsActivity::onEnter() {
   renderer.setOrientation(entryOrientation);
   app.setDevice(uiTarget.deviceContext());
 
-  if (!isFileBrowserView()) {
-    // Dictionary names and paths are needed only while the full settings tree
-    // is open. Keep the catalog out of the lightweight File Browser editor.
-    dictionaryRegistry.discover();
-  }
-
   selectedCategoryIndex = isFileBrowserView() ? 3 : 0;
   selectedSettingIndex = 0;
   activeSubmenu = SettingAction::None;
@@ -1093,7 +1084,6 @@ void SettingsActivity::onRowEvent(const fui::ActionEvent& event, void* user) {
 void SettingsActivity::onExit() {
   if (touchscreenRecovery) mappedInput.setTouchscreenRecoveryOverride(false);
   if (!isFileBrowserView()) {
-    dictionaryRegistry.clear();
     sdFontSystem.releaseRegistry();
   }
   // Child Settings returns to the reader's panel; ordinary Settings still
@@ -1589,9 +1579,6 @@ void SettingsActivity::toggleCurrentSetting() {
                                    LOG_ERR("SET", "Failed to stop WiFi after network settings");
                                  }
                                });
-        break;
-      case SettingAction::BackupStats:
-        startActivityForResult(std::make_unique<BackupStatsActivity>(renderer, mappedInput), resultHandler);
         break;
       case SettingAction::ResetGlobalStats:
         startActivityForResult(

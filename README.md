@@ -1,7 +1,7 @@
 # 🐰 CrossImple
 
 [![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossImple?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
-[![Version](https://img.shields.io/badge/Version-v0.24-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
+[![Version](https://img.shields.io/badge/Version-v0.25-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
 [![Device](https://img.shields.io/badge/Devices-Xteink%20X3%20%7C%20X4%20Classic%20%7C%20X4%20Pro-blue?style=flat-square)](#-thiết-bị-hỗ-trợ-supported-devices)
 [![Base](https://img.shields.io/badge/Base-CrossPoint%20v2.0.0%20%7C%20CrossInk%20v2.0.0--rc-brightgreen?style=flat-square)](https://github.com/uxjulia/CrossInk)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -34,67 +34,17 @@
 | **Chuẩn hóa hiển thị Font `.ttf`/`.otf` & `.cpfont` đồng nhất `v0.16` (`Plane::BWMonochrome = 0x0e`, FreeType `STEM_ADJUST` + `Stem Darkening`, Migration `characterSpacing` `2->5`, Cache PSRAM 2048-slot 2-Way LRU MurmurHash3)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont`, `GfxRenderer` & `CrossPointSettings`) | `lib/GfxRenderer/GlyphBitmap.h`, `lib/GfxRenderer/GfxRenderer.cpp`, `lib/ScalableFont/HalScalableFont.cpp`, `src/CrossPointSettings.cpp`, `src/TtfRenderProfileStore.cpp` |
 | **Hỗ trợ Font CJK 16MB/32MB, Streaming FreeType & Reader Font Fallback (EPUB & TXT song ngữ)** | **CrossImple Custom** (Tự phát triển trên `HalScalableFont` & `GfxRenderer`) | `lib/ScalableFont/`, `lib/GfxRenderer/`, `src/FilenameFontSystem.cpp`, `src/SdCardFontSystem.cpp` |
 | **Tinh giản Hệ thống theo Triết lý Simple (Gỡ bỏ Plugins, Nearby Transfer, Cloud Stats, Auto Backup ngầm)** | **CrossImple Custom** (Tối ưu theo triết lý Simple) | `src/SettingsList.cpp`, `src/activities/home/HomeActivity.cpp`, `src/activities/network/NetworkModeSelectionActivity.cpp` |
-| **Lật trang 1-Bit Siêu tốc, Tự động ngắt WiFi thông minh, Bộ lọc Thư mục Rác HĐH & Làm mới Toàn trang Thông minh** | **CrossImple Custom** (Tự phát triển theo triết lý Simple) | `src/activities/reader/EpubReaderActivity.cpp`, `src/network/CrossPointWebServerActivity.cpp`, `lib/FsHelpers/FsHelpers.cpp` |
+| **Lật trang 1-Bit Siêu tốc, Tự động ngắt WiFi thông minh, Bộ lọc Thư mục Rác HĐH & Làm mới Toàn trang Thông minh** | **CrossImple Custom** (Tự phát triển theo triết lý Simple) | `src/activities/reader/EpubReaderActivity.cpp`, `src/activities/network/CrossPointWebServerActivity.cpp`, `lib/FsHelpers/FsHelpers.cpp` |
 | **Tối ưu Sleep/Wake cho X3 & X4 (Bìa ngủ 1-bit `FAST_REFRESH`, 1-pass `_half` Wake trên UC8253, Cache `optimizer-images.absent`, Gộp trạng thái Wake)** | **CrossImple Custom** (Tự phát triển) | `lib/hal/HalDisplay.cpp`, `lib/Epub/Epub.cpp`, `src/main.cpp`, `src/activities/boot_sleep/SleepActivity.cpp` |
-| **8x8 Fine Bayer Dithering, E-Ink Optical Clamping (`45`–`225`), Tăng tương phản bìa sách (`1.20f`) & OOM Guard trên X3 (`8KB` trần)** | **CrossImple Custom** (Tự phát triển trên `JpegToBmpConverter` & `BitmapHelpers` của `CrossInk`) | `lib/JpegToBmpConverter/JpegToBmpConverter.cpp`, `lib/BitmapHelpers/BitmapHelpers.cpp` |
-| **Flash trực tiếp file `.bin` bất kỳ từ thẻ nhớ SD (`SdFirmwareUpdateActivity` & `FileBrowserActivity`)** | **CrossImple Custom** (Kế thừa và nâng cấp từ nhánh `CrossPet` / `CrossInk v1.6.1`) | `src/activities/util/SdFirmwareUpdateActivity.cpp`, `src/activities/files/FileBrowserActivity.cpp` |
+| **8x8 Fine Bayer Dithering, E-Ink Optical Clamping (`45`–`225`), Tăng tương phản bìa sách (`1.20f`) & OOM Guard trên X3 (`8KB` trần)** | **CrossImple Custom** (Tự phát triển trên `JpegToBmpConverter` & `BitmapHelpers` của `CrossInk`) | `lib/JpegToBmpConverter/JpegToBmpConverter.cpp`, `lib/GfxRenderer/BitmapHelpers.cpp` |
+| **Flash trực tiếp file `.bin` bất kỳ từ thẻ nhớ SD (`SdFirmwareUpdateActivity` & `FileBrowserActivity`)** | **CrossImple Custom** (Kế thừa và nâng cấp từ nhánh `CrossPet` / `CrossInk v1.6.1`) | `src/activities/settings/SdFirmwareUpdateActivity.cpp`, `src/activities/home/FileBrowserActivity.cpp` |
 | **Bộ nhận diện Bunny Reader, Đồng bộ thương hiệu `CrossImple` (Boot/Sleep/Device Name), Việt hóa & Chuẩn hóa xuất bản `.bin`** | **CrossImple Custom** (Tự phát triển) | `src/activities/boot_sleep/BootActivity.cpp`, `src/activities/boot_sleep/SleepActivity.cpp`, `src/CrossPointSettings.cpp`, `scripts/rename_firmware.py` |
 
 ---
 
 ## 📝 Nhật ký thay đổi (Changelog)
 
-### Phiên bản v0.24 (Sleep/Wake Siêu Nhanh, 4 Chế độ Bìa Ngủ, NFC TXT/Mục lục, Prefetch PSRAM & Độ đậm chữ `1/16 px`)
-* **Sleep Bìa 1-bit `FAST_REFRESH` Siêu Nhanh & 4 Tùy chọn Bộ lọc Bìa (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * Chia *Bộ lọc bìa* (`SLEEP_SCREEN_COVER_FILTER`) thành 4 lựa chọn: **Không** (mặc định, 1-bit sắc nét), **Tương phản**, **Đảo ngược** và **4 mức xám** (`FOUR_LEVEL_GRAYSCALE`).
-  * Ba chế độ 1-bit (`Không`, `Tương phản`, `Đảo ngược`) tự động cache BMP 1-bit (~48 KB) qua `Atkinson1BitDitherer` và đẩy thẳng qua `drawBitmap1Bit()` + `HalDisplay::FAST_REFRESH` (~435 ms trên X3, 1 pass không nháy full màn hình). Chuyển sang **4 mức xám** nếu muốn hiển thị bìa đa sắc xám.
-  * Tái sử dụng chỉ mục `.idx` thư mục ảnh ngủ thay vì quét lại toàn bộ metadata trên thẻ SD mỗi lần ngủ, và gộp ghi đồng bộ khi thoát trình đọc.
-* **Tăng tốc Wake trên X3 & Giảm Đọc/Quét Thẻ SD Lúc Khởi động (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * **1-Pass `_half` Wake trên X3 (`HalDisplay::applyX3HalfRefreshResync`):** Frame Wake đầu tiên trên UC8253 X3 chạy thẳng 1 lượt quét `_half` scrub thay vì chạy chu kỳ 2 lượt `_full + 200ms + settle`, rút ngắn đáng kể độ trễ mở màn hình mà vẫn giữ làm sạch định kỳ 2 pass khi đang đọc.
-  * **Cắt giảm SD I/O lúc Wake:** Lưu marker `optimizer-images.absent` theo kích thước `.epub` để không quét lại ZIP Central Directory mỗi lần thức dậy, bỏ quét 18 sách ở `RecentBooksStore::addOrUpdateBook()`, bỏ kiểm tra từ điển lúc `setup()`, hoãn pre-pin `.cpfont` và hoãn nạp font đọc sách khi Wake về Home.
-* **Chuẩn hóa Tiếng Việt NFD -> NFC cho TXT & Metadata/Mục lục EPUB (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * Bổ sung `utf8ComposeNfc` vào luồng đo/ngắt dòng và hiển thị của **trình đọc TXT** (`TxtReaderActivity.cpp`, `Txt.cpp`) cùng tiêu đề sách, tên tác giả và mục lục NCX/NAV EPUB (`ContentOpfParser.cpp`, `TocNcxParser.cpp`, `TocNavParser.cpp`), tái sử dụng bảng `Utf8ComposeTable` có sẵn (~0 byte SRAM thêm trên X3).
-* **Dựng trước Framebuffer Trang Kế tiếp trên PSRAM (X4 Classic & X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * Sau `400 ms` đứng yên đọc trang chữ thuần, thiết bị dựng sẵn trước trang kế tiếp + thanh trạng thái vào đệm `48 KB` trên **8 MB PSRAM** (`EpubReaderActivity.cpp`, không dùng trên X3). Khi bấm sang trang mới, đẩy thẳng buffer ra màn hình mà không phải dựng lại glyph.
-* **Bộ lọc Kéo Đậm Nét Chữ Bitmap `1/16 px` (`HalScalableFont.cpp` — X4 Classic & X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * Áp dụng lọc biên độ phủ bitmap từng bước `1/16 px` trên PSRAM cho tùy chọn **Độ đậm (`Weight`)** của *TTF Render Options* (`-0.50 px` .. `+1.00 px`), giúp tăng giảm độ dày nét mà không biến dạng dấu Tiếng Việt hay đổi `advance` (mức *Default* giữ nguyên chuẩn `v0.23`).
-
-### Phiên bản v0.23 (Khắc phục triệt để lỗi RAM Font .cpfont & Đồng bộ hiển thị chuẩn 0.16 trên toàn bộ máy)
-* **Khắc phục Triệt để Giới hạn RAM khi Nạp Font `.cpfont` từ Thẻ nhớ (X3, X4 Classic, X4 Pro)** *(Nguồn: CrossImple Custom)*:
-  * **Tận dụng 8 MB PSRAM trên X4 Classic & X4 Pro (`SdCardFont.cpp`, `SdCardFont.h`):** Bảng tra cứu khoảng ký tự BMP/Full (`bmpIntervals`, `fullIntervals`) và bộ đệm glyph bitmap (`contentBitmap_`) của font `.cpfont` được phân bổ trực tiếp vào PSRAM thay vì SRAM nội bộ. Giải phóng hàng chục KB Internal SRAM, cho phép nạp mượt mà các bộ font kích thước lớn nhiều biến thể như Mali (1.0 MB – 2.3 MB) mà không bao giờ bị nghẽn RAM.
-  * **Tối ưu Bộ nhớ Tinh gọn cho X3 (`SdCardFontManager.cpp`):** Tự động bỏ qua việc nạp ngầm 2 file font phụ (`loadContentSizes`) trên các thiết bị không có PSRAM (ESP32-C3), bảo toàn nguyên vẹn **24 KB SRAM** quý giá cho trình đọc sách như trên bản v0.16.
-  * **Ngăn ngừa Lỗi Tràn RAM khi Ghim Ký tự trên X3 (`SdCardFont.cpp`):** Bổ sung điều kiện kiểm tra cỡ chữ (`advanceY <= 28`) cho cơ chế pre-pin 230 ký tự tiếng Việt, loại bỏ triệt để lỗi bộ nhớ `STR_MEMORY_ERROR` khi người dùng đọc ở cỡ chữ lớn (18pt, 20pt).
-  * **Hạ Ngưỡng Bộ nhớ Quét Danh mục Font (`SdCardFontRegistry.cpp`):** Giảm mức RAM kiểm tra ban đầu từ 34 KB xuống mức tối ưu (reserve 32 families và 4 KB buffer kiểm tra), giúp quét và mở danh mục font thẻ nhớ mượt mà ngay cả khi đang đọc sách hoặc chạy WebServer.
-  * **Loại bỏ Tự động Rollback Font trong Drawer (`EpubReaderDrawerActivity.cpp`):** Tôn trọng tuyệt đối lựa chọn font của người dùng; không tự ý huỷ bỏ font đã chọn khi khung xem trước (preview) tạm thời thiếu RAM.
-* **Đồng bộ Hoàn hảo Độ nét Chữ & Hinting theo Chuẩn v0.16 (Toàn bộ Thiết bị)** *(Nguồn: CrossImple Custom)*:
-  * Khôi phục mặt nạ `Plane::BWMonochrome = 0x0e` trong `GlyphBitmap.h` và `GfxRenderer.cpp`, đảm bảo nét chữ khi lật trang luôn đậm đà, không bị gọt mỏng nét thanh mảnh hoặc đứt nét chữ tiếng Việt.
-  * Đặt mặc định `fastPageTurn = 0` / `textAntiAliasing = 0` trên dòng chip S3 (X4 Classic / X4 Pro), đưa chất lượng hiển thị sắc nét chuẩn xác trở lại như v0.16.
-  * Đồng bộ chuẩn FreeType `advance.x` đã hinting trong `HalScalableFont.cpp`, giữ khoảng cách giữa các ký tự tiếng Việt luôn liền lạc và chuẩn mực.
-
-### Phiên bản v0.22 (Tối ưu chuyên sâu riêng cho X3, Chuẩn hóa Font `.ttf`/`.otf` Tiếng Việt trên X4 & Tinh giản mã nguồn)
-* **Bộ 4 Tối ưu Chuyên sâu dành riêng cho Xteink X3 (`crossimple_x3_v0.22.bin`)** *(Nguồn: CrossImple Custom — X4 Classic & X4 Pro giữ nguyên)*:
-  * **Ghim cố định bộ chữ Tiếng Việt cốt lõi cho Font `.cpfont` (`Vietnamese Core Pre-Pinning`):** Ngay lần nạp trang đầu tiên khi mở sách trên X3, hệ thống tự động ghim trọn bộ bảng chữ cái ASCII + 134 ký tự Tiếng Việt có dấu & dấu câu thông dụng (~230 ký tự, chỉ ~8–10 KB RAM) vào `miniBitmap`. Từ trang thứ 2 trở đi, tỷ lệ Cache Hit đạt gần như 100%, giúp lật trang tiếng Việt với **0 lần đọc thẻ nhớ SD**, phản hồi tức thì và giảm hao pin thẻ nhớ SPI.
-  * **Biên dịch ROM thuần X3 (`-DFREEINK_DEVICE_X3=1 -DFREEINK_DEVICE_X4=0 -DFORCE_DEVICE_X3=1`):** Loại bỏ toàn bộ mã nguồn driver màn hình `SSD1677` (`800×480`), bảng xung LUT của X4 ver 1 (C3) và bỏ qua bước dò tìm phần cứng `XteinkDetect` lúc khởi động, giúp X3 thức dậy từ Deep Sleep nhanh hơn và nhẹ Flash hơn *(Lưu ý: File `crossimple_x3_v0.22.bin` nay dành riêng cho phần cứng Xteink X3)*.
-  * **Tắt `ENABLE_SERIAL_LOG` (`-DLOG_LEVEL=0`) trên bản Release của X3:** Loại bỏ hàng ngàn chuỗi format log và lệnh ghi FIFO USB-Serial/JTAG trong lúc mở chương EPUB, giải nén ZIP và dựng trang trên chip đơn nhân RISC-V `ESP32-C3`.
-  * **Giãn nhịp quét phím ADC thông minh khi dừng đọc trang (`Adaptive Idle Polling`):** Sau 3 giây không có thao tác phím, tự động hạ tần số quét thang điện trở ADC ngầm từ `10 ms` (100 Hz) xuống `20 ms` (50 Hz) và chu kỳ chờ vòng lặp chính từ `50 ms` lên `100 ms` (lập tức nhảy về `2 ms` ngay khi chạm phím), giảm thêm ~15–20% tiêu thụ điện CPU trong thời gian hiển thị trang sách.
-* **Đồng bộ 100% hiển thị Font `.ttf` / `.otf` & `.cpfont` chuẩn `v0.16` (X4 Classic, X4 Pro & X3)** *(Nguồn: CrossImple Custom)*:
-  * **Khôi phục mặt nạ `Plane::BWMonochrome = 0x0e` & `bwLimit = 3` (`GlyphBitmap.h`, `GfxRenderer.cpp`):** Giữ nguyên trọn vẹn cả 3 mức độ đậm (`1, 2, 3` — từ ngưỡng `>= 25%` coverage) ngay cả khi bật **Lật trang siêu tốc (`Fast Page Turn = ON`)**, khắc phục triệt để hiện tượng chữ bị gọt mất viền mức `1` gây mảnh nét, đứt nét hoặc răng cưa.
-  * **Chuẩn hóa Pipeline FreeType `STEM_ADJUST` + `Stem Darkening` & Chiều cao dòng (`HalScalableFont.cpp`):** Sử dụng thuật toán hinting `AF_LATIN_HINTS_STEM_ADJUST` kết hợp `stemDarkening = true` mặc định, lượng tử hóa 4 mức xám chuẩn `(4, 8, 12)` và công thức làm tròn chiều cao dòng `((height26_6 + 32) >> 6)` giống hệt `v0.16`, giúp nét chữ `.ttf`/`.otf` đầy đặn, tròn trịa và đồng nhất giữa mọi dòng văn bản.
-  * **Tự động sửa lỗi lệch giãn cách chữ khi nâng cấp từ `v0.16` (`CrossPointSettings.cpp`):** Bổ sung cơ chế tự động chuyển đổi giá trị mặc định cũ `"characterSpacing": 2` (tương ứng `0px` ở `v0.16`) sang mốc trung tâm mới `5` (`0px` ở `v0.22`), chấm dứt hoàn toàn hiện tượng các chữ cái bị ép sát vào nhau (`-1.5px`) khi cập nhật firmware.
-  * **Đồng bộ cấu hình `TTF Render Options` trên cả EPUB & TXT:** Tự động nâng cấp hồ sơ `ttf-rendering.json` và tự động dàn trang lại trong trình đọc `TXT` ngay khi thay đổi tùy chọn hiển thị font mà vẫn giữ nguyên vị trí trang đang đọc.
-* **Nâng cấp Bộ đệm Font PSRAM lên 2048 Slot (2-Way Set-Associative LRU + Hàm băm 64-bit MurmurHash3)** *(Nguồn: CrossImple Custom)*:
-  * Mở rộng bảng đệm `PixelCacheSlots`, `MetricCacheSlots`, `KerningCacheSlots` từ `512` lên **2048 slot** trong PSRAM (tốn 0 byte RAM nội).
-  * Thay thế phép chia dư tuyến tính bằng bộ trộn bit 64-bit MurmurHash3 (`fmix64`) kết hợp cấu trúc cache kết hợp 2 chiều (**2-Way Set-Associative LRU**), triệt tiêu hoàn toàn hiện tượng đụng độ chu kỳ `0x1E00 = 15 × 512` giữa hai vùng dấu tiếng Việt (`U+00C0..U+00F9` và `U+1EA0..U+1EF9`) cũng như giữa 4 kiểu chữ (`Regular`/`Bold`/`Italic`/`BoldItalic`).
-* **Gỡ bỏ triệt để mã nguồn tính năng đã ẩn (Flash & RAM Optimization)** *(Nguồn: CrossImple Custom)*:
-  * Xóa hoàn toàn mã nguồn của Nearby Transfer (`NearbyBookTransfer`, `NearbyStatsSync`, `NearbyBookPositionSync`) và thư viện liên kết.
-  * Xóa hoàn toàn mã nguồn hệ thống Plugins (`Plugin Hub`, `Plugin Server`, `Plugin Reader Events`, các API Web `/api/plugin*`).
-  * Dọn dẹp trường cấu hình `autoBackupStats` và các chuỗi dịch không còn dùng.
-  * Gỡ bỏ các board thử nghiệm upstream không sử dụng (`Picco`, `Sticky`) để giữ codebase gọn gàng, tập trung 100% cho `X3`, `X4 Classic`, `X4 Pro`.
-  * Giảm ~200–220 KB dung lượng Flash và ~1.9 KB RAM tĩnh trên mọi thiết bị.
-
----
-
-*Chi tiết nhật ký các phiên bản cũ hơn (v0.21, v0.20, v0.16, v0.15,...), vui lòng xem tại [CHANGELOG.md](CHANGELOG.md).*
+Toàn bộ lịch sử thay đổi chi tiết qua từng phiên bản (`v0.25`, `v0.24`, `v0.23`, `v0.22`, `v0.21`, `v0.20`, `v0.16`,...) được lưu tập trung tại **[CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
@@ -102,9 +52,9 @@
 
 | Thiết bị | Vi điều khiển (MCU) | Màn hình | Điều khiển | Tên file Firmware xuất ra |
 |---|---|---|---|---|
-| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.24.bin` |
-| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.24.bin` |
-| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.24.bin` |
+| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.25.bin` |
+| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.25.bin` |
+| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.25.bin` |
 
 ---
 
@@ -120,9 +70,9 @@
 
 ### Cách 1: Nâng cấp trực tiếp qua Thẻ nhớ SD (Khuyên dùng)
 1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossImple/releases):
-   * Với **Xteink X3**: tải `crossimple_x3_v0.24.bin`
-   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.24.bin`
-   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.24.bin`
+   * Với **Xteink X3**: tải `crossimple_x3_v0.25.bin`
+   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.25.bin`
+   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.25.bin`
 2. Chép file `.bin` vào thư mục gốc của thẻ MicroSD (định dạng FAT32).
 3. Bật máy đọc sách, mở mục **Quản lý tệp (File Browser)**, chọn file `.bin` vừa chép và nhấn **Xác nhận (Confirm)**.
 4. Máy sẽ tự động kiểm tra chip ESP32, tag phần cứng, tính toàn vẹn SHA256 và tiến hành flash an toàn. Sau khi hoàn tất máy sẽ tự khởi động lại.
@@ -158,11 +108,11 @@ python scripts/build_all.py --export-bin
 # Cách 2: Chạy thủ công từng luồng riêng biệt
 # Luồng 1 — Biên dịch riêng cho Xteink X3 (ESP32-C3)
 pio run -e default
-# File xuất ra: crossimple_x3_v0.24.bin
+# File xuất ra: crossimple_x3_v0.25.bin
 
 # Luồng 2 — Biên dịch cho dòng Xteink X4 (ESP32-S3)
 pio run -e x4-classic -e x4-pro
-# File xuất ra: crossimple_x4-classic_v0.24.bin, crossimple_x4-pro_v0.24.bin
+# File xuất ra: crossimple_x4-classic_v0.25.bin, crossimple_x4-pro_v0.25.bin
 ```
 
 ---

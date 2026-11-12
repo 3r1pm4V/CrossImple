@@ -49,7 +49,6 @@ enum class SettingAction {
   SystemReadingStats,
   SystemGlobalStats,
   Network,
-  BackupStats,
   ResetGlobalStats,
   ClearCache,
   CheckForUpdates,

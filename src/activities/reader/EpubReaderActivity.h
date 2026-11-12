@@ -177,7 +177,6 @@ class EpubReaderActivity final : public Activity {
   uint16_t cachedPageParagraphSpan = 0;
   std::atomic<uint8_t> pendingHeapShapeReaderRedrawStages{0};
   static constexpr uint8_t HEAP_SHAPE_REDRAW_CLIP = 1U << 0;
-  static constexpr uint8_t HEAP_SHAPE_REDRAW_DICT = 1U << 1;
   unsigned long lastPageTurnTime = 0UL;
   unsigned long pageTurnDuration = 0UL;
   ManualPageTurnQueue pendingManualPageTurns;
@@ -297,7 +296,6 @@ class EpubReaderActivity final : public Activity {
   bool longPowerButtonHandled = false;
   OptionPopup quickActionsPopup;
   ReaderButtonShortcuts readerButtonShortcuts;
-  bool touchDictionaryLookupHandled = false;
   int pageLoadRetryCount = 0;
   enum class BookmarkFeedbackType : uint8_t {
     Added,
@@ -499,20 +497,17 @@ class EpubReaderActivity final : public Activity {
   void resetCurrentBookStatsAfterDelete();
   void openFileTransfer();
   void openAutoPageTurnIntervalPicker(bool ignoreInitialConfirmRelease = false, bool returnToReaderMenu = false);
-  void startClipSelection(const DictionaryClippingRequest* dictionaryRequest = nullptr,
-                          bool ignoreInitialBackRelease = false);
+  void startClipSelection(bool ignoreInitialBackRelease = false);
   void resetReadingPaceData();
   void captureGlobalReaderSettings();
   void restoreGlobalReaderSettings();
   void loadBookReaderSettings();
   void saveCurrentBookReaderSettings();
-  void saveDictionaryFontForBook(const char* familyName, uint8_t pointSize);
   void persistReaderSdFontSettings();
   bool saveGlobalSettingsPreservingBookOverrides();
   bool beginGlobalSettingsEdit();
   void endGlobalSettingsEdit();
   static void saveReaderOptionsForBook(void* ctx);
-  static void saveDictionaryFontForBookReader(void* ctx, const char* familyName, uint8_t pointSize);
   static void persistReaderSdFontSettingsForBook(void* ctx);
   static void saveGlobalSettingsForBookReader(void* ctx);
   static void beginGlobalSettingsEditForBookReader(void* ctx);
@@ -523,7 +518,6 @@ class EpubReaderActivity final : public Activity {
   void reindexCurrentSection();
   void prepareCurrentSectionForRelayout(bool preserveStatusBarAnchor = false);
   void executeReaderQuickAction(CrossPointSettings::LONG_PRESS_MENU_ACTION action,
-                                bool dictionaryLookupFramebufferContainsPage = true,
                                 QuickLockTrigger quickLockTrigger = QuickLockTrigger::LongMenu);
   void openQuickActionsPopup();
   void executeFootnoteQuickAction(bool suppressInitialPowerRelease = false);
@@ -540,11 +534,6 @@ class EpubReaderActivity final : public Activity {
   bool executeShortPowerButtonAction();
   bool executeLongPowerButtonAction();
   void handleClippingJump(const ClippingJumpResult& clipping);
-  bool handleTouchDictionaryLookup();
-  void openWordSelect(bool framebufferContainsPage, int initialTouchX = -1, int initialTouchY = -1,
-                      bool autoLookupInitialWord = false);
-  std::unique_ptr<Page> reloadDictionaryLookupPage(int pageOffset = 0);
-  static std::unique_ptr<Page> reloadDictionaryLookupPageCallback(void* context, int pageOffset);
   void onReaderMenuConfirm(EpubReaderMenuAction action, bool returnToReaderMenu = false,
                            const PendingOverlayResume* replacementResume = nullptr);
   // Opens the reader menu for the current position (short-press Confirm)

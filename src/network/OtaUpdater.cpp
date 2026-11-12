@@ -28,10 +28,20 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback, void*, s
 
 namespace {
 #ifndef CROSSINK_OTA_RELEASE_URL
-#define CROSSINK_OTA_RELEASE_URL "https://api.github.com/repos/uxjulia/CrossInk/releases/latest"
+#define CROSSINK_OTA_RELEASE_URL "https://api.github.com/repos/3r1pm4V/CrossImple/releases/latest"
 #endif
 
 constexpr char latestReleaseUrl[] = CROSSINK_OTA_RELEASE_URL;
+
+#if defined(FREEINK_DEVICE_X4PRO) && FREEINK_DEVICE_X4PRO
+constexpr char crossimpleAssetPrefix[] = "crossimple_x4-pro_v";
+#elif defined(FREEINK_DEVICE_X4CLASSIC) && FREEINK_DEVICE_X4CLASSIC
+constexpr char crossimpleAssetPrefix[] = "crossimple_x4-classic_v";
+#elif defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3 && (!defined(FREEINK_DEVICE_X4) || !FREEINK_DEVICE_X4)
+constexpr char crossimpleAssetPrefix[] = "crossimple_x3_v";
+#else
+constexpr char crossimpleAssetPrefix[] = "crossimple_";
+#endif
 
 #ifdef CROSSINK_FIRMWARE_DEVICE_TYPE
 constexpr char firmwareAssetStem[] = "firmware-" CROSSINK_FIRMWARE_DEVICE_TYPE;
@@ -160,6 +170,7 @@ bool endsWith(const char* value, const char* suffix) {
 
 bool isMatchingFirmwareAssetName(const char* assetName) {
   if (assetName == nullptr) return false;
+  if (startsWith(assetName, crossimpleAssetPrefix) && endsWith(assetName, binSuffix)) return true;
   if (strcmp(assetName, firmwareAssetName) == 0) return true;
   if (!startsWith(assetName, firmwareAssetStem)) return false;
   if (assetName[strlen(firmwareAssetStem)] != '-') return false;

@@ -19,8 +19,6 @@
 #include <FontFileTypes.h>
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/hash.h>
-
-#include "util/FirmwareIdentity.h"
 #ifdef SIMULATOR
 #include <ArduinoJsonStringCompat.h>
 #endif
@@ -778,7 +776,7 @@ void CrossPointWebServer::handleStatus() const {
 
   JsonDocument doc;
   doc["version"] = AppVersion::version();
-  doc["firmwareFamily"] = firmwareidentity::FAMILY;
+  doc["firmwareFamily"] = "crossimple";
   doc["ip"] = ipAddr;
   doc["mode"] = apMode ? "AP" : "STA";
   doc["rssi"] = apMode ? 0 : WiFi.RSSI();

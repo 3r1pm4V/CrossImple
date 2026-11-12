@@ -30,7 +30,6 @@ class ClipSelectionActivity final : public Activity {
   bool usesMenuButtonOrientation() const override { return false; }
   ClipSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, ClipWordStore wordStore, int fontId,
                         Section& section, int startPageInSection, int marginTop, int marginLeft,
-                        const DictionaryClippingRequest* dictionaryRequest = nullptr,
                         bool ignoreInitialBackRelease = false);
 
   void onEnter() override;
@@ -70,12 +69,10 @@ class ClipSelectionActivity final : public Activity {
   int touchDragStartY = 0;
   int touchDragPageEndIdx = -1;
   uint32_t touchDragPageEndHeldSince = 0;
-  bool hasDictionaryRequest = false;
   bool textBuildMemoryError = false;
   bool ignoreInitialConfirmRelease = false;
   bool ignoreInitialPowerRelease = false;
   bool ignoreInitialBackRelease = false;
-  DictionaryClippingRequest dictionaryRequest{};
   std::array<uint16_t, MAX_READING_ORDER_WORDS> readingOrder{};
   size_t readingOrderSize = 0;
 
@@ -97,7 +94,6 @@ class ClipSelectionActivity final : public Activity {
   uint16_t tableSelectionForRange(int from, int to) const;
   bool hasTextBuildMemory(int from, int to, uint16_t tableSelection = UINT16_MAX) const;
   void confirmSelection();
-  bool finishDictionarySelection();
   int lineEndForward(int orderIdx) const;
   int lineEndBackward(int orderIdx) const;
 };

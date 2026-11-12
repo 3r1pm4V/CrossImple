@@ -32,23 +32,19 @@ class EpubReaderDrawerActivity final : public Activity {
   using SaveSettingsCallback = void (*)(void* ctx);
   using SaveGlobalSettingsCallback = void (*)(void* ctx);
   using GlobalSettingsEditCallback = void (*)(void* ctx);
-  using DictionaryFontChangedCallback = void (*)(void* ctx, const char* familyName, uint8_t pointSize);
 
   explicit EpubReaderDrawerActivity(
       GfxRenderer& renderer, MappedInputManager& mappedInput, std::shared_ptr<Epub> epub,
       const EpubReaderPreviewModel* previewModel, float bookProgressPercent, uint32_t chapterPage,
-      uint32_t chapterPageCount, bool chapterPageCountEstimated, bool hasFootnotes, bool hasDictionary,
-      bool hasBookmarks, bool hasClippings, bool isCurrentPageBookmarked, bool isBookCompleted,
-      bool showReadingPaceReset, bool globalStatsEnabled, bool bookStatsEnabled, uint32_t stableCurrentPage,
-      uint32_t stablePageCount, uint16_t autoPageTurnIntervalSeconds, bool automaticPageTurnActive,
+      uint32_t chapterPageCount, bool chapterPageCountEstimated, bool hasFootnotes, bool hasBookmarks,
+      bool hasClippings, bool isCurrentPageBookmarked, bool isBookCompleted, bool showReadingPaceReset,
+      bool globalStatsEnabled, bool bookStatsEnabled, uint32_t stableCurrentPage, uint32_t stablePageCount,
+      uint16_t autoPageTurnIntervalSeconds, bool automaticPageTurnActive,
       SaveSettingsCallback saveReaderSettingsCallback = nullptr, void* saveReaderSettingsContext = nullptr,
       SaveGlobalSettingsCallback saveGlobalSettingsCallback = nullptr, void* saveGlobalSettingsContext = nullptr,
       GlobalSettingsEditCallback beginGlobalSettingsEditCallback = nullptr,
       void* beginGlobalSettingsEditContext = nullptr,
       GlobalSettingsEditCallback endGlobalSettingsEditCallback = nullptr, void* endGlobalSettingsEditContext = nullptr,
-      const char* dictionaryFontFamilyName = nullptr, uint8_t dictionaryFontPointSize = 0,
-      bool hasDictionaryFontOverride = false, DictionaryFontChangedCallback dictionaryFontChangedCallback = nullptr,
-      void* dictionaryFontChangedContext = nullptr,
       ReaderDrawerState initialState = initialReaderDrawerState(CROSSINK_APP_CAP_TOUCH),
       std::unique_ptr<EpubReaderPreviewModel> ownedPreviewModel = nullptr);
 
@@ -136,7 +132,6 @@ class EpubReaderDrawerActivity final : public Activity {
   bool percentConfirmLongPressFired = false;
   int percentBeforeKeypad = 0;
   bool hasFootnotes = false;
-  bool hasDictionary = false;
   bool hasBookmarks = false;
   bool hasClippings = false;
   bool globalStatsEnabled = true;
@@ -173,9 +168,6 @@ class EpubReaderDrawerActivity final : public Activity {
   ReaderDrawerPane enumOptionReturnPane = ReaderDrawerPane::Root;
   int16_t enumOptionSelectedIndex = 0;
   int16_t previewedEnumOptionIndex = -1;
-  std::vector<std::string> dictionaryLabels;
-  std::vector<std::string> dictionaryPaths;
-  std::string bookDictionaryPath;
   std::array<std::string, WINDOW_SIZE> labelWindow{};
   std::array<freeink::ui::ListItem, WINDOW_SIZE> itemWindow{};
   // Owned here rather than as a render-local array, matching itemWindow/labelWindow
@@ -190,11 +182,6 @@ class EpubReaderDrawerActivity final : public Activity {
   void* beginGlobalSettingsEditContext = nullptr;
   GlobalSettingsEditCallback endGlobalSettingsEditCallback = nullptr;
   void* endGlobalSettingsEditContext = nullptr;
-  char dictionaryFontFamilyName[64] = {};
-  uint8_t dictionaryFontPointSize = 0;
-  bool hasDictionaryFontOverride = false;
-  DictionaryFontChangedCallback dictionaryFontChangedCallback = nullptr;
-  void* dictionaryFontChangedContext = nullptr;
   ButtonNavigator buttonNavigator;
   freeink::ui::GfxRendererTarget uiTarget;
   UiApp app;
@@ -235,7 +222,6 @@ class EpubReaderDrawerActivity final : public Activity {
   void buildDrawerKeypad(UiApp::ScreenType& screen, bool allowDecimal, const char* value);
   void buildAutoPageTurnPane(UiApp::ScreenType& screen);
   void buildConfirmButton(UiApp::ScreenType& screen);
-  void buildDictionaryPane(UiApp::ScreenType& screen);
   int currentFontSelectionIndex() const;
   void buildFontFamilyPane(UiApp::ScreenType& screen);
   void buildEnumOptionsPane(UiApp::ScreenType& screen);
@@ -263,7 +249,6 @@ class EpubReaderDrawerActivity final : public Activity {
   void completePercentSelection();
   void completeStablePageSelection();
   void completeAutoPageTurnSelection();
-  void notifyDictionaryFontChanged();
   void toggleSetting(RowId row);
   void adjustActiveSlider(int delta);
   void adjustButtonSlider(int direction);
@@ -299,8 +284,6 @@ class EpubReaderDrawerActivity final : public Activity {
   bool saveTtfRenderingProfile();
   void finishTtfRenderingEdit();
 #endif
-  void discoverDictionaries();
-  bool saveBookDictionary(const std::string& path);
   const char* rowLabel(RowId row) const;
   const char* rowValue(RowId row, char* buffer, size_t bufferSize) const;
   bool rowIsToggle(RowId row) const;

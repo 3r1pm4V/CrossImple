@@ -9,11 +9,6 @@
 
 class GfxRenderer;
 
-struct DictionaryFontActivation {
-  int fontId = 0;
-  bool usingDictionaryFont = false;
-};
-
 /// Facade that owns the SD card font registry, manager, and resolver logic.
 /// Hides implementation details behind a single begin() + ensureLoaded() API.
 class SdCardFontSystem {
@@ -94,18 +89,6 @@ class SdCardFontSystem {
   /// Convert a pre-point-size SD font slot into the exact installed size.
   /// Used while reading legacy per-book reader settings.
   uint8_t resolveLegacySizeStep(const char* familyName, uint8_t sizeStep);
-
-  // Temporarily replace the reader SD font with a per-book dictionary font.
-  // At most one SD font family remains resident. Missing or failed dictionary
-  // fonts leave the reader font active and retain the saved selection.
-  // targetPointSize of zero follows the active reader size. The selected file
-  // still uses the closest installed size, so a removed font file degrades
-  // safely without retaining another family or size cache in RAM.
-  DictionaryFontActivation activateDictionaryFont(GfxRenderer& renderer, const char* familyName,
-                                                  uint8_t targetPointSize = 0);
-
-  // Restore the saved reader font after a dictionary lookup and return its ID.
-  int restoreReaderFont(GfxRenderer& renderer);
 
   /// Access the registry (e.g. for settings UI to enumerate available fonts).
   const SdCardFontRegistry& registry() const { return registry_; }

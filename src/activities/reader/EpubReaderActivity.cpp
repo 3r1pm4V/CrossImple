@@ -29,7 +29,6 @@
 #include <new>
 #include <type_traits>
 
-#include "../settings/DictionarySelectActivity.h"
 #include "../settings/KOReaderSettingsActivity.h"
 #include "BookFontSystem.h"
 #include "BookStatsActivity.h"
@@ -38,7 +37,6 @@
 #include "ClippingStore.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
-#include "DictionaryWordSelectActivity.h"
 #include "EpubGrayscale.h"
 #include "EpubReaderBookmarkListActivity.h"
 #include "EpubReaderChapterSelectionActivity.h"
@@ -53,7 +51,6 @@
 #include "HyphenationPackStore.h"
 #include "KOReaderCredentialStore.h"
 #include "KOReaderSyncActivity.h"
-#include "LookedUpWordsActivity.h"
 #include "MappedInputManager.h"
 #include "PageWordGeometry.h"
 #include "ProgressMapper.h"
@@ -86,11 +83,9 @@
 #include "sync/BookSyncFile.h"
 #include "util/BookCacheUtils.h"
 #include "util/BookMoveUtils.h"
-#include "util/Dictionary.h"
 #include "util/ScreenshotUtil.h"
 
 namespace {
-constexpr unsigned long TOUCH_DICTIONARY_LOOKUP_HOLD_MS = 1000;
 // pagesPerRefresh now comes from SETTINGS.getRefreshFrequency()
 constexpr unsigned long longPressMenuMs = 600;
 constexpr uint16_t DEFAULT_AUTO_PAGE_TURN_INTERVAL_S = 30;
@@ -2199,27 +2194,6 @@ void EpubReaderActivity::saveCurrentBookReaderSettings() {
   initialBookReaderSettings.readerSettings = currentSettings;
 }
 
-void EpubReaderActivity::saveDictionaryFontForBook(const char* familyName, const uint8_t pointSize) {
-  if (!epub) return;
-
-  if (section && section->isBuilding()) {
-    section->releaseBuildFile();
-  }
-
-  BookReaderSettingsData data = loadBookReaderSettingsFile(epub->getCachePath());
-  if (familyName && familyName[0] != '\0') {
-    std::strncpy(data.dictionarySdFontFamilyName, familyName, sizeof(data.dictionarySdFontFamilyName) - 1);
-    data.dictionarySdFontFamilyName[sizeof(data.dictionarySdFontFamilyName) - 1] = '\0';
-    data.hasDictionaryFontOverride = true;
-  } else {
-    data.dictionarySdFontFamilyName[0] = '\0';
-    data.hasDictionaryFontOverride = false;
-    data.dictionaryFontPointSize = 0;
-  }
-  if (data.hasDictionaryFontOverride) data.dictionaryFontPointSize = pointSize;
-  saveBookReaderSettingsFile(epub->getCachePath(), data);
-}
-
 void EpubReaderActivity::persistReaderSdFontSettings() {
   const uint32_t mask = initialBookReaderSettings.readerSettingsOverrideMask;
   bool globalChanged = false;
@@ -2328,11 +2302,6 @@ void EpubReaderActivity::saveReaderOptionsForBook(void* ctx) {
     return;
   }
   static_cast<EpubReaderActivity*>(ctx)->saveCurrentBookReaderSettings();
-}
-
-void EpubReaderActivity::saveDictionaryFontForBookReader(void* ctx, const char* familyName, const uint8_t pointSize) {
-  if (!ctx) return;
-  static_cast<EpubReaderActivity*>(ctx)->saveDictionaryFontForBook(familyName, pointSize);
 }
 
 void EpubReaderActivity::persistReaderSdFontSettingsForBook(void* ctx) {
@@ -2652,7 +2621,6 @@ void EpubReaderActivity::openReaderMenu() {
     if (showChapterTitle && !previewActive) chapterTitle = currentChapterTitle();
   }
   pauseReadingPaceTimer("reader_menu");
-  const BookReaderSettingsData bookSettings = loadBookReaderSettingsFile(epub->getCachePath());
   std::unique_ptr<EpubReaderPreviewModel> buttonPreviewModel;
 #if CROSSINK_APP_READER_SAMPLE_PREVIEW
   // Owned for the menu lifetime: too large for the task stack, but under 3 KiB
@@ -2671,8 +2639,7 @@ void EpubReaderActivity::openReaderMenu() {
       nullptr,
 #endif
       bookProgress, static_cast<uint32_t>(chapterPage), static_cast<uint32_t>(chapterPageCount),
-      chapterPageCountEstimated, !previewActive && !currentPageFootnotes.empty(),
-      !previewActive && Dictionary::exists(epub->getCachePath().c_str()), !BOOKMARKS.getBookmarks().empty(),
+      chapterPageCountEstimated, !previewActive && !currentPageFootnotes.empty(), !BOOKMARKS.getBookmarks().empty(),
       CLIPPINGS.hasClippings(), !previewActive && BOOKMARKS.hasBookmarkForPage(bmSpine, bmProgress, bookmarkPageCount),
       isBookCompleted,
       (SETTINGS.topReaderStatusBar.contains(ReaderStatusBarItem::TimeLeftBook) ||
@@ -2682,9 +2649,7 @@ void EpubReaderActivity::openReaderMenu() {
       SETTINGS.shouldTrackReadingStats(), bookStatsEnabled, stableCurrentPage, stablePageCount,
       getAutoPageTurnIntervalSeconds(), automaticPageTurnActive, saveReaderOptionsForBook, this,
       saveGlobalSettingsForBookReader, this, beginGlobalSettingsEditForBookReader, this,
-      endGlobalSettingsEditForBookReader, this, bookSettings.dictionarySdFontFamilyName,
-      bookSettings.dictionaryFontPointSize, bookSettings.hasDictionaryFontOverride, saveDictionaryFontForBookReader,
-      this, touchReaderDrawerState, std::move(buttonPreviewModel));
+      endGlobalSettingsEditForBookReader, this, touchReaderDrawerState, std::move(buttonPreviewModel));
   if (!menuActivity) {
     LOG_ERR("ERS", "Could not allocate reader drawer");
     resumeReadingPaceTimer("reader_menu_oom");
@@ -3680,10 +3645,6 @@ void EpubReaderActivity::loop() {
     openReaderMenu();
   }
 
-  if (!endOfBookMenuOpen && handleTouchDictionaryLookup()) {
-    return;
-  }
-
   if (longPressBackHandled) {
     if (wasBackReleased() || !mappedInput.isPressed(MappedInputManager::Button::Back)) {
       longPressBackHandled = false;
@@ -3696,10 +3657,10 @@ void EpubReaderActivity::loop() {
     longPressBackHandled = true;
     const auto action = static_cast<CrossPointSettings::LONG_PRESS_MENU_ACTION>(SETTINGS.longPressBackAction);
     if (action == CrossPointSettings::LONG_MENU_CREATE_CLIPPING) {
-      startClipSelection(nullptr, /*ignoreInitialBackRelease=*/true);
+      startClipSelection(/*ignoreInitialBackRelease=*/true);
     } else {
       mappedInput.suppressNextBackRelease();
-      executeReaderQuickAction(action, true, QuickLockTrigger::LongBack);
+      executeReaderQuickAction(action, QuickLockTrigger::LongBack);
     }
     return;
   }
@@ -4055,123 +4016,6 @@ bool EpubReaderActivity::handleTwoFingerRotation(const bool clockwise) {
   return true;
 }
 
-bool EpubReaderActivity::handleTouchDictionaryLookup() {
-  if (!mappedInput.hasTouch() || RenderLock::peek() || activeFootnotePreview || !epub) {
-    return false;
-  }
-
-  int touchX = 0;
-  int touchY = 0;
-  unsigned long heldMs = 0;
-  if (!mappedInput.isScreenTouchTapCandidate(touchX, touchY, heldMs)) {
-    touchDictionaryLookupHandled = false;
-    return false;
-  }
-  if (touchDictionaryLookupHandled || heldMs < TOUCH_DICTIONARY_LOOKUP_HOLD_MS) {
-    return false;
-  }
-
-  touchDictionaryLookupHandled = true;
-  openWordSelect(/*framebufferContainsPage=*/true, touchX, touchY, /*autoLookupInitialWord=*/true);
-  return true;
-}
-
-std::unique_ptr<Page> EpubReaderActivity::reloadDictionaryLookupPage(const int pageOffset) {
-  if (!section || pageOffset < 0 || section->currentPage + pageOffset >= section->pageCount) return nullptr;
-  // A Page is variable-sized and can reach tens of KB, so it must remain a
-  // fallible heap object. It exists only while rebuilding the parent selection
-  // or a rare full-screen modal background, then is released immediately.
-  const int savedPage = section->currentPage;
-  section->currentPage = savedPage + pageOffset;
-  auto page = section->loadPageFromSectionFile();
-  section->currentPage = savedPage;
-  return page;
-}
-
-std::unique_ptr<Page> EpubReaderActivity::reloadDictionaryLookupPageCallback(void* context, const int pageOffset) {
-  return static_cast<EpubReaderActivity*>(context)->reloadDictionaryLookupPage(pageOffset);
-}
-
-void EpubReaderActivity::openWordSelect(bool framebufferContainsPage, int initialTouchX, int initialTouchY,
-                                        bool autoLookupInitialWord) {
-  std::unique_ptr<Page> pageForLookup;
-  ReaderViewportLayout layout{};
-  std::string bookCachePath;
-  std::string nextPageFirstWord;
-  bool hasNextPageForLookup = false;
-
-  {
-    RenderLock lock(*this);
-    framebufferContainsPage = framebufferContainsPage && !pageBufferStale.load(std::memory_order_relaxed);
-    if (!section || !epub) {
-      requestUpdate();
-      return;
-    }
-
-    pageForLookup = section->loadPageFromSectionFile();
-    if (!pageForLookup) {
-      requestUpdate();
-      return;
-    }
-
-    layout = computeReaderViewportLayout(renderer, automaticPageTurnActive);
-    bookCachePath = epub->getCachePath();
-
-    if (section->currentPage < section->pageCount - 1) {
-      const int savedPage = section->currentPage;
-      section->currentPage = savedPage + 1;
-      auto nextPage = section->loadPageFromSectionFile();
-      section->currentPage = savedPage;
-      if (nextPage) {
-        hasNextPageForLookup = true;
-        const auto it = std::find_if(nextPage->elements.begin(), nextPage->elements.end(),
-                                     [](const auto& element) { return element->getTag() == TAG_PageLine; });
-        if (it != nextPage->elements.end()) {
-          const auto* firstLine = static_cast<const PageLine*>(it->get());
-          if (firstLine->getBlock() && !firstLine->getBlock()->isEmpty()) {
-            nextPageFirstWord = firstLine->getBlock()->wordText(0);
-          }
-        }
-      }
-    }
-  }
-
-  pauseReadingPaceTimer("dictionary_lookup");
-  const BookReaderSettingsData bookSettings = loadBookReaderSettingsFile(bookCachePath);
-  // The activity outlives this call, so it must be heap-owned; make the fixed-size
-  // object allocation fallible instead of aborting the firmware when memory is tight.
-  auto wordSelect = makeUniqueNoThrow<DictionaryWordSelectActivity>(
-      renderer, mappedInput, std::move(pageForLookup), layout.marginLeft, layout.marginTop, std::move(bookCachePath),
-      std::move(nextPageFirstWord), hasNextPageForLookup, framebufferContainsPage, layout.marginBottom, initialTouchX,
-      initialTouchY, autoLookupInitialWord, bookSettings.dictionarySdFontFamilyName,
-      bookSettings.dictionaryFontPointSize, this, &EpubReaderActivity::reloadDictionaryLookupPageCallback);
-  if (!wordSelect) {
-    LOG_ERR("DICT", "OOM allocating DictionaryWordSelectActivity (%u bytes)",
-            static_cast<unsigned>(sizeof(DictionaryWordSelectActivity)));
-    resumeReadingPaceTimer("dictionary_lookup_alloc_failed");
-    drawToast(renderer, tr(STR_MEMORY_ERROR));
-    delay(1000);
-    requestUpdate();
-    return;
-  }
-  startActivityForResult(std::move(wordSelect), [this](const ActivityResult& result) {
-    if (const auto* request = std::get_if<DictionaryClippingRequest>(&result.data)) {
-      resumeReadingPaceTimer("dictionary_lookup_to_clip");
-      startClipSelection(request);
-      return;
-    }
-    resumeReadingPaceTimer("dictionary_lookup_return");
-    MemoryBudget::logHeapShape("dict.child_destroyed");
-    // Dictionary lookup warms multiple SD-font styles and large definition glyph
-    // sets. The child activity has been destroyed before this callback runs, so
-    // release those renderer-owned caches before the reader rebuilds its page cache.
-    releaseReaderSdFontCachesForLowMemory(renderer, "DICT", "dictionary lookup exit");
-    MemoryBudget::logHeapShape("dict.after_font_release");
-    pendingHeapShapeReaderRedrawStages.fetch_or(HEAP_SHAPE_REDRAW_DICT, std::memory_order_relaxed);
-    requestUpdate();
-  });
-}
-
 void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuAction action, const bool returnToReaderMenu,
                                              const PendingOverlayResume* replacementResume) {
   switch (action) {
@@ -4327,37 +4171,6 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuAction action, const 
     }
     case EpubReaderMenuAction::SAVE_CLIPPING: {
       startClipSelection();
-      break;
-    }
-    case EpubReaderMenuAction::LOOKUP: {
-      openWordSelect(/*framebufferContainsPage=*/false);
-      break;
-    }
-    case EpubReaderMenuAction::LOOKUP_HISTORY: {
-      pauseReadingPaceTimer("lookup_history");
-      const BookReaderSettingsData bookSettings = loadBookReaderSettingsFile(epub->getCachePath());
-      startActivityForResult(std::make_unique<LookedUpWordsActivity>(renderer, mappedInput, epub->getCachePath(),
-                                                                     bookSettings.dictionarySdFontFamilyName,
-                                                                     bookSettings.dictionaryFontPointSize),
-                             [this, returnToReaderMenu](const ActivityResult&) {
-                               resumeReadingPaceTimer("lookup_history_return");
-                               if (returnToReaderMenu)
-                                 openReaderMenu();
-                               else
-                                 requestUpdate();
-                             });
-      break;
-    }
-    case EpubReaderMenuAction::SET_BOOK_DICTIONARY: {
-      pauseReadingPaceTimer("dictionary_select");
-      startActivityForResult(std::make_unique<DictionarySelectActivity>(renderer, mappedInput, epub->getCachePath()),
-                             [this, returnToReaderMenu](const ActivityResult&) {
-                               resumeReadingPaceTimer("dictionary_select_return");
-                               if (returnToReaderMenu)
-                                 openReaderMenu();
-                               else
-                                 requestUpdate();
-                             });
       break;
     }
     case EpubReaderMenuAction::GO_HOME: {
@@ -4968,8 +4781,7 @@ void EpubReaderActivity::openAutoPageTurnIntervalPicker(const bool ignoreInitial
       });
 }
 
-void EpubReaderActivity::startClipSelection(const DictionaryClippingRequest* dictionaryRequest,
-                                            const bool ignoreInitialBackRelease) {
+void EpubReaderActivity::startClipSelection(const bool ignoreInitialBackRelease) {
   if (!section || !epub) {
     requestUpdate();
     return;
@@ -5093,29 +4905,9 @@ void EpubReaderActivity::startClipSelection(const DictionaryClippingRequest* dic
         }
         return true;
       });
-      size_t firstWordToKeep = 0;
-      size_t wordsToKeep = 0;
-      if (dictionaryRequest) {
-        // Dictionary requests name stable page-local word ordinals. Retain the
-        // requested interval instead of the leading page words, so a dense
-        // first page cannot evict a valid endpoint on the following page.
-        const bool pageIsInRequestedRange =
-            pageIdx >= dictionaryRequest->firstPageOffset && pageIdx <= dictionaryRequest->lastPageOffset;
-        if (pageIsInRequestedRange) {
-          firstWordToKeep = pageIdx == dictionaryRequest->firstPageOffset ? dictionaryRequest->firstPageWordOrdinal : 0;
-          const size_t endWordExclusive = pageIdx == dictionaryRequest->lastPageOffset
-                                              ? static_cast<size_t>(dictionaryRequest->lastPageWordOrdinal) + 1U
-                                              : pageSelectableWords;
-          if (firstWordToKeep < pageSelectableWords && firstWordToKeep < endWordExclusive) {
-            const size_t requestedWords = std::min(endWordExclusive, pageSelectableWords) - firstWordToKeep;
-            wordsToKeep = std::min(remainingWords, requestedWords);
-          }
-        }
-      } else {
-        firstWordToKeep =
-            pageIdx == 0 && pageSelectableWords > remainingWords ? (pageSelectableWords - remainingWords) / 2 : 0;
-        wordsToKeep = std::min(remainingWords, pageSelectableWords - firstWordToKeep);
-      }
+      const size_t firstWordToKeep =
+          pageIdx == 0 && pageSelectableWords > remainingWords ? (pageSelectableWords - remainingWords) / 2 : 0;
+      const size_t wordsToKeep = std::min(remainingWords, pageSelectableWords - firstWordToKeep);
       size_t selectableWordIndex = 0;
       size_t estimatedWords = 0;
       forEachPageTextLine(*page, [&](const PageTextLine& line) {
@@ -5226,31 +5018,12 @@ void EpubReaderActivity::startClipSelection(const DictionaryClippingRequest* dic
     requestUpdate();
     return;
   }
-  if (dictionaryRequest) {
-    const auto hasRequestedWord = [&wordStore](const uint8_t pageOffset, const uint16_t wordOrdinal) {
-      return std::any_of(wordStore.words.begin(), wordStore.words.end(),
-                         [pageOffset, wordOrdinal](const WordRef& word) {
-                           return word.pageIdx == pageOffset && word.pageWordIndex == wordOrdinal;
-                         });
-    };
-    if (!hasRequestedWord(dictionaryRequest->firstPageOffset, dictionaryRequest->firstPageWordOrdinal) ||
-        !hasRequestedWord(dictionaryRequest->lastPageOffset, dictionaryRequest->lastPageWordOrdinal)) {
-      LOG_ERR("CLIP", "Dictionary clipping range exceeded selection storage (%u:%u..%u:%u)",
-              static_cast<unsigned>(dictionaryRequest->firstPageOffset),
-              static_cast<unsigned>(dictionaryRequest->firstPageWordOrdinal),
-              static_cast<unsigned>(dictionaryRequest->lastPageOffset),
-              static_cast<unsigned>(dictionaryRequest->lastPageWordOrdinal));
-      drawToast(renderer, tr(STR_CLIPPING_FAILED));
-      requestUpdate();
-      return;
-    }
-  }
 
   advanceCollector.reset();
   pauseReadingPaceTimer("clip_selection");
-  auto clipSelection = makeUniqueNoThrow<ClipSelectionActivity>(
-      renderer, mappedInput, std::move(wordStore), readerFontId, *section, startPage, layout.marginTop,
-      layout.marginLeft, dictionaryRequest, ignoreInitialBackRelease);
+  auto clipSelection = makeUniqueNoThrow<ClipSelectionActivity>(renderer, mappedInput, std::move(wordStore),
+                                                                readerFontId, *section, startPage, layout.marginTop,
+                                                                layout.marginLeft, ignoreInitialBackRelease);
   if (!clipSelection) {
     LOG_ERR("CLIP", "OOM: failed to allocate clip selection activity");
     resumeReadingPaceTimer("clip_selection_alloc_failed");
@@ -5354,7 +5127,6 @@ void EpubReaderActivity::resetCurrentBookStatsAfterDelete() {
 }
 
 void EpubReaderActivity::executeReaderQuickAction(CrossPointSettings::LONG_PRESS_MENU_ACTION action,
-                                                  const bool dictionaryLookupFramebufferContainsPage,
                                                   const QuickLockTrigger quickLockTrigger) {
   clearPendingManualPageTurns();
   if (ReaderUtils::dispatchNavigationLongPressAction(action)) return;
@@ -5476,15 +5248,6 @@ void EpubReaderActivity::executeReaderQuickAction(CrossPointSettings::LONG_PRESS
     case CrossPointSettings::LONG_MENU_CREATE_CLIPPING:
       startClipSelection();
       break;
-    case CrossPointSettings::LONG_MENU_LOOKUP_WORD:
-      if (epub && Dictionary::exists(epub->getCachePath().c_str())) {
-        openWordSelect(dictionaryLookupFramebufferContainsPage);
-      } else {
-        drawToast(renderer, tr(STR_DICT_NO_DICT_SET));
-        delay(1000);
-        requestUpdate();
-      }
-      break;
     case CrossPointSettings::LONG_MENU_QUICK_ACTIONS:
       openQuickActionsPopup();
       break;
@@ -5569,8 +5332,7 @@ bool EpubReaderActivity::handleShortcutAction(const uint8_t rawAction) {
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_CREATE_CLIPPING);
       return true;
     case CrossPointSettings::SHORT_PWRBTN::LOOKUP_WORD:
-      executeReaderQuickAction(CrossPointSettings::LONG_MENU_LOOKUP_WORD);
-      return true;
+      return false;
     case CrossPointSettings::SHORT_PWRBTN::TOGGLE_HOME_BUTTON_IN_READER:
       toggleHomeButtonInReader();
       return true;
@@ -5693,13 +5455,6 @@ void EpubReaderActivity::openQuickActionsPopup() {
       quickActionsPopup, [this] { requestUpdate(); },
       [this](const auto action) {
         mappedInput.setReaderTouchscreenOverride(false);
-        if (action == CrossPointSettings::SHORT_PWRBTN::LOOKUP_WORD) {
-          // The popup was the most recent render, so word selection must redraw
-          // the reader page instead of reusing the popup framebuffer.
-          executeReaderQuickAction(CrossPointSettings::LONG_MENU_LOOKUP_WORD,
-                                   /*dictionaryLookupFramebufferContainsPage=*/false);
-          return;
-        }
         if (action == CrossPointSettings::SHORT_PWRBTN::SYNC_PROGRESS) {
           onReaderMenuConfirm(EpubReaderMenuAction::SYNC);
           return;
@@ -5874,9 +5629,7 @@ bool EpubReaderActivity::executeShortPowerButtonAction() {
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_CREATE_CLIPPING);
       return true;
     case CrossPointSettings::SHORT_PWRBTN::LOOKUP_WORD:
-      mappedInput.suppressNextPowerConfirmRelease();
-      executeReaderQuickAction(CrossPointSettings::LONG_MENU_LOOKUP_WORD);
-      return true;
+      return false;
     case CrossPointSettings::SHORT_PWRBTN::TOGGLE_HOME_BUTTON_IN_READER:
       toggleHomeButtonInReader();
       return true;
@@ -5993,9 +5746,7 @@ bool EpubReaderActivity::executeLongPowerButtonAction() {
       executeReaderQuickAction(CrossPointSettings::LONG_MENU_CREATE_CLIPPING);
       return true;
     case CrossPointSettings::SHORT_PWRBTN::LOOKUP_WORD:
-      mappedInput.suppressNextPowerConfirmRelease();
-      executeReaderQuickAction(CrossPointSettings::LONG_MENU_LOOKUP_WORD);
-      return true;
+      return false;
     case CrossPointSettings::SHORT_PWRBTN::TOGGLE_HOME_BUTTON_IN_READER:
       toggleHomeButtonInReader();
       return true;
@@ -7237,9 +6988,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     const uint8_t heapShapeRedrawStages = pendingHeapShapeReaderRedrawStages.exchange(0, std::memory_order_relaxed);
     if (heapShapeRedrawStages & HEAP_SHAPE_REDRAW_CLIP) {
       MemoryBudget::logHeapShape("clip.reader_redrawn");
-    }
-    if (heapShapeRedrawStages & HEAP_SHAPE_REDRAW_DICT) {
-      MemoryBudget::logHeapShape("dict.reader_redrawn");
     }
     pageShownAtMs = activeFootnotePreview ? 0UL : millis();
     startDailyReadingInterval();

@@ -21,8 +21,6 @@
 #include "QuickActions.h"
 #include "activities/settings/SettingsActivity.h"
 #include "components/UITheme.h"
-#include "util/Dictionary.h"
-#include "util/DictionaryRegistry.h"
 #include "util/FontFamilyLabel.h"
 #include "util/FrontlightSchedule.h"
 
@@ -233,118 +231,6 @@ inline SettingInfo buildFontFamilySetting(const SdCardFontRegistry* registry) {
   return s;
 }
 
-inline SettingInfo buildDictionaryFontFamilySetting(const SdCardFontRegistry* registry) {
-  SettingInfo s;
-  s.nameId = StrId::STR_DICTIONARY_FONT;
-  s.type = SettingType::ENUM;
-  s.key = "dictionaryFont";
-  s.category = StrId::STR_CAT_READER;
-  s.enumStringValues.push_back(I18N.get(StrId::STR_USE_READER_FONT));
-
-  std::vector<std::string> familyNames;
-  if (registry) {
-    const auto& families = registry->getFamilies();
-    familyNames.reserve(families.size());
-    s.enumStringValues.reserve(families.size() + 1);
-    for (const auto& family : families) {
-      familyNames.push_back(family.name);
-      s.enumStringValues.push_back(family.name);
-    }
-  }
-
-  s.valueGetter = [familyNames]() -> uint8_t {
-    for (size_t i = 0; i < familyNames.size(); ++i) {
-      if (familyNames[i] == SETTINGS.dictionarySdFontFamilyName) return static_cast<uint8_t>(i + 1);
-    }
-    return 0;
-  };
-  s.valueSetter = [familyNames](const uint8_t value) {
-    if (value == 0 || value > familyNames.size()) {
-      SETTINGS.dictionarySdFontFamilyName[0] = '\0';
-      SETTINGS.dictionaryFontPointSize = 0;
-      return;
-    }
-    strncpy(SETTINGS.dictionarySdFontFamilyName, familyNames[value - 1].c_str(),
-            sizeof(SETTINGS.dictionarySdFontFamilyName) - 1);
-    SETTINGS.dictionarySdFontFamilyName[sizeof(SETTINGS.dictionarySdFontFamilyName) - 1] = '\0';
-  };
-  return s;
-}
-
-inline SettingInfo buildDictionaryFontSizeSetting(const SdCardFontRegistry* registry) {
-  SettingInfo s;
-  s.nameId = StrId::STR_DICTIONARY_FONT_SIZE;
-  s.type = SettingType::ENUM;
-  s.valuePtr = &CrossPointSettings::dictionaryFontPointSize;
-  s.key = "dictionaryFontSize";
-  s.category = StrId::STR_CAT_READER;
-  s.enumStringValues.push_back(I18N.get(StrId::STR_USE_READER_FONT_SIZE));
-  s.enumRawValues.push_back(0);
-
-  if (!registry) return s;
-  // With no dedicated dictionary family, a non-zero dictionary size applies
-  // to the reader's SD-card family. Built-in reader fonts have no selectable
-  // files, so they deliberately retain just the "use reader size" entry.
-  const char* familyName =
-      SETTINGS.dictionarySdFontFamilyName[0] != '\0' ? SETTINGS.dictionarySdFontFamilyName : SETTINGS.sdFontFamilyName;
-  if (familyName[0] == '\0') return s;
-  const auto* family = registry->findFamily(familyName);
-  if (!family) return s;
-
-  const auto sizes = family->availableSizes();
-  s.enumStringValues.reserve(sizes.size() + 1);
-  s.enumRawValues.reserve(sizes.size() + 1);
-  for (const uint8_t pointSize : sizes) {
-    s.enumStringValues.push_back(fontSizePointLabel(pointSize));
-    s.enumRawValues.push_back(pointSize);
-  }
-  return s;
-}
-
-inline SettingInfo buildDictionarySetting(const DictionaryRegistry* dictRegistry) {
-  SettingInfo s;
-  s.nameId = StrId::STR_DICTIONARY;
-  s.type = SettingType::ENUM;
-  s.key = "dictionary";
-  s.category = StrId::STR_CAT_READER;
-  s.enumStringValues.push_back(I18N.get(StrId::STR_NONE_OPT));
-
-  std::vector<DictionaryEntry> entries;
-  if (dictRegistry) {
-    entries = dictRegistry->getEntries();
-    s.enumStringValues.reserve(entries.size() + 1);
-    for (const auto& entry : entries) {
-      s.enumStringValues.push_back(entry.name);
-    }
-  }
-
-  s.valueGetter = [entries]() -> uint8_t {
-    const std::string activePath = Dictionary::readDictPath();
-    if (activePath.empty()) {
-      return 0;
-    }
-    for (size_t i = 0; i < entries.size(); i++) {
-      if (entries[i].basePath == activePath) {
-        return static_cast<uint8_t>(i + 1);
-      }
-    }
-    return 0;
-  };
-
-  s.valueSetter = [entries](uint8_t v) {
-    if (v == 0) {
-      Dictionary::saveGlobalDictPath("");
-      return;
-    }
-    const size_t entryIndex = static_cast<size_t>(v - 1);
-    if (entryIndex < entries.size()) {
-      Dictionary::saveGlobalDictPath(entries[entryIndex].basePath.c_str());
-    }
-  };
-
-  return s;
-}
-
 inline SettingInfo buildSleepScreenSetting() {
   SettingInfo s = SettingInfo::Enum(
       StrId::STR_SLEEP_SCREEN, &CrossPointSettings::sleepScreen,
@@ -438,7 +324,7 @@ inline uint8_t shortcutRawValue(const ShortcutOptionCatalog catalog, const Cross
         case Action::CREATE_CLIPPING:
           return Chord::CHORD_CREATE_CLIPPING;
         case Action::LOOKUP_WORD:
-          return Chord::CHORD_LOOKUP_WORD;
+          return SHORTCUT_OPTION_UNAVAILABLE;
         case Action::TOGGLE_HOME_BUTTON_IN_READER:
           return Chord::CHORD_TOGGLE_HOME_BUTTON;
         case Action::QUICK_ACTIONS:
@@ -506,7 +392,7 @@ inline uint8_t shortcutRawValue(const ShortcutOptionCatalog catalog, const Cross
         case Action::CREATE_CLIPPING:
           return LongPress::LONG_MENU_CREATE_CLIPPING;
         case Action::LOOKUP_WORD:
-          return LongPress::LONG_MENU_LOOKUP_WORD;
+          return SHORTCUT_OPTION_UNAVAILABLE;
         case Action::QUICK_ACTIONS:
           return LongPress::LONG_MENU_QUICK_ACTIONS;
         case Action::QUICK_LOCK:
@@ -637,8 +523,7 @@ inline size_t getBaseSettingsCapacity() {
 
 const std::vector<SettingInfo>& getBaseSettingsList();
 
-inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* registry = nullptr,
-                                                const DictionaryRegistry* dictRegistry = nullptr) {
+inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* registry = nullptr) {
   std::vector<SettingInfo> v = getBaseSettingsList();
   // Availability controls the UI, never whether preferences survive a save.
   if (!QuickActions::supportsTiltPageTurn()) {
@@ -799,20 +684,6 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
       *fontSizeIt = buildFontSizeSetting(registry);
     }
   }
-  if (dictRegistry) {
-    if (dictRegistry->count() > 0) {
-      auto fontSizeIt =
-          std::find_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_FONT_SIZE; });
-      const size_t insertIndex =
-          fontSizeIt == v.end() ? v.size() : static_cast<size_t>(std::distance(v.begin(), fontSizeIt) + 1);
-      v.insert(v.begin() + insertIndex, buildDictionaryFontFamilySetting(registry));
-      v.insert(v.begin() + insertIndex + 1, buildDictionaryFontSizeSetting(registry));
-    }
-    auto guideIt =
-        std::find_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_GUIDE_READING; });
-    const auto insertPos = guideIt == v.end() ? v.end() : guideIt + 1;
-    v.insert(insertPos, buildDictionarySetting(dictRegistry));
-  }
   return v;
 }
 
@@ -838,7 +709,6 @@ inline std::vector<SettingInfo> buildReaderSettingsParentList(const std::vector<
   addSettingByName(readerSettings, allSettings, StrId::STR_IMAGES);
   addSettingByName(readerSettings, allSettings, StrId::STR_FOCUS_READING);
   addSettingByName(readerSettings, allSettings, StrId::STR_GUIDE_READING);
-  addSettingByName(readerSettings, allSettings, StrId::STR_DICTIONARY);
   addSettingByName(readerSettings, allSettings, StrId::STR_INDEXING_METHOD);
   return readerSettings;
 }
@@ -854,12 +724,10 @@ inline std::vector<SettingInfo> buildBookReaderSettingsParentList(const std::vec
 
 inline std::vector<SettingInfo> buildReaderFontSettingsList(const std::vector<SettingInfo>& allSettings) {
   std::vector<SettingInfo> settings;
-  settings.reserve(11);
+  settings.reserve(9);
   addSettingByName(settings, allSettings, StrId::STR_FONT_FAMILY);
   addSettingByName(settings, allSettings, StrId::STR_FONT_SIZE);
   addSettingByName(settings, allSettings, StrId::STR_PUBLISHER_FONTS);
-  addSettingByName(settings, allSettings, StrId::STR_DICTIONARY_FONT);
-  addSettingByName(settings, allSettings, StrId::STR_DICTIONARY_FONT_SIZE);
   addSettingByName(settings, allSettings, StrId::STR_LINE_SPACING);
   addSettingByName(settings, allSettings, StrId::STR_WORD_SPACING);
   addSettingByName(settings, allSettings, StrId::STR_CHARACTER_SPACING);

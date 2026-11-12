@@ -48,14 +48,10 @@ jobs:
         include:
           - environment: default
             firmware: firmware-x3-x4
-          - environment: sticky
-            firmware: firmware-sticky
           - environment: x4-pro
             firmware: firmware-x4-pro
           - environment: x4-classic
             firmware: firmware-x4-classic
-          - environment: picco
-            firmware: firmware-picco
     steps:
       - uses: actions/checkout@v6
         with:

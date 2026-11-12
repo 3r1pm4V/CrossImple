@@ -47,23 +47,23 @@ def get_crossink_version(project_dir):
                     match = re.search(r'#define APP_VERSION\s+"([^"]+)"', line)
                     if match:
                         return match.group(1)
-        return '0.24'
+        return '0.25'
     except Exception:
-        return '0.24'
+        return '0.25'
 
 
 def get_production_version(project_dir):
-    return '0.24'
+    return '0.25'
 
 
 def get_hardware_version(project_dir, pioenv):
     if pioenv == 'default':
-        return 'v0.24'
+        return 'v0.25'
     if pioenv == 'x4-classic':
-        return 'v0.24-x4-classic'
+        return 'v0.25-x4-classic'
     if pioenv == 'x4-pro':
-        return 'v0.24-x4-pro'
-    return 'v0.24'
+        return 'v0.25-x4-pro'
+    return 'v0.25'
 
 
 def inject_download_endpoints(env):

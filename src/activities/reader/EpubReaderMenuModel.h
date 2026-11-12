@@ -28,9 +28,6 @@ enum class EpubReaderMenuAction : uint8_t {
   DELETE_BOOKMARKS,
   SAVE_CLIPPING,
   VIEW_CLIPPINGS,
-  LOOKUP,
-  LOOKUP_HISTORY,
-  SET_BOOK_DICTIONARY,
   STATUS_BAR_SETTINGS,
   RESET_BOOK_READER_SETTINGS,
 };
@@ -56,8 +53,6 @@ enum class ReaderDrawerPane : uint8_t {
   Percent,
   StablePage,
   AutoPageTurn,
-  Dictionary,
-  DictionaryFont,
   EnumOptions,
   TtfRendering,
   CharacterSpacing,
@@ -95,7 +90,6 @@ constexpr ReaderButtonSliderAction readerButtonSliderInput(ReaderButtonSliderSta
 enum class ReaderDrawerCatalogItem : uint8_t {
   ReaderFont,
   TtfRendering,
-  DictionaryFont,
   Spacing,
   TextAa,
   Focus,
@@ -118,13 +112,10 @@ enum class ReaderDrawerCatalogItem : uint8_t {
   Screenshot,
   DisplayQr,
   Footnotes,
-  Lookup,
-  LookupHistory,
   SaveClipping,
   ViewClippings,
   DeleteBookmarks,
   StatusBar,
-  BookDictionary,
   RenderMode,
   IndexingMethod,
   ToggleCompleted,
@@ -136,8 +127,6 @@ enum class ReaderDrawerCatalogItem : uint8_t {
   FontFamily,
   FontSize,
   CharacterSpacing,
-  DictionaryFontFamily,
-  DictionaryFontSize,
   TtfHinting,
   TtfRaster,
   TtfInterpreter,
@@ -153,7 +142,6 @@ enum class ReaderDrawerCatalogItem : uint8_t {
 
 struct ReaderDrawerAvailability {
   bool hasFootnotes = false;
-  bool hasDictionary = false;
   bool hasBookmarks = false;
   bool hasClippings = false;
   bool showReadingPaceReset = false;
@@ -179,7 +167,6 @@ constexpr ReaderDrawerCatalog makeReaderDrawerCatalog(const ReaderDrawerAvailabi
 #if CROSSINK_SCALABLE_FONTS
   font.add(ReaderDrawerCatalogItem::PublisherFonts);
 #endif
-  font.add(ReaderDrawerCatalogItem::DictionaryFont);
   font.add(ReaderDrawerCatalogItem::Spacing);
   font.add(ReaderDrawerCatalogItem::TextAa);
   font.add(ReaderDrawerCatalogItem::Focus);
@@ -197,10 +184,6 @@ constexpr ReaderDrawerCatalog makeReaderDrawerCatalog(const ReaderDrawerAvailabi
   layout.add(ReaderDrawerCatalogItem::EmbeddedStyle);
 
   auto& more = catalog[static_cast<size_t>(ReaderDrawerTab::More)];
-  if (available.hasDictionary) {
-    more.add(ReaderDrawerCatalogItem::Lookup);
-    more.add(ReaderDrawerCatalogItem::LookupHistory);
-  }
   more.add(ReaderDrawerCatalogItem::SelectChapter);
   more.add(ReaderDrawerCatalogItem::GoToPercent);
   if (available.hasStablePageNumbers) more.add(ReaderDrawerCatalogItem::GoToStablePage);
@@ -226,7 +209,6 @@ constexpr ReaderDrawerCatalog makeReaderDrawerCatalog(const ReaderDrawerAvailabi
   auto& settings = catalog[static_cast<size_t>(ReaderDrawerTab::Settings)];
   settings.add(ReaderDrawerCatalogItem::StatusBar);
   settings.add(ReaderDrawerCatalogItem::Controls);
-  settings.add(ReaderDrawerCatalogItem::BookDictionary);
   settings.add(ReaderDrawerCatalogItem::RenderMode);
   settings.add(ReaderDrawerCatalogItem::IndexingMethod);
   settings.add(ReaderDrawerCatalogItem::ToggleCompleted);
