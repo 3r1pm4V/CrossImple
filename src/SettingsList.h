@@ -910,7 +910,7 @@ inline std::vector<SettingInfo> buildControlsSideButtonSettingsList(const std::v
 
 inline std::vector<SettingInfo> buildGroupedDisplaySettingsList(const std::vector<SettingInfo>& allSettings) {
   std::vector<SettingInfo> displaySettings;
-  displaySettings.reserve(10);
+  displaySettings.reserve(11);
 
   auto addDisplaySetting = [&](StrId nameId) {
     const auto it = std::find_if(allSettings.begin(), allSettings.end(),
@@ -929,6 +929,9 @@ inline std::vector<SettingInfo> buildGroupedDisplaySettingsList(const std::vecto
   addDisplaySetting(StrId::STR_REFRESH_FREQ);
   addDisplaySetting(StrId::STR_READER_DARK_MODE);
   addDisplaySetting(StrId::STR_UI_THEME);
+  if (SETTINGS.uiTheme == CrossPointSettings::UI_THEME::DESKTOP) {
+    addDisplaySetting(StrId::STR_DESKTOP_WALLPAPER_MODE);
+  }
   if (SETTINGS.supportsLibraryFileBrowserSwap()) {
     addDisplaySetting(StrId::STR_SWAP_LIBRARY_FILE_BROWSER);
   }

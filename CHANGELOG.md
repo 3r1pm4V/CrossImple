@@ -1,3 +1,20 @@
+## [v0.26] - 2026-11-16
+
+### Đã thêm & Tối ưu (Added & Improved)
+- **Home Theme Mới: `Desktop` (`UI_THEME::DESKTOP`) cho X3, X4 Classic & X4 Pro**:
+  - Bố cục tối giản gồm vùng tranh minh họa trên cùng (nạp ngẫu nhiên file `.bmp` từ thư mục `/wallpaper` trên thẻ SD bằng thuật toán Reservoir Sampling `O(1)` RAM), 2 thẻ thống kê cạnh nhau (*Today's reading* kèm chuỗi ngày đọc *streak*, *This week* kèm tổng phút tuần, trung bình ngày và biểu đồ 7 ô vuông `M T W T F S S` tô 4 mức sắc độ từ `DailyReadingStats`), và thẻ *Continue Reading* có bìa sách thu nhỏ `78×114`, `% đã đọc`, thời gian đọc, thanh tiến trình và viền focus `2px`.
+  - Hỗ trợ 2 chế độ hiển thị ảnh nền trong **Settings → Display → Ảnh nền Desktop (`Desktop Wallpaper`)**: **`1-bit (Nhanh)`** (tự dither ảnh về 1-bit, vẽ 1 pass `FAST_REFRESH` không chớp) và **`4 mức xám (Mịn)`** (chạy thêm pass `displayGrayBuffer` cho ảnh đa sắc xám ở lần nạp Home đầu tiên).
+  - Tự động ẩn tiêu đề và icon `≡` trên máy dùng nút vật lý (**X3**, **X4 Classic**) để tối đa hóa không gian hiển thị; chỉ hiển thị icon chạm `≡` ở góc trên bên phải và thanh 3 icon cảm ứng dưới đáy trên **X4 Pro**.
+- **Tích hợp Sẵn Ảnh Stock Wallpaper 4-Gray & 1-Bit (Không Cần Thẻ Nhớ)**:
+  - Nhúng trực tiếp ảnh artwork cô gái và thỏ biểu tượng firmware đọc sách bên hồ vào mã nguồn (`DesktopStockWallpaper.h`) với cả 2 mảng: `kBitmap4Gray` (2-bit packed 4 mức xám chuẩn profile `ImageToneProfile::Even`) và `kBitmap1Bit` (Atkinson dithering sắc nét).
+  - Khi máy chưa có thư mục `/wallpaper` hoặc thư mục trống, Theme Desktop tự động hiển thị ảnh stock này mà không cần tải thêm bất kỳ file ngoài nào.
+- **Khắc phục Triệt để Lỗi Nháy Màn Hình ("Nháy Màn") & Tối ưu Bộ Đệm**:
+  - Sửa lỗi kẹt `_inGrayscaleMode` trên driver SSD1677 của **X4 Classic** bằng cách định tuyến chuẩn qua chu trình Overlay Grayscale riêng biệt, ngăn chặn hoàn toàn việc các lần làm tươi sau bị đẩy lên `Half Refresh` kèm chớp đen (`blackPulseClean`).
+  - Chấm dứt hiện tượng re-arm grayscale trên mỗi lần bấm phím: khi người dùng di chuyển con trỏ giữa các nút ở đáy màn hình chính, hệ thống giữ nguyên bộ đệm và chỉ cập nhật vi sai (`FAST_REFRESH`) siêu tốc, êm ái.
+  - Tối ưu `HomeActivity::storeCoverBuffer()` sử dụng PSRAM (`heap_caps_malloc`) trên **X4 Classic** và **X4 Pro**, đồng thời bổ sung cơ chế fallback vẽ trực tiếp không chớp trên **X3** (ESP32-C3) kể cả khi bộ nhớ SRAM nội bộ bị phân mảnh.
+- **Rút gọn & Khử trùng lặp luồng Thumbnail Home (`HomeActivity.cpp`)**:
+  - Hợp nhất các nhánh tính kích thước & đường dẫn ảnh bìa (`Minimal`, `Dashboard`, `Desktop`) về `exactHomeCoverDimensions()` và `exactHomeCoverPath()`.
+
 ## [v0.25] - 2026-11-12
 
 ### Đã gỡ bỏ & Dọn dẹp (Removed & Cleaned Up)

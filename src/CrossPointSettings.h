@@ -375,7 +375,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     MINIMAL = 5,
     DASHBOARD = 6,
     COVER_GRID = 7,
-    UI_THEME_COUNT = 8
+    DESKTOP = 8,
+    UI_THEME_COUNT = 9
   };
   enum RECENT_BOOKS_VIEW { RECENT_BOOKS_LIST = 0, RECENT_BOOKS_GRID = 1, RECENT_BOOKS_VIEW_COUNT };
 
@@ -626,9 +627,13 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t frontButtonLeftLong = IGNORE;
   uint8_t frontButtonRightLong = IGNORE;
   // UI Theme
+  enum DESKTOP_WALLPAPER_MODE { DESKTOP_WALLPAPER_1BIT = 0, DESKTOP_WALLPAPER_4GRAY = 1 };
   uint8_t uiTheme = LYRA;
+  uint8_t desktopWallpaperMode = DESKTOP_WALLPAPER_1BIT;
   uint8_t swapLibraryFileBrowser = 0;
-  bool supportsLibraryFileBrowserSwap() const { return uiTheme == MINIMAL || uiTheme == DASHBOARD; }
+  bool supportsLibraryFileBrowserSwap() const {
+    return uiTheme == MINIMAL || uiTheme == DASHBOARD || uiTheme == DESKTOP;
+  }
   bool isLibraryFileBrowserSwapped() const { return supportsLibraryFileBrowserSwap() && swapLibraryFileBrowser; }
   // Recently Opened layout in Library; keep the original raw values for older settings.
   uint8_t recentBooksView = RECENT_BOOKS_LIST;

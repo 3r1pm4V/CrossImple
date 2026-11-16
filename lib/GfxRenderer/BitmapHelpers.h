@@ -64,6 +64,11 @@ class Atkinson1BitDitherer {
 
     // Apply brightness/contrast/gamma adjustments
     gray = adjustPixel(gray);
+    return processLinearPixel(gray, x);
+  }
+
+  uint8_t processLinearPixel(int gray, int x) {
+    if (!isValid()) return gray < 128 ? 0 : 1;
 
     // Add accumulated error
     int adjusted = gray + errorRow0[x + 2];

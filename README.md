@@ -1,7 +1,7 @@
 # 🐰 CrossImple
 
 [![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossImple?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
-[![Version](https://img.shields.io/badge/Version-v0.25-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
+[![Version](https://img.shields.io/badge/Version-v0.26-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
 [![Device](https://img.shields.io/badge/Devices-Xteink%20X3%20%7C%20X4%20Classic%20%7C%20X4%20Pro-blue?style=flat-square)](#-thiết-bị-hỗ-trợ-supported-devices)
 [![Base](https://img.shields.io/badge/Base-CrossPoint%20v2.0.0%20%7C%20CrossInk%20v2.0.0--rc-brightgreen?style=flat-square)](https://github.com/uxjulia/CrossInk)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -39,6 +39,7 @@
 | **8x8 Fine Bayer Dithering, E-Ink Optical Clamping (`45`–`225`), Tăng tương phản bìa sách (`1.20f`) & OOM Guard trên X3 (`8KB` trần)** | **CrossImple Custom** (Tự phát triển trên `JpegToBmpConverter` & `BitmapHelpers` của `CrossInk`) | `lib/JpegToBmpConverter/JpegToBmpConverter.cpp`, `lib/GfxRenderer/BitmapHelpers.cpp` |
 | **Flash trực tiếp file `.bin` bất kỳ từ thẻ nhớ SD (`SdFirmwareUpdateActivity` & `FileBrowserActivity`)** | **CrossImple Custom** (Kế thừa và nâng cấp từ nhánh `CrossPet` / `CrossInk v1.6.1`) | `src/activities/settings/SdFirmwareUpdateActivity.cpp`, `src/activities/home/FileBrowserActivity.cpp` |
 | **Bộ nhận diện Bunny Reader, Đồng bộ thương hiệu `CrossImple` (Boot/Sleep/Device Name), Việt hóa & Chuẩn hóa xuất bản `.bin`** | **CrossImple Custom** (Tự phát triển) | `src/activities/boot_sleep/BootActivity.cpp`, `src/activities/boot_sleep/SleepActivity.cpp`, `src/CrossPointSettings.cpp`, `scripts/rename_firmware.py` |
+| **Home Theme Desktop (`UI_THEME::DESKTOP`), nạp Wallpaper ngẫu nhiên `/wallpaper/*.bmp` (Reservoir Sampling `O(1)` RAM), hình nền stock nhúng ROM, chế độ 1-bit / 4 mức xám & Widget Thống kê đọc sách** | **CrossImple Custom** (Tự phát triển) | `src/components/themes/desktop/DesktopTheme.cpp`, `src/components/themes/desktop/DesktopTheme.h`, `src/components/themes/desktop/DesktopStockWallpaper.h` |
 
 ---
 
@@ -52,9 +53,9 @@ Toàn bộ lịch sử thay đổi chi tiết qua từng phiên bản (`v0.25`, 
 
 | Thiết bị | Vi điều khiển (MCU) | Màn hình | Điều khiển | Tên file Firmware xuất ra |
 |---|---|---|---|---|
-| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.25.bin` |
-| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.25.bin` |
-| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.25.bin` |
+| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.26.bin` |
+| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.26.bin` |
+| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.26.bin` |
 
 ---
 
@@ -70,9 +71,9 @@ Toàn bộ lịch sử thay đổi chi tiết qua từng phiên bản (`v0.25`, 
 
 ### Cách 1: Nâng cấp trực tiếp qua Thẻ nhớ SD (Khuyên dùng)
 1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossImple/releases):
-   * Với **Xteink X3**: tải `crossimple_x3_v0.25.bin`
-   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.25.bin`
-   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.25.bin`
+   * Với **Xteink X3**: tải `crossimple_x3_v0.26.bin`
+   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.26.bin`
+   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.26.bin`
 2. Chép file `.bin` vào thư mục gốc của thẻ MicroSD (định dạng FAT32).
 3. Bật máy đọc sách, mở mục **Quản lý tệp (File Browser)**, chọn file `.bin` vừa chép và nhấn **Xác nhận (Confirm)**.
 4. Máy sẽ tự động kiểm tra chip ESP32, tag phần cứng, tính toàn vẹn SHA256 và tiến hành flash an toàn. Sau khi hoàn tất máy sẽ tự khởi động lại.
@@ -108,11 +109,11 @@ python scripts/build_all.py --export-bin
 # Cách 2: Chạy thủ công từng luồng riêng biệt
 # Luồng 1 — Biên dịch riêng cho Xteink X3 (ESP32-C3)
 pio run -e default
-# File xuất ra: crossimple_x3_v0.25.bin
+# File xuất ra: crossimple_x3_v0.26.bin
 
 # Luồng 2 — Biên dịch cho dòng Xteink X4 (ESP32-S3)
 pio run -e x4-classic -e x4-pro
-# File xuất ra: crossimple_x4-classic_v0.25.bin, crossimple_x4-pro_v0.25.bin
+# File xuất ra: crossimple_x4-classic_v0.26.bin, crossimple_x4-pro_v0.26.bin
 ```
 
 ---
@@ -127,6 +128,77 @@ Trong **Reader Settings (Tùy chọn Đọc sách)**, hai cài đặt **Lật tr
 | **Độ nét & Độ đậm chữ** | Vẽ toàn bộ điểm ảnh mức `1, 2, 3` (`Plane::BWMonochrome = 0x0e`) thành **đen đặc 100%**. Nhờ bản vá chuẩn `v0.16`, chữ vẫn **đậm đà, liền nét**, tương phản đen-trắng sắc sảo. | Giữ nguyên biên độ **4 mức xám** (Đen đặc, Xám đậm, Xám nhạt, Trắng). Các đường cong, nét chéo và dấu tiếng Việt có viền chuyển sắc êm dịu như in giấy. |
 | **Tiêu thụ Pin** | **Tiết kiệm pin tối đa** (chỉ phát xung cao áp E-Ink 1 lần mỗi trang). | Tốn điện màn hình hơn một chút mỗi lần lật trang (phát xung E-Ink 3 pha). |
 | **Khuyến nghị theo máy** | Rất hợp cho **Xteink X3** (`300 PPI` mật độ điểm ảnh cao nên 1-bit vẫn rất mịn) hoặc khi cần đọc lướt nhanh. | **Mặc định khuyên dùng trên X4 Classic / X4 Pro** (`220 PPI` kết hợp font `.ttf`/`.otf` giúp chữ mềm mại, tròn trịa giống hệt `v0.16`). |
+
+---
+
+## 🖼️ Hướng dẫn Theme Desktop & Cài đặt Ảnh nền (Wallpaper)
+
+Giao diện **Desktop** (`UI_THEME::DESKTOP`) mang đến trải nghiệm màn hình chính hiện đại và tinh tế với tranh minh họa (wallpaper) ngẫu nhiên, 2 thẻ thống kê đọc sách trực quan (*Today's reading* và *This week*) cùng thẻ tiếp tục đọc sách có bìa thu nhỏ và thanh tiến trình.
+
+### 1. Chuẩn bị Thư mục & Chép ảnh trên Thẻ nhớ SD
+- Tạo một thư mục có tên **`wallpaper`** (hoặc **`Wallpaper`**) ở ngay thư mục gốc của thẻ nhớ MicroSD:
+  ```text
+  SD_CARD/
+  ├── books/
+  ├── fonts/
+  └── wallpaper/
+      ├── wallpaper_01.bmp
+      ├── wallpaper_02.bmp
+      └── scifi_art.bmp
+  ```
+- **Cơ chế chọn ảnh ngẫu nhiên:** Firmware sử dụng giải thuật *Reservoir Sampling* (`O(1)` RAM), tự động chọn ngẫu nhiên một bức ảnh `.bmp` trong thư mục mỗi khi máy nạp lại màn hình chính mà không tiêu tốn RAM hay giới hạn số lượng ảnh.
+- *Lưu ý:* Nếu thư mục `/wallpaper` trống hoặc chưa tạo, máy sẽ tự động vẽ hình trăng sao nghệ thuật tối giản làm hình nền mặc định.
+
+### 2. Kích thước & Định dạng Ảnh tối ưu theo Từng Dòng Máy
+Hệ thống hỗ trợ tất cả các file ảnh định dạng **`.bmp`** (bao gồm 24-bit RGB màu, 8-bit Grayscale hoặc 1-bit Monochrome). Nếu ảnh lớn hơn khung, máy sẽ tự động crop trung tâm (center-crop) giữ đúng tỷ lệ và bo tròn 4 góc `8px`. Tuy nhiên, để hình ảnh sắc nét nhất và không bị cắt xén, bạn nên resize/crop ảnh theo đúng kích thước khung chuẩn:
+
+| Dòng máy | Kích thước khung Wallpaper | Tỷ lệ khung | Đặc điểm hiển thị |
+| :--- | :--- | :--- | :--- |
+| **Xteink X3** | **`482 × 316` px** | `~1.525 : 1` | Màn hình 3.97" (`528×792`), ẩn icon menu & thanh trạng thái để tối đa hóa tranh. |
+| **Xteink X4 Classic** | **`434 × 316` px** | `~1.373 : 1` | Màn hình 4.2" (`480×800`), viền thẻ cân đối với 4 phím cứng dưới đáy. |
+| **Xteink X4 Pro** | **`434 × 236` px** | `~1.839 : 1` | Màn hình 4.2" (`480×800`), chừa không gian cho icon Menu `≡` trên đỉnh và thanh 3 icon cảm ứng dưới đáy. |
+
+### 3. Tùy chọn Chế độ Hiển thị Ảnh nền (1-bit vs 4 Mức Xám)
+Trong **Cài đặt (Settings)** → **Hiển thị (Display)**:
+- **Giao diện chính (UI Theme)**: Chọn **`Desktop`**.
+- **Ảnh nền Desktop (Desktop Wallpaper)** (tùy chọn này sẽ xuất hiện ngay bên dưới khi đang chọn theme Desktop):
+  - **`1-bit (Nhanh)`** *(Mặc định)*: Tự động xử lý dither Atkinson sắc nét cho ảnh, lật và nạp trang Home siêu tốc 1 pha (`FAST_REFRESH`), hoàn toàn không chớp nháy màn hình.
+  - **`4 mức xám (Mịn)`**: Nạp đa tầng 4 mức xám mượt mà (`displayGrayBuffer`), cho chuyển sắc êm dịu rất đẹp đối với tranh phong cảnh, anime hoặc ảnh chụp nghệ thuật.
+
+### 4. Cách Tự Tạo & Chuyển đổi Ảnh `.bmp` Chuẩn E-Ink
+Bạn có thể chuyển đổi bất kỳ bức ảnh JPEG/PNG nào sang BMP:
+
+#### Cách 1: Dùng Photoshop / GIMP / Paint / Web Tool
+1. Mở bức ảnh yêu thích của bạn.
+2. Cắt (Crop) hoặc đổi kích thước (Resize) về kích thước tương ứng với máy của bạn (ví dụ: `482×316` cho X3 hoặc `434×316` cho X4).
+3. Chuyển hệ màu sang **Grayscale (Ảnh mức xám)** để tối ưu chi tiết.
+4. Chọn **Save As / Export** dưới dạng file **`.bmp`** (chọn chuẩn 24-bit hoặc 8-bit BMP).
+
+#### Cách 2: Dùng Python (Tự động hàng loạt bằng Pillow)
+```python
+from PIL import Image
+
+def convert_to_wallpaper(input_path, output_bmp_path, width=482, height=316):
+    img = Image.open(input_path).convert("L")  # Chuyển về ảnh xám (Grayscale)
+    # Tự động crop trung tâm giữ tỷ lệ
+    src_w, src_h = img.size
+    target_ratio = width / float(height)
+    src_ratio = src_w / float(src_h)
+    if src_ratio > target_ratio:
+        new_w = int(round(src_h * target_ratio))
+        left = (src_w - new_w) // 2
+        img = img.crop((left, 0, left + new_w, src_h))
+    else:
+        new_h = int(round(src_w / target_ratio))
+        top = (src_h - new_h) // 2
+        img = img.crop((0, top, src_w, top + new_h))
+    
+    img = img.resize((width, height), Image.Resampling.LANCZOS)
+    img.save(output_bmp_path, "BMP")
+
+# Ví dụ tạo ảnh cho X3:
+convert_to_wallpaper("my_photo.jpg", "SD_CARD/wallpaper/my_wallpaper.bmp", 482, 316)
+```
 
 ---
 

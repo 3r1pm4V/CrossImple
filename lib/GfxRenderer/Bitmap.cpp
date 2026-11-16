@@ -23,6 +23,7 @@ Bitmap::~Bitmap() {
   delete[] errorNextRow;
 
   delete atkinsonDitherer;
+  delete oneBitDitherer;
   delete fsDitherer;
 }
 
@@ -187,7 +188,14 @@ BmpReaderError Bitmap::parseHeaders() {
   //  - High-color + dithering enabled → error-diffusion dithering (Atkinson or Floyd-Steinberg)
   //  - High-color + dithering disabled → simple quantization (no error diffusion)
   const bool convertSourceLevels = toneProfile == ImageToneProfile::PiccoCover && bpp > 1;
-  if (dithering && (!nativePalette || convertSourceLevels)) {
+  if (oneBitOutput && bpp > 1) {
+    oneBitDitherer = new (std::nothrow) Atkinson1BitDitherer(width);
+    if (!oneBitDitherer || !oneBitDitherer->isValid()) {
+      delete oneBitDitherer;
+      oneBitDitherer = nullptr;
+      return BmpReaderError::OomRowBuffer;
+    }
+  } else if (dithering && (!nativePalette || convertSourceLevels)) {
     if (USE_ATKINSON) {
       atkinsonDitherer = new (std::nothrow) AtkinsonDitherer(width, toneProfile);
       if (!atkinsonDitherer || !atkinsonDitherer->isValid()) {
@@ -341,19 +349,23 @@ BmpReaderError Bitmap::readNextRow(uint8_t* data, uint8_t* rowBuffer) const {
   const int outputY = outputRowsRead;
 
   // Helper lambda to pack 2bpp color into the output stream
+  const bool useLinearLum = (toneProfile == ImageToneProfile::Even);
   auto packPixel = [&](const uint8_t lum, const int outputX) {
     uint8_t color;
-    if (atkinsonDitherer) {
-      color = atkinsonDitherer->processPixel(adjustPixel(lum), outputX);
+    const int effectiveLum = useLinearLum ? static_cast<int>(lum) : adjustPixel(lum);
+    if (oneBitDitherer) {
+      color = oneBitDitherer->processLinearPixel(effectiveLum, outputX) ? 3 : 0;
+    } else if (atkinsonDitherer) {
+      color = atkinsonDitherer->processPixel(effectiveLum, outputX);
     } else if (fsDitherer) {
-      color = fsDitherer->processPixel(adjustPixel(lum), outputX);
+      color = fsDitherer->processPixel(effectiveLum, outputX);
     } else {
       if (nativePalette) {
         // Palette matches native gray levels: direct mapping (still apply brightness/contrast/gamma)
-        color = static_cast<uint8_t>(adjustPixel(lum) >> 6);
+        color = static_cast<uint8_t>(effectiveLum >> 6);
       } else {
         // Non-native palette with dithering disabled: simple quantization
-        color = quantize(adjustPixel(lum), outputX, outputY);
+        color = quantize(effectiveLum, outputX, outputY);
       }
     }
     currentOutByte |= (color << bitShift);
@@ -373,7 +385,9 @@ BmpReaderError Bitmap::readNextRow(uint8_t* data, uint8_t* rowBuffer) const {
     packPixel(lum, outputX);
   }
 
-  if (atkinsonDitherer)
+  if (oneBitDitherer)
+    oneBitDitherer->nextRow();
+  else if (atkinsonDitherer)
     atkinsonDitherer->nextRow();
   else if (fsDitherer)
     fsDitherer->nextRow();
@@ -394,6 +408,7 @@ BmpReaderError Bitmap::rewindToData() const {
   // Reset dithering when rewinding
   if (fsDitherer) fsDitherer->reset();
   if (atkinsonDitherer) atkinsonDitherer->reset();
+  if (oneBitDitherer) oneBitDitherer->reset();
   sourceRowsRead = 0;
   outputRowsRead = 0;
 

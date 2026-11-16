@@ -74,6 +74,7 @@ class Bitmap {
   // Downsample high-color images before error diffusion. This is intentionally
   // limited to smaller output dimensions; the renderer still handles upscale.
   bool setDitheredOutputSize(int targetWidth, int targetHeight);
+  void setOneBitOutput(bool enabled) { oneBitOutput = enabled; }
   ImageToneProfile getToneProfile() const { return toneProfile; }
   int getWidth() const { return outputWidth; }
   int getHeight() const { return outputHeight; }
@@ -91,6 +92,7 @@ class Bitmap {
 
   HalFile& file;
   bool dithering = false;
+  bool oneBitOutput = false;
   ImageToneProfile toneProfile = ImageToneProfile::Legacy;
   int width = 0;
   int height = 0;
@@ -112,5 +114,6 @@ class Bitmap {
   mutable int outputRowsRead = 0;
 
   mutable AtkinsonDitherer* atkinsonDitherer = nullptr;
+  mutable Atkinson1BitDitherer* oneBitDitherer = nullptr;
   mutable FloydSteinbergDitherer* fsDitherer = nullptr;
 };
