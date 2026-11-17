@@ -8,9 +8,11 @@ a=s.index('    if(s_setting_choice.kind==SET_PICK_UI_MODE)');b=s.index('    else
 u=r'''
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
 #define ESP_OK 0
 #define APP_REDRAW_NONE 0
 #define SET_PICK_UI_MODE 7
+enum { APP_UI_FULL = 0, APP_UI_LOVE_BOOK = 2, APP_UI_DESKTOP = 3 };
 typedef struct {void *request_app;} app_ctx_t;
 static struct {int kind;bool open;} s_setting_choice;
 static unsigned mode,cleans,releases,covers,clocks;static int error,home;
@@ -23,10 +25,10 @@ static void *app_home_page(void){return &home;}
 static int select_mode(app_ctx_t *ctx,int index){bool ok=false;
 '''+s[a:b]+r'''
 return ok?1:-1;}
-int main(void){for(int i=0;i<2;++i){app_ctx_t c={0};s_setting_choice.kind=7;s_setting_choice.open=true;error=0;
- assert(select_mode(&c,i)==0&&mode==(i?2u:0u)&&!s_setting_choice.open&&c.request_app==&home);
+int main(void){static const unsigned expected[3]={0u,3u,2u};for(int i=0;i<3;++i){app_ctx_t c={0};s_setting_choice.kind=7;s_setting_choice.open=true;error=0;
+ assert(select_mode(&c,i)==0&&mode==expected[i]&&!s_setting_choice.open&&c.request_app==&home);
  assert(cleans==(unsigned)i+1&&releases==cleans&&covers==cleans&&clocks==cleans);}
- app_ctx_t c={0};s_setting_choice.open=true;error=1;assert(select_mode(&c,1)==-1&&s_setting_choice.open&&!c.request_app&&cleans==2);
+ app_ctx_t c={0};s_setting_choice.open=true;error=1;assert(select_mode(&c,1)==-1&&s_setting_choice.open&&!c.request_app&&cleans==3);
 }
 '''
 with tempfile.TemporaryDirectory() as tmp:
