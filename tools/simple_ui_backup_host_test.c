@@ -13,7 +13,9 @@ int main(void) {
     assert(app_settings_set_ui_mode(2)==ESP_OK&&app_settings_simple_ui()&&app_settings_simple_full_ui());
     app_settings_init();assert(app_settings_ui_mode()==2);
     commit_fails=true;assert(app_settings_set_ui_mode(0)!=ESP_OK&&app_settings_ui_mode()==2);commit_fails=false;
-    assert(app_settings_set_ui_mode(3)==ESP_ERR_INVALID_ARG&&app_settings_ui_mode()==2);
+    assert(app_settings_set_ui_mode(4)==ESP_ERR_INVALID_ARG&&app_settings_ui_mode()==2);
+    assert(app_settings_set_ui_mode(3)==ESP_OK&&app_settings_ui_mode()==3&&!app_settings_simple_ui());
+    app_settings_init();assert(app_settings_ui_mode()==3&&!app_settings_simple_ui());
     assert(app_settings_set_ui_mode(0)==ESP_OK&&!app_settings_simple_full_ui());
     assert(app_settings_set_simple_ui(true)==ESP_OK&&app_settings_simple_ui());
     app_settings_init();assert(app_settings_simple_ui());

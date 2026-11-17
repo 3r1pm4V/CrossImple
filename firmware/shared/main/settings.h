@@ -101,6 +101,7 @@ static inline bool app_settings_simple_full_ui(void) { return true; }
 #else
 bool app_settings_simple_full_ui(void);
 #endif
+enum { APP_UI_FULL = 0, APP_UI_LOVE_BOOK = 2, APP_UI_DESKTOP = 3 };
 uint8_t app_settings_ui_mode(void);
 esp_err_t app_settings_set_ui_mode(uint8_t mode);
 esp_err_t app_settings_set_simple_ui(bool enabled);

@@ -159,6 +159,9 @@ static bool s_excerpt_is_chapter;
 static EXT_RAM_BSS_ATTR uint8_t s_avatar[60*60];
 static bool s_avatar_ready,s_avatar_pending;
 static char s_avatar_path[288];
+static uint8_t *s_desktop_wp_buf;
+static bool s_desktop_wp_ready,s_desktop_wp_fast;
+static char s_desktop_wp_path[288];
 #endif
 static EpdRect s_pressed;
 static bool s_press_pending;
@@ -393,8 +396,18 @@ static void love_cover_make_room(void) {
 }
 #endif
 
+static void desktop_wp_invalidate(void) {
+#if !DPREADER_LOVE_BOOK
+    free(s_desktop_wp_buf);
+    s_desktop_wp_buf = NULL;
+    s_desktop_wp_ready = false;
+    s_desktop_wp_path[0] = 0;
+#endif
+}
+
 void app_home_cover_mode_changed(void) {
     clear_cover_cache();
+    desktop_wp_invalidate();
     s_cover_next = 0;
 }
 static void restore_cover_cache(void) {
@@ -796,6 +809,29 @@ static void avatar_prepare_state(void) {
     s_avatar_ready=state==UI_AVATAR_READY;s_avatar_pending=state==UI_AVATAR_PENDING;
 #endif
 }
+static void desktop_wp_prepare(void) {
+#if !DPREADER_LOVE_BOOK
+    if (app_settings_ui_mode() != APP_UI_DESKTOP) {
+        desktop_wp_invalidate();
+        return;
+    }
+    const char *path = app_settings_wallpaper_path();
+    bool fast = app_settings_main_fast_refresh();
+    if (!path || !path[0]) {
+        desktop_wp_invalidate();
+        return;
+    }
+    if (s_desktop_wp_ready && s_desktop_wp_fast == fast && !strcmp(path, s_desktop_wp_path)) return;
+    size_t fb_bytes = (size_t)UI_LOCK_WIDTH * UI_LOCK_HEIGHT / 2;
+    if (!s_desktop_wp_buf) s_desktop_wp_buf = heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+    if (!s_desktop_wp_buf) { s_desktop_wp_ready = false; return; }
+    memset(s_desktop_wp_buf, 0xff, fb_bytes);
+    s_desktop_wp_ready = ui_wallpaper_draw_rounded(s_desktop_wp_buf, path, (EpdRect){36, 92, 612, 408}, 20);
+    s_desktop_wp_fast = fast;
+    snprintf(s_desktop_wp_path, sizeof(s_desktop_wp_path), "%s", path);
+    if (!s_desktop_wp_ready) { free(s_desktop_wp_buf); s_desktop_wp_buf = NULL; }
+#endif
+}
 static void header(uint8_t *fb,const char *title) {
     ui_nav_status(fb);ui_nav_back(fb,36,78);
     char t[96];snprintf(t,sizeof(t),"%s",title);int px=ui_text_title_fit(t,42,530,title);
@@ -932,7 +968,7 @@ static void home_tag_card(uint8_t *fb,EpdRect card,int header_height,int notch,u
 static void simple_utility(uint8_t *fb,EpdRect box,ui_icon_t icon,const char *title,bool configurable);
 /* Bound both workspace and line spacing; never load another font. */
 static unsigned simple_title(uint8_t *fb,const char *text);
-static unsigned full_resume_lines(uint8_t *fb,const char *text,int top,int px,unsigned max_rows,bool quoted) {
+static unsigned resume_lines_in_box(uint8_t *fb,const char *text,EpdRect box,int px,unsigned max_rows,bool quoted,enum EpdFontFlags align) {
     unsigned rows=0;int measure=ui_text_effective_px(px);
     const int pitch=measure+6;const char *tail=quoted?"…”":"…";size_t tail_bytes=strlen(tail)+1;
     while(*text&&rows<max_rows) {
@@ -944,7 +980,7 @@ static unsigned full_resume_lines(uint8_t *fb,const char *text,int top,int px,un
             while(text[next]&&((unsigned char)text[next]&0xc0)==0x80)++next;
             if(next>=sizeof(line))break;
             memcpy(line,text,next);line[next]=0;
-            if(used&&ui_text_fixed_width_px(measure,line)>564)break;
+            if(used&&ui_text_fixed_width_px(measure,line)>box.width)break;
             used=next;if(text[used-1]==' ')last_space=used-1;
         }
         if(text[used]&&last_space)used=last_space;
@@ -955,16 +991,19 @@ static unsigned full_resume_lines(uint8_t *fb,const char *text,int top,int px,un
                 while(used&&line[used-1]==' ')line[--used]=0;
                 if(used+tail_bytes<=sizeof(line)) {
                     memcpy(line+used,tail,tail_bytes);
-                    if(ui_text_fixed_width_px(measure,line)<=564||!used)break;
+                    if(ui_text_fixed_width_px(measure,line)<=box.width||!used)break;
                 }
                 if(!used)break;
                 --used;while(used&&((unsigned char)line[used]&0xc0)==0x80)--used;line[used]=0;
             }
         }
-        ui_text_box(fb,(EpdRect){60,top+(int)rows*pitch,564,pitch},px,line,EPD_DRAW_ALIGN_CENTER,false);
+        ui_text_box(fb,(EpdRect){box.x,box.y+(int)rows*pitch,box.width,pitch},px,line,align,false);
         ++rows;
     }
     return rows;
+}
+static unsigned full_resume_lines(uint8_t *fb,const char *text,int top,int px,unsigned max_rows,bool quoted) {
+    return resume_lines_in_box(fb,text,(EpdRect){60,top,564,0},px,max_rows,quoted,EPD_DRAW_ALIGN_CENTER);
 }
 static int s_ticket_battery = -2;
 static EpdRect simple_ticket_status_rect(void);
@@ -1180,7 +1219,7 @@ static void on_enter(app_ctx_t *ctx) {
     s_widget_trail.valid=s_time_trail.valid=false;
     s_utility_notice[0]=0;s_utility_notice_until=0;
     (void)ctx;s_view=HOME_ROOT;s_clock_pending=s_time_pending=s_widget_pending=s_component_pending=false;s_press_pending=false;s_save_error=false;s_time_stamp=s_widget_stamp=-1;s_motion_ms=-100;
-    s_home_force_full_once=app_settings_home_full_refresh();if(!app_settings_simple_ui()){refresh_days();avatar_prepare_state();}
+    s_home_force_full_once=app_settings_home_full_refresh();if(!app_settings_simple_ui()){refresh_days();avatar_prepare_state();desktop_wp_prepare();}
     read_pico_sd_info_t sd={0};esp_err_t error=read_pico_sd_get_info(&sd);
     bool same=s_books_cache_valid&&error!=ESP_ERR_NOT_FINISHED&&s_cached_store_revision==book_store_revision()&&
         s_cached_sd_present==sd.present&&s_cached_sd_mounted==sd.mounted&&!strcmp(s_cached_books_dir,app_settings_books_dir());
@@ -1213,9 +1252,10 @@ static void on_media_lost(app_ctx_t *ctx) {
     s_books_cache_valid=false;s_excerpt[0]=0;
 #if !DPREADER_LOVE_BOOK
     s_avatar_ready=s_avatar_pending=false;
+    desktop_wp_invalidate();
 #endif
 }
-static void on_media_ready(app_ctx_t *ctx) {(void)ctx;s_books_cache_valid=false;s_scan_pending=true;avatar_prepare_state();}
+static void on_media_ready(app_ctx_t *ctx) {(void)ctx;s_books_cache_valid=false;s_scan_pending=true;avatar_prepare_state();desktop_wp_prepare();}
 static app_redraw_t on_tick(app_ctx_t *ctx) {
     if(s_view==HOME_TIME||s_view==HOME_COMPONENT)clock_base_prepare();
     if(ctx->consumed||(ctx->touch&&ctx->touch->touched))return APP_REDRAW_NONE;
@@ -1327,7 +1367,7 @@ static EpdRect control(int x,int y) {
         return (EpdRect){0};
     }
     if(s_view==HOME_ROOT) {
-        if(app_settings_ui_mode() == 1) {
+        if(app_settings_ui_mode() == APP_UI_DESKTOP) {
             if(hit((EpdRect){36,708,612,390},x,y))return (EpdRect){36,708,612,390};
             if(hit((EpdRect){36,516,612,176},x,y))return (EpdRect){36,516,612,176};
             if(hit((EpdRect){36,92,612,408},x,y))return (EpdRect){36,92,612,408};
@@ -1478,7 +1518,7 @@ static app_redraw_t on_gesture(app_ctx_t *ctx,const ui_gesture_event_t *ev) {
         return APP_REDRAW_NONE;
     }else {
         int tab=ui_nav_hit(x,y);if(tab>=0){ui_nav_request(ctx,tab);return APP_REDRAW_NONE;}
-        if(app_settings_ui_mode() == 1) {
+        if(app_settings_ui_mode() == APP_UI_DESKTOP) {
             if(hit((EpdRect){36,708,612,390},x,y)) {
                 home_book_t *b=featured();
                 if(b->path[0] && app_book_request_open_from_home(b->path)){
@@ -1487,7 +1527,7 @@ static app_redraw_t on_gesture(app_ctx_t *ctx,const ui_gesture_event_t *ev) {
 #endif
                     ui_nav_request(ctx,1);return APP_REDRAW_NONE;
                 }
-                ui_nav_request(ctx,2);return APP_REDRAW_NONE;
+                ui_nav_request(ctx,1);return APP_REDRAW_NONE;
             }
             if(hit((EpdRect){36,516,612,176},x,y)) {
                 refresh_days();s_goal_draft=app_settings_home_goal_minutes();s_view=HOME_GOAL;s_save_error=false;return APP_REDRAW_PAGE;

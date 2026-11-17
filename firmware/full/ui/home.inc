@@ -5,7 +5,7 @@
 #include "home_desktop.inc"
 static void render_root(uint8_t *fb) {
     if(app_settings_simple_ui()){render_simple_root(fb);return;}
-    if(app_settings_ui_mode() == 1){render_desktop_root(fb);return;}
+    if(app_settings_ui_mode() == APP_UI_DESKTOP){render_desktop_root(fb);return;}
 #ifdef DPREADER_LOCAL_LATENCY
     int64_t probe_home=esp_timer_get_time();
 #define HOME_STAGE(name) do { int64_t probe_now=esp_timer_get_time();ESP_LOGI("latency","HOME stage=%s us=%lld",name,(long long)(probe_now-probe_home));probe_home=probe_now; } while(0)

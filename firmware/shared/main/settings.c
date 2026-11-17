@@ -429,20 +429,26 @@ static void system_size_load(void) {
 
 /* Local UI choice is independent of profile restores and namespace resets.
  * Only a valid persisted value can replace the in-memory choice. */
+/* s_ui_mode is the single source of truth; the two simple flags are mirrors kept for
+ * existing readers. Persisted codes: 0 Full, 1/2 I Love Book (1 = legacy), 3 Desktop. */
+static void ui_mode_apply(uint8_t mode) {
+    s_ui_mode = mode == 1 ? APP_UI_LOVE_BOOK : mode;
+    s_simple_ui = s_simple_full_ui = s_ui_mode == APP_UI_LOVE_BOOK;
+}
 static void simple_mode_load(void) {
     nvs_handle_t h;uint8_t value=0;
     esp_err_t err=nvs_open(SIMPLE_UI_NS,NVS_READONLY,&h);
     if(err==ESP_OK){err=nvs_get_u8(h,"mode",&value);nvs_close(h);}
-    if(err==ESP_OK&&value<=2){s_ui_mode=value;s_simple_ui=value==2;s_simple_full_ui=value==2;s_simple_choice_known=true;return;}
-    if(err!=ESP_ERR_NVS_NOT_FOUND){if(!s_simple_choice_known){s_ui_mode=2;s_simple_ui=true;}return;}
+    if(err==ESP_OK&&value<=APP_UI_DESKTOP){ui_mode_apply(value);s_simple_choice_known=true;return;}
+    if(err!=ESP_ERR_NVS_NOT_FOUND){if(!s_simple_choice_known)ui_mode_apply(APP_UI_LOVE_BOOK);return;}
     if(s_simple_choice_known)return;
     err=nvs_open(NVS_NS,NVS_READONLY,&h);
-    if(err!=ESP_OK){if(err!=ESP_ERR_NVS_NOT_FOUND){s_ui_mode=2;s_simple_ui=true;}return;}
+    if(err!=ESP_OK){if(err!=ESP_ERR_NVS_NOT_FOUND)ui_mode_apply(APP_UI_LOVE_BOOK);return;}
     err=nvs_get_u8(h,"simple_ui",&value);nvs_close(h);
-    if(err!=ESP_OK||value>1){if(err!=ESP_ERR_NVS_NOT_FOUND){s_ui_mode=2;s_simple_ui=true;}return;}
-    s_ui_mode=value==1?2:0;s_simple_ui=value==1;s_simple_full_ui=s_simple_ui;s_simple_choice_known=true;
+    if(err!=ESP_OK||value>1){if(err!=ESP_ERR_NVS_NOT_FOUND)ui_mode_apply(APP_UI_LOVE_BOOK);return;}
+    ui_mode_apply(value==1?APP_UI_LOVE_BOOK:APP_UI_FULL);s_simple_choice_known=true;
     if(nvs_open(SIMPLE_UI_NS,NVS_READWRITE,&h)!=ESP_OK)return;
-    err=nvs_set_u8(h,"mode",s_ui_mode);
+    err=nvs_set_u8(h,"mode",value);
     if(err==ESP_OK)(void)nvs_commit(h);
     nvs_close(h);
 }
@@ -455,7 +461,7 @@ void app_settings_init(void) {
     // 设置分区异常时保留原数据供恢复，绝不因空间不足自动擦除用户资料。
     // Preserve settings on NVS errors; a full partition must never silently erase profile data.
     if (err != ESP_OK) {
-        if(!s_simple_choice_known)s_simple_ui=true;
+        if(!s_simple_choice_known)ui_mode_apply(APP_UI_LOVE_BOOK);
 #if CONFIG_DPREADER_AUTO_RESTORE
         s_auto_backup.restore_status = APP_RESTORE_BLOCKED;
 #endif
@@ -944,22 +950,29 @@ esp_err_t app_settings_set_home_goal_minutes(uint8_t minutes) {
 }
 
 #if !DPREADER_LOVE_BOOK
-bool app_settings_simple_ui(void) { return s_ui_mode == 2; }
-bool app_settings_simple_full_ui(void) { return s_ui_mode == 2; }
+bool app_settings_simple_ui(void) { return s_ui_mode == APP_UI_LOVE_BOOK; }
+bool app_settings_simple_full_ui(void) { return s_ui_mode == APP_UI_LOVE_BOOK; }
 #endif
-uint8_t app_settings_ui_mode(void) { return s_ui_mode; }
+uint8_t app_settings_ui_mode(void) {
+#if DPREADER_LOVE_BOOK
+    return APP_UI_LOVE_BOOK;
+#else
+    return s_ui_mode;
+#endif
+}
 esp_err_t app_settings_set_ui_mode(uint8_t mode) {
 #if DPREADER_LOVE_BOOK
-    return mode==2 ? ESP_OK : ESP_ERR_NOT_SUPPORTED;
+    return mode==APP_UI_LOVE_BOOK ? ESP_OK : ESP_ERR_NOT_SUPPORTED;
 #else
-    if(mode>2)return ESP_ERR_INVALID_ARG;
+    if(mode>APP_UI_DESKTOP)return ESP_ERR_INVALID_ARG;
+    if(mode==1)mode=APP_UI_LOVE_BOOK;
     nvs_handle_t h;
     esp_err_t err = nvs_open(SIMPLE_UI_NS, NVS_READWRITE, &h);
     if (err != ESP_OK) return err;
     err = nvs_set_u8(h, "mode", mode);
     if (err == ESP_OK) err = settings_backup_commit(h);
     nvs_close(h);
-    if (err == ESP_OK) {s_ui_mode = mode;s_simple_ui = (mode==2);s_simple_full_ui=(mode==2);s_simple_choice_known=true;}
+    if (err == ESP_OK) {ui_mode_apply(mode);s_simple_choice_known=true;}
     return err;
 #endif
 }
@@ -2818,6 +2831,7 @@ static esp_err_t backup_restore_workspace(backup_workspace_t *work, const char *
     if (err == ESP_OK) err = backup_nvs_set_u8(h, NVS_KEY_VERTICAL_TURN, (work->profile.home_full_refresh & 32) != 0);
 
     bool restore_simple=s_simple_choice_known?s_simple_ui:(s_simple_ui||(version>=28&&(work->profile.home_full_refresh&64)!=0));
+    uint8_t restore_ui_mode = restore_simple ? APP_UI_LOVE_BOOK : (s_ui_mode == APP_UI_DESKTOP ? APP_UI_DESKTOP : APP_UI_FULL);
     if (err == ESP_OK) err = backup_nvs_set_u8(h, "simple_ui", restore_simple);
     if (err == ESP_OK) err = backup_nvs_set_u8(h, NVS_KEY_HOME_FULL, work->profile.home_full_refresh & 1);
     if (err == ESP_OK) err = backup_nvs_set_u8(h, NVS_KEY_MAIN_REFRESH, (uint8_t)main_refresh);
@@ -2913,7 +2927,7 @@ static esp_err_t backup_restore_workspace(backup_workspace_t *work, const char *
     s_ble_turner = (work->profile.home_full_refresh & 8) != 0;
     s_reader_hold_refresh = (work->profile.home_full_refresh & 16) != 0;
     s_reader_turn_mode = (work->profile.home_full_refresh & 32) != 0 ? 1 : 0;
-    s_simple_ui=restore_simple;s_simple_choice_known=true;
+    ui_mode_apply(restore_ui_mode);s_simple_choice_known=true;
     s_home_full_refresh = (work->profile.home_full_refresh & 1) != 0;
     s_main_refresh = main_refresh;
     s_reader_hide_images = (work->profile.home_full_refresh & 2) != 0;
