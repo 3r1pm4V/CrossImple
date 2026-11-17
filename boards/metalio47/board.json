@@ -5,7 +5,7 @@
   "project": "dpReader",
   "image_chip_id": 32,
   "bootloader_offset": 8192,
-  "version": "0.23.0-vn",
+  "version": "0.26.0-vn",
   "sdkconfig": "sdkconfig.defaults",
   "partitions": "partitions.csv",
   "settings_namespace": "metalio_s31",

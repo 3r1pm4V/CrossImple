@@ -211,6 +211,7 @@ static uint8_t s_pin_grace_code_v;
 static uint32_t s_pin_locked_at;
 #endif
 static bool s_home_full_refresh;
+static uint8_t s_ui_mode;
 static bool s_simple_ui;
 static bool s_simple_full_ui;
 static bool s_simple_choice_known;
@@ -432,16 +433,16 @@ static void simple_mode_load(void) {
     nvs_handle_t h;uint8_t value=0;
     esp_err_t err=nvs_open(SIMPLE_UI_NS,NVS_READONLY,&h);
     if(err==ESP_OK){err=nvs_get_u8(h,"mode",&value);nvs_close(h);}
-    if(err==ESP_OK&&value<=2){s_simple_ui=value!=0;s_simple_full_ui=value!=0;s_simple_choice_known=true;return;}
-    if(err!=ESP_ERR_NVS_NOT_FOUND){if(!s_simple_choice_known)s_simple_ui=true;return;}
+    if(err==ESP_OK&&value<=2){s_ui_mode=value;s_simple_ui=value==2;s_simple_full_ui=value==2;s_simple_choice_known=true;return;}
+    if(err!=ESP_ERR_NVS_NOT_FOUND){if(!s_simple_choice_known){s_ui_mode=2;s_simple_ui=true;}return;}
     if(s_simple_choice_known)return;
     err=nvs_open(NVS_NS,NVS_READONLY,&h);
-    if(err!=ESP_OK){if(err!=ESP_ERR_NVS_NOT_FOUND)s_simple_ui=true;return;}
+    if(err!=ESP_OK){if(err!=ESP_ERR_NVS_NOT_FOUND){s_ui_mode=2;s_simple_ui=true;}return;}
     err=nvs_get_u8(h,"simple_ui",&value);nvs_close(h);
-    if(err!=ESP_OK||value>1){if(err!=ESP_ERR_NVS_NOT_FOUND)s_simple_ui=true;return;}
-    s_simple_ui=value==1;s_simple_full_ui=s_simple_ui;s_simple_choice_known=true;
+    if(err!=ESP_OK||value>1){if(err!=ESP_ERR_NVS_NOT_FOUND){s_ui_mode=2;s_simple_ui=true;}return;}
+    s_ui_mode=value==1?2:0;s_simple_ui=value==1;s_simple_full_ui=s_simple_ui;s_simple_choice_known=true;
     if(nvs_open(SIMPLE_UI_NS,NVS_READWRITE,&h)!=ESP_OK)return;
-    err=nvs_set_u8(h,"mode",value);
+    err=nvs_set_u8(h,"mode",s_ui_mode);
     if(err==ESP_OK)(void)nvs_commit(h);
     nvs_close(h);
 }
@@ -943,23 +944,22 @@ esp_err_t app_settings_set_home_goal_minutes(uint8_t minutes) {
 }
 
 #if !DPREADER_LOVE_BOOK
-bool app_settings_simple_ui(void) { return s_simple_ui; }
-bool app_settings_simple_full_ui(void) { return s_simple_ui; }
+bool app_settings_simple_ui(void) { return s_ui_mode == 2; }
+bool app_settings_simple_full_ui(void) { return s_ui_mode == 2; }
 #endif
-uint8_t app_settings_ui_mode(void) { return app_settings_simple_ui() ? 2 : 0; }
+uint8_t app_settings_ui_mode(void) { return s_ui_mode; }
 esp_err_t app_settings_set_ui_mode(uint8_t mode) {
 #if DPREADER_LOVE_BOOK
     return mode==2 ? ESP_OK : ESP_ERR_NOT_SUPPORTED;
 #else
     if(mode>2)return ESP_ERR_INVALID_ARG;
-    if(mode==1)mode=2;
     nvs_handle_t h;
     esp_err_t err = nvs_open(SIMPLE_UI_NS, NVS_READWRITE, &h);
     if (err != ESP_OK) return err;
     err = nvs_set_u8(h, "mode", mode);
     if (err == ESP_OK) err = settings_backup_commit(h);
     nvs_close(h);
-    if (err == ESP_OK) {s_simple_ui = mode!=0;s_simple_full_ui=mode==2;s_simple_choice_known=true;}
+    if (err == ESP_OK) {s_ui_mode = mode;s_simple_ui = (mode==2);s_simple_full_ui=(mode==2);s_simple_choice_known=true;}
     return err;
 #endif
 }

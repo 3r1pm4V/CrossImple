@@ -2,8 +2,10 @@
  * SPDX-License-Identifier: Apache-2.0
  * 中文：从原应用文件迁移，保留原许可。/ English: Moved from the original app under its existing license. */
 /* 中文：Full首页界面。/ English: Full Home interface. */
+#include "home_desktop.inc"
 static void render_root(uint8_t *fb) {
     if(app_settings_simple_ui()){render_simple_root(fb);return;}
+    if(app_settings_ui_mode() == 1){render_desktop_root(fb);return;}
 #ifdef DPREADER_LOCAL_LATENCY
     int64_t probe_home=esp_timer_get_time();
 #define HOME_STAGE(name) do { int64_t probe_now=esp_timer_get_time();ESP_LOGI("latency","HOME stage=%s us=%lld",name,(long long)(probe_now-probe_home));probe_home=probe_now; } while(0)

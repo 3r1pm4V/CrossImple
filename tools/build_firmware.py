@@ -389,6 +389,7 @@ def build_one(board, args):
         architecture = 'xtensa-esp-elf' if board == 'pico' else 'riscv32-esp-elf'
         extra.extend(str(path) for path in (tools / 'tools' / architecture).glob('**/bin') if path.is_dir())
         extra.extend(str(path) for path in (tools / 'tools/esp32ulp-elf').glob('**/bin') if path.is_dir())
+        extra.extend(str(p) for p in tools.glob('tools/**') if (p / 'cmake.exe').is_file() or (p / 'ninja.exe').is_file())
     env['PATH'] = os.pathsep.join(extra + [env.get('PATH', '')])
     with (work / 'build.log').open('w') as log:
         result = subprocess.run(command, cwd=source, env=env, stdout=log, stderr=subprocess.STDOUT)

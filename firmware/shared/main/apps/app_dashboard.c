@@ -1327,6 +1327,12 @@ static EpdRect control(int x,int y) {
         return (EpdRect){0};
     }
     if(s_view==HOME_ROOT) {
+        if(app_settings_ui_mode() == 1) {
+            if(hit((EpdRect){36,708,612,390},x,y))return (EpdRect){36,708,612,390};
+            if(hit((EpdRect){36,516,612,176},x,y))return (EpdRect){36,516,612,176};
+            if(hit((EpdRect){36,92,612,408},x,y))return (EpdRect){36,92,612,408};
+            return (EpdRect){0};
+        }
         if(featured()->path[0] && hit(continue_card_hit_rect(),x,y))return continue_card_rect();
         if(hit((EpdRect){510,88,60,60},x,y))return(EpdRect){510,88,60,60};
         if(hit((EpdRect){36,590,612,64},x,y))return(EpdRect){548,598,80,48};
@@ -1472,6 +1478,25 @@ static app_redraw_t on_gesture(app_ctx_t *ctx,const ui_gesture_event_t *ev) {
         return APP_REDRAW_NONE;
     }else {
         int tab=ui_nav_hit(x,y);if(tab>=0){ui_nav_request(ctx,tab);return APP_REDRAW_NONE;}
+        if(app_settings_ui_mode() == 1) {
+            if(hit((EpdRect){36,708,612,390},x,y)) {
+                home_book_t *b=featured();
+                if(b->path[0] && app_book_request_open_from_home(b->path)){
+#if DPREADER_BOARD_METALIO47
+                    (void)metalio_haptic_click();
+#endif
+                    ui_nav_request(ctx,1);return APP_REDRAW_NONE;
+                }
+                ui_nav_request(ctx,2);return APP_REDRAW_NONE;
+            }
+            if(hit((EpdRect){36,516,612,176},x,y)) {
+                refresh_days();s_goal_draft=app_settings_home_goal_minutes();s_view=HOME_GOAL;s_save_error=false;return APP_REDRAW_PAGE;
+            }
+            if(hit((EpdRect){36,92,612,408},x,y)) {
+                ctx->user_activity=true;ctx->request_quick_menu=true;return APP_REDRAW_NONE;
+            }
+            return APP_REDRAW_NONE;
+        }
         if(hit((EpdRect){36,590,612,206},x,y)) {
             if(!utilities_configured()||y<654){utilities_edit();return APP_REDRAW_PAGE;}
             for(unsigned i=0;i<4;++i)if(hit(utility_button(i),x,y))return utility_run(ctx,app_settings_home_utility(i));

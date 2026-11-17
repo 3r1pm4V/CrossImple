@@ -2419,7 +2419,7 @@ static void render_content(app_ctx_t *ctx, uint8_t *fb) {
     const char *personal_labels[]={"Kiểu hiển thị Tủ sách","Kiểu màn hình khóa","Mật khẩu màn hình khóa","Chữ ký thanh trạng thái","Giao diện"};
     const char *personal_values[]={app_settings_shelf_style()==5?"Danh sách":app_settings_shelf_style()==1?"Thanh kệ tối màu":"Kệ sách Acrylic",
         app_settings_lock_style()==3?"Khung PNG trong suốt":app_settings_lock_style()==2?"Ghép bìa Tủ sách":app_settings_lock_style()==1?"Hình nền":"Thẻ đọc sách",
-        lock_pin_enabled()?"Đã bật":"Đã tắt",signature,app_settings_simple_ui()?"I Love Book":"Đầy đủ"};
+        lock_pin_enabled()?"Đã bật":"Đã tắt",signature,app_settings_ui_mode()==1?"Desktop":app_settings_ui_mode()==2?"I Love Book":"Đầy đủ"};
     const int personal_icons[]={4,5,16,10,4};
 #endif
     setting_group(fb,2,SETTINGS_PERSONAL_Y-49,"Cá nhân hóa",SETTINGS_PERSONAL_Y,
@@ -2485,7 +2485,7 @@ enum {SET_PICK_SIZE,SET_PICK_WAKE,SET_PICK_GRACE,SET_PICK_HOURS,SET_PICK_YEAR,SE
 static ui_choice_t s_setting_choice;
 static const uint8_t s_ui_sizes[]={100,110,120,130,140,144,150,160,170,180,190,200,202};
 static void settings_choice_label(int kind,int index,char *out,size_t size) {
-    if(kind==SET_PICK_UI_MODE){static const char *const modes[]={"Đầy đủ","I Love Book"};snprintf(out,size,"%s",modes[index]);}
+    if(kind==SET_PICK_UI_MODE){static const char *const modes[]={"Đầy đủ","Desktop (Bàn làm việc)","I Love Book"};snprintf(out,size,"%s",modes[index]);}
     else if(kind==SET_PICK_SIZE)snprintf(out,size,"%u%%",s_ui_sizes[index]);
     else if(kind==SET_PICK_WAKE)snprintf(out,size,"%d lần nhấn",index+1);
     else if(kind==SET_PICK_HOURS)snprintf(out,size,"%d giờ",index+1);
@@ -2501,7 +2501,7 @@ static void settings_choice_label(int kind,int index,char *out,size_t size) {
 }
 static void settings_choice_open(int kind) {
     int count=0,current=0;const char *title="";
-    if(kind==SET_PICK_UI_MODE){count=2;current=app_settings_simple_ui()?1:0;title="Giao diện";}
+    if(kind==SET_PICK_UI_MODE){count=3;current=app_settings_ui_mode();title="Giao diện";}
     else if(kind==SET_PICK_SIZE){count=sizeof(s_ui_sizes);title="Cỡ chữ hệ thống";current=-1;for(int i=0;i<count;i++)if(s_ui_sizes[i]==app_settings_system_font_size())current=i;}
     else if(kind==SET_PICK_WAKE){count=2;current=app_settings_wake_presses()-1;title="Đánh thức bằng nút nguồn";}
 #if DPREADER_BOARD_METALIO47
@@ -2538,7 +2538,7 @@ static app_redraw_t settings_choice_gesture(app_ctx_t *ctx,const ui_gesture_even
     if(index<0)return APP_REDRAW_PAGE;
     bool ok=false;
     if(s_setting_choice.kind==SET_PICK_UI_MODE){
-        ok=app_settings_set_ui_mode(index?2:0)==ESP_OK;
+        ok=app_settings_set_ui_mode(index)==ESP_OK;
         if(ok){
             app_book_release_shelf_cache();app_home_cover_mode_changed();app_home_release_clock_cache();
             s_setting_choice.open=false;
