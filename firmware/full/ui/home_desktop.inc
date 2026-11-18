@@ -33,7 +33,7 @@ static void render_desktop_root(uint8_t *fb) {
 
     // 1. Wallpaper Card: (36, 92, 612, 408) — blit pre-rendered PSRAM cache if available
     EpdRect wp_rect = {36, 92, 612, 408};
-    if (s_desktop_wp_ready && s_desktop_wp_buf) {
+    if (s_desktop_wp_ready && s_desktop_wp_buf && s_desktop_wp_fast == app_settings_main_fast_refresh()) {
         memcpy(fb, s_desktop_wp_buf, (size_t)UI_LOCK_WIDTH * UI_LOCK_HEIGHT / 2);
         home_frame(fb, wp_rect, 20);
     } else {
@@ -41,6 +41,14 @@ static void render_desktop_root(uint8_t *fb) {
         int wp_x = wp_rect.x + (wp_rect.width - DESKTOP_STOCK_WALLPAPER_W) / 2;
         int wp_y = wp_rect.y + (wp_rect.height - DESKTOP_STOCK_WALLPAPER_H) / 2;
         desktop_draw_stock_wallpaper(fb, wp_x, wp_y);
+        size_t fb_bytes = (size_t)UI_LOCK_WIDTH * UI_LOCK_HEIGHT / 2;
+        if (!s_desktop_wp_buf) s_desktop_wp_buf = heap_caps_malloc(fb_bytes, MALLOC_CAP_SPIRAM);
+        if (s_desktop_wp_buf) {
+            memcpy(s_desktop_wp_buf, fb, fb_bytes);
+            s_desktop_wp_ready = true;
+            s_desktop_wp_fast = app_settings_main_fast_refresh();
+            s_desktop_wp_path[0] = 0;
+        }
         home_frame(fb, wp_rect, 20);
     }
     ui_nav_status(fb);

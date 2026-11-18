@@ -818,7 +818,9 @@ static void desktop_wp_prepare(void) {
     const char *path = app_settings_wallpaper_path();
     bool fast = app_settings_main_fast_refresh();
     if (!path || !path[0]) {
-        desktop_wp_invalidate();
+        if (s_desktop_wp_path[0] != 0 || s_desktop_wp_fast != fast) {
+            desktop_wp_invalidate();
+        }
         return;
     }
     if (s_desktop_wp_ready && s_desktop_wp_fast == fast && !strcmp(path, s_desktop_wp_path)) return;
@@ -888,7 +890,7 @@ static EpdRect utility_border_button(void){return(EpdRect){36,880,612,64};}
 static EpdRect utility_save_button(void){return(EpdRect){36,1000,612,80};}
 static EpdRect recent_cover(unsigned i){return(EpdRect){36+(int)i*160,828,132,180};}
 static unsigned recent_books(home_book_t *books[4]) {
-    if (app_settings_simple_ui()) return 0;
+    if (app_settings_simple_ui() || app_settings_ui_mode() == APP_UI_DESKTOP) return 0;
     unsigned n=0;
     if(s_current.path[0]&&s_current.has_progress)books[n++]=&s_current;
     for(unsigned i=0;i<6&&n<4;++i)if(s_recent[i].path[0]&&s_recent[i].has_progress) {
@@ -1269,7 +1271,7 @@ static app_redraw_t on_tick(app_ctx_t *ctx) {
         if(info.mounted) {
             s_cover_generation=book_cover_jobs_begin();
             memset(&s_current,0,sizeof(s_current));memset(s_recent,0,sizeof(s_recent));s_cover_next=0;
-            scan_books();restore_cover_cache();remember_scan_state(&info);refresh_excerpt();avatar_prepare_state();s_folder_attempted=false;
+            scan_books();restore_cover_cache();remember_scan_state(&info);refresh_excerpt();avatar_prepare_state();desktop_wp_prepare();s_folder_attempted=false;
             free(s_folder);s_folder=NULL;return APP_REDRAW_PAGE;
         }remember_scan_state(&info);
     }
@@ -1283,7 +1285,15 @@ static app_redraw_t on_tick(app_ctx_t *ctx) {
 #endif
         if(s_view==HOME_ROOT&&s_cover_next==0){
             s_cover_next=1;home_book_t *b=featured();
-            if(b->path[0]&&!b->cover){int slot=b==&s_current?0:(int)(b-s_recent)+1;if(load_cover(b,slot)){if(app_settings_simple_full_ui())return APP_REDRAW_PAGE;s_area=app_settings_simple_ui()?simple_cover_rect():(EpdRect){60,278,176,240};return APP_REDRAW_AREA;}if(s_cover_waiting)s_cover_next=0;}
+            if(b->path[0]&&!b->cover){
+                int slot=b==&s_current?0:(int)(b-s_recent)+1;
+                if(load_cover(b,slot)){
+                    if(app_settings_simple_full_ui())return APP_REDRAW_PAGE;
+                    s_area=app_settings_simple_ui()?simple_cover_rect():(app_settings_ui_mode()==APP_UI_DESKTOP?(EpdRect){60,780,176,240}:(EpdRect){60,278,176,240});
+                    return APP_REDRAW_AREA;
+                }
+                if(s_cover_waiting)s_cover_next=0;
+            }
         }
     }
     if(s_view==HOME_COMPONENT&&s_component_pending){s_area=s_component_dirty;return APP_REDRAW_AREA;}
