@@ -11,7 +11,7 @@ constexpr ThemeMetrics makeValues() {
   ThemeMetrics v = MinimalMetrics::values;
   v.homeTopPadding = 50;
   v.homeCoverHeight = 445;
-  v.homeCoverTileHeight = 690;
+  v.homeCoverTileHeight = 750;
   v.homeRecentBooksCount = 1;
   v.homeContinueReadingInMenu = false;
   v.homeMenuTopOffset = 0;

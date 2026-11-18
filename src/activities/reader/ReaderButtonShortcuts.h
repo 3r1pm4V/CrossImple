@@ -58,6 +58,9 @@ class ReaderButtonShortcuts {
     unsigned long pressedAt = 0;
     bool tracking = false;
     bool longFired = false;
+    bool ready = false;
+    bool isCapacitive = false;
+    uint8_t capacitiveAction = CrossPointSettings::IGNORE;
   };
   ButtonState up_;
   ButtonState down_;
@@ -69,26 +72,58 @@ class ReaderButtonShortcuts {
                           const uint8_t longAction) {
     Result result;
     result.up = up;
+    const bool pressed = input.isPressed(button);
+    const bool released = input.wasReleased(button);
+    if (!state.ready && !pressed && !released) {
+      state.ready = true;
+    }
     if (input.wasPressed(button)) {
+      state.ready = true;
       state.pressedAt = now;
       state.tracking = true;
       state.longFired = false;
+#if FREEINK_DEVICE_METALIO_EINK4 && CROSSINK_APP_CAP_TOUCH
+      if (gpio.isCapacitivePagePressed(HalGPIO::BTN_UP) && !gpio.isCapacitivePagePressed(HalGPIO::BTN_DOWN)) {
+        state.isCapacitive = true;
+        state.capacitiveAction = SETTINGS.pillButtonLeftAction;
+      } else if (gpio.isCapacitivePagePressed(HalGPIO::BTN_DOWN) && !gpio.isCapacitivePagePressed(HalGPIO::BTN_UP)) {
+        state.isCapacitive = true;
+        state.capacitiveAction = SETTINGS.pillButtonRightAction;
+      } else {
+        state.isCapacitive = false;
+      }
+#endif
+    } else if (!state.tracking && state.ready && released) {
+      state.tracking = true;
+      state.longFired = false;
+#if FREEINK_DEVICE_METALIO_EINK4 && CROSSINK_APP_CAP_TOUCH
+      if (gpio.wasCapacitivePageReleased(HalGPIO::BTN_UP) && !gpio.wasCapacitivePageReleased(HalGPIO::BTN_DOWN)) {
+        state.isCapacitive = true;
+        state.capacitiveAction = SETTINGS.pillButtonLeftAction;
+      } else if (gpio.wasCapacitivePageReleased(HalGPIO::BTN_DOWN) && !gpio.wasCapacitivePageReleased(HalGPIO::BTN_UP)) {
+        state.isCapacitive = true;
+        state.capacitiveAction = SETTINGS.pillButtonRightAction;
+      } else {
+        state.isCapacitive = false;
+      }
+#endif
     }
     if (!state.tracking) return result;
 
+    const uint8_t effectiveShortAction = state.isCapacitive ? state.capacitiveAction : shortAction;
+    const uint8_t effectiveLongAction = state.isCapacitive ? CrossPointSettings::IGNORE : longAction;
+
     result.consumed = true;
-    const bool pressed = input.isPressed(button);
-    const bool released = input.wasReleased(button);
-    if (!state.longFired && longAction != CrossPointSettings::IGNORE &&
+    if (!state.longFired && effectiveLongAction != CrossPointSettings::IGNORE &&
         now - state.pressedAt >= ReaderUtils::SKIP_HOLD_MS && (pressed || released)) {
       state.longFired = true;
       result.triggered = true;
       result.longPress = true;
-      result.action = longAction;
+      result.action = effectiveLongAction;
     } else if (released) {
       if (!state.longFired) {
         result.triggered = true;
-        result.action = shortAction;
+        result.action = effectiveShortAction;
       }
     }
     if (!pressed) state.tracking = false;

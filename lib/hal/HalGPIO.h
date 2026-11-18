@@ -28,6 +28,10 @@ class HalGPIO {
 
   bool lastUsbConnected = false;
   bool usbStateChanged = false;
+  uint8_t previousCapacitivePageButtons = 0;
+  uint8_t releasedCapacitivePageButtons = 0;
+  bool capacitivePagePressed = false;
+  bool hapticPageTurnsEnabled = true;
   bool usbStateSampled = false;
   unsigned long lastUsbPollMs = 0;
 
@@ -127,6 +131,15 @@ class HalGPIO {
   bool wasHomeKeyLongPressed() const;
   bool wasTouchTap(float& nx, float& ny) const;
   bool wasTouchDown(float& nx, float& ny) const;
+  bool wasCapacitivePagePressed() const { return capacitivePagePressed; }
+  bool wasCapacitivePageReleased(uint8_t buttonIndex) const {
+    return buttonIndex < 8 && (releasedCapacitivePageButtons & (1u << buttonIndex)) != 0;
+  }
+  bool isCapacitivePagePressed(uint8_t buttonIndex) const {
+    return buttonIndex < 8 && (previousCapacitivePageButtons & (1u << buttonIndex)) != 0;
+  }
+  void setHapticPageTurnsEnabled(bool enabled) { hapticPageTurnsEnabled = enabled; }
+  bool isHapticPageTurnsEnabled() const { return hapticPageTurnsEnabled; }
   // Raw release edge, reported even when the contact was not a tap (swipe end,
   // drag-off). Snapshot builders forward it so interaction routing can clear
   // pressed state.
@@ -183,6 +196,7 @@ class HalGPIO {
   static constexpr uint8_t BTN_UP = 4;
   static constexpr uint8_t BTN_DOWN = 5;
   static constexpr uint8_t BTN_POWER = 6;
+  static constexpr uint8_t BTN_EXTRA = 7;
 };
 
 extern HalGPIO gpio;

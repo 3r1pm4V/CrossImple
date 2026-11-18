@@ -878,14 +878,12 @@ bool executeX4ProHomeButtonAction(const uint8_t action,
 
   const auto powerAction = static_cast<CrossPointSettings::SHORT_PWRBTN>(action);
   if (powerAction == CrossPointSettings::SHORT_PWRBTN::SYNC_PROGRESS) {
-    dispatchShortcutAction(powerAction);
-    return true;
+    return dispatchShortcutAction(powerAction);
   }
   if (handleGlobalPowerButtonAction(powerAction, quickLockTrigger)) {
     return true;
   }
-  activityManager.handleShortcutAction(powerAction);
-  return true;
+  return activityManager.handleShortcutAction(powerAction);
 }
 
 bool wasX4ProHomeKeyTapped() {
@@ -1938,6 +1936,48 @@ void loop() {
       lastActivityTime = millis();
       return;
     }
+#if FREEINK_DEVICE_METALIO_EINK4
+    if (!modalOwnsInput && gpio.wasReleased(HalGPIO::BTN_CONFIRM)) {
+      if (SETTINGS.aiButtonAction != CrossPointSettings::SHORT_PWRBTN::IGNORE) {
+        if (SETTINGS.aiButtonAction == CrossPointSettings::HOME_BUTTON_BACK_HOME && activityManager.isHomeActivity()) {
+          mappedInputManager.suppressNextFrontRelease(MappedInputManager::Button::Confirm);
+          mappedInputManager.queueDeferredHomeGesture();
+        } else if (executeX4ProHomeButtonAction(SETTINGS.aiButtonAction, QuickLockTrigger::ShortPower)) {
+          mappedInputManager.suppressNextFrontRelease(MappedInputManager::Button::Confirm);
+          lastActivityTime = millis();
+          return;
+        }
+      }
+    }
+    if (!modalOwnsInput && gpio.wasCapacitivePageReleased(HalGPIO::BTN_UP)) {
+      if (SETTINGS.pillButtonLeftAction != CrossPointSettings::SHORT_PWRBTN::PREVIOUS_PAGE &&
+          SETTINGS.pillButtonLeftAction != CrossPointSettings::SHORT_PWRBTN::PAGE_TURN) {
+        mappedInputManager.suppressNextSideRelease(MappedInputManager::Button::Up);
+        mappedInputManager.suppressNextSideRelease(MappedInputManager::Button::Down);
+        if (SETTINGS.pillButtonLeftAction == CrossPointSettings::HOME_BUTTON_BACK_HOME &&
+            activityManager.isHomeActivity()) {
+          mappedInputManager.queueDeferredHomeGesture();
+        } else if (executeX4ProHomeButtonAction(SETTINGS.pillButtonLeftAction, QuickLockTrigger::SideUpShort)) {
+          lastActivityTime = millis();
+          return;
+        }
+      }
+    }
+    if (!modalOwnsInput && gpio.wasCapacitivePageReleased(HalGPIO::BTN_DOWN)) {
+      if (SETTINGS.pillButtonRightAction != CrossPointSettings::SHORT_PWRBTN::PREVIOUS_PAGE &&
+          SETTINGS.pillButtonRightAction != CrossPointSettings::SHORT_PWRBTN::PAGE_TURN) {
+        mappedInputManager.suppressNextSideRelease(MappedInputManager::Button::Up);
+        mappedInputManager.suppressNextSideRelease(MappedInputManager::Button::Down);
+        if (SETTINGS.pillButtonRightAction == CrossPointSettings::HOME_BUTTON_BACK_HOME &&
+            activityManager.isHomeActivity()) {
+          mappedInputManager.queueDeferredHomeGesture();
+        } else if (executeX4ProHomeButtonAction(SETTINGS.pillButtonRightAction, QuickLockTrigger::SideDownShort)) {
+          lastActivityTime = millis();
+          return;
+        }
+      }
+    }
+#endif
   }
 
   // Refresh the battery icon when USB is plugged or unplugged.

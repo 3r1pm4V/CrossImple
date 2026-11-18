@@ -1,6 +1,9 @@
 #include <BatteryMonitor.h>
 #include <BoardConfig.h>
 #include <HalGPIO.h>
+#if FREEINK_CAP_HAPTIC
+#include <HapticManager.h>
+#endif
 #include <Logging.h>
 #include <PowerManager.h>
 #include <Preferences.h>
@@ -181,16 +184,51 @@ void HalGPIO::begin() {
 #endif
   inputMgr.begin();
   InputWake::begin();
+#if FREEINK_CAP_HAPTIC
+  HapticManager::getInstance().begin();
+#endif
 }
 
-bool HalGPIO::waitForInput(const uint32_t timeoutMs) { return InputWake::wait(timeoutMs, inputMgr); }
-void HalGPIO::startButtonCapture() { InputWake::startCapture(); }
+bool HalGPIO::waitForInput(const uint32_t timeoutMs) {
+#if FREEINK_DEVICE_METALIO_EINK4
+  if (BoardConfig::isMetalioEInk4()) {
+    if (inputMgr.isDebouncePending()) return true;
+    const uint32_t startedAt = millis();
+    while (true) {
+      if ((BoardConfig::ACTIVE.touch.irq >= 0 && digitalRead(BoardConfig::ACTIVE.touch.irq) == LOW) ||
+          inputMgr.isPowerButtonPhysicallyPressed() ||
+          (BoardConfig::ACTIVE.input.confirm >= 0 && digitalRead(BoardConfig::ACTIVE.input.confirm) == LOW)) {
+        return true;
+      }
+      const uint16_t pins = freeink::metalio::readButtons();
+      if (!(pins & ((1u << freeink::metalio::PIN_VOLUME_UP) | (1u << freeink::metalio::PIN_VOLUME_DOWN)))) {
+        return true;
+      }
+      const uint32_t elapsed = millis() - startedAt;
+      if (elapsed >= timeoutMs) return false;
+      delay(std::min<uint32_t>(5, timeoutMs - elapsed));
+    }
+  }
+#endif
+  return InputWake::wait(timeoutMs, inputMgr);
+}
+void HalGPIO::startButtonCapture() {
+#if FREEINK_DEVICE_METALIO_EINK4
+  if (BoardConfig::isMetalioEInk4()) return;
+#endif
+  InputWake::startCapture();
+}
 void HalGPIO::stopButtonCapture() { InputWake::stopCapture(); }
 uint32_t HalGPIO::buttonSampleTime() const { return InputWake::capturing() ? buttonFrame.timestamp : millis(); }
 
 bool HalGPIO::hasPendingButtonInput() const { return InputWake::hasPendingButtons() || inputMgr.isDebouncePending(); }
 
-bool HalGPIO::prepareForDeepSleep() { return inputMgr.prepareForDeepSleep(); }
+bool HalGPIO::prepareForDeepSleep() {
+#if FREEINK_CAP_HAPTIC
+  HapticManager::getInstance().end();
+#endif
+  return inputMgr.prepareForDeepSleep();
+}
 
 bool HalGPIO::hasToggleSwitch() const { return inputMgr.hasToggleSwitch(); }
 
@@ -215,10 +253,36 @@ void HalGPIO::update() {
       // The SDK commits a state change after it remains stable for more than
       // 5 ms. Re-poll before the low-power loop's next ~100 ms sample so short
       // physical button presses are not discarded.
-      delay(BUTTON_DEBOUNCE_REPOLL_MS);
-      inputMgr.update();
+      const unsigned long debounceStart = millis();
+      while (inputMgr.isDebouncePending() && millis() - debounceStart < 10) {
+        delay(2);
+        inputMgr.update();
+      }
     }
   }
+
+  const uint8_t pageButtons = inputMgr.capacitivePageButtonMask();
+  capacitivePagePressed = (pageButtons & ~previousCapacitivePageButtons) != 0;
+  releasedCapacitivePageButtons = (previousCapacitivePageButtons & ~pageButtons);
+  previousCapacitivePageButtons = pageButtons;
+
+#if FREEINK_CAP_HAPTIC
+  if (HapticManager::getInstance().supported() && HapticManager::getInstance().enabled()) {
+    float tx = 0.0f, ty = 0.0f;
+    if (inputMgr.wasHomeKeyLongPressed()) {
+      static constexpr HapticManager::Step pattern[] = {{45, 255}, {55, 0}, {45, 255}};
+      HapticManager::getInstance().play(pattern, 3);
+    } else {
+      const bool isPage = capacitivePagePressed || wasAnyPressed();
+      const bool isTouch = inputMgr.wasHomeKeyPressed() || inputMgr.wasTouchPressedAt(tx, ty);
+      if (isTouch || (isPage && hapticPageTurnsEnabled)) {
+        const uint8_t gain = HapticManager::getInstance().intensity();
+        const uint32_t ms = (gain <= 160) ? 35 : ((gain >= 220) ? 60 : 45);
+        HapticManager::getInstance().pulse(ms, 255);
+      }
+    }
+  }
+#endif
 
   usbStateChanged = false;
   const unsigned long now = millis();
@@ -236,23 +300,28 @@ void HalGPIO::update() {
 bool HalGPIO::wasUsbStateChanged() const { return usbStateChanged; }
 
 bool HalGPIO::isPressed(uint8_t buttonIndex) const {
-  return InputWake::capturing() ? buttonFrame.state & (1u << buttonIndex) : inputMgr.isPressed(buttonIndex);
+  const bool captured = InputWake::capturing() && ((buttonFrame.state & (1u << buttonIndex)) != 0);
+  return captured || inputMgr.isPressed(buttonIndex);
 }
 
 bool HalGPIO::wasPressed(uint8_t buttonIndex) const {
-  return InputWake::capturing() ? buttonFrame.pressed & (1u << buttonIndex) : inputMgr.wasPressed(buttonIndex);
+  const bool captured = InputWake::capturing() && ((buttonFrame.pressed & (1u << buttonIndex)) != 0);
+  return captured || inputMgr.wasPressed(buttonIndex);
 }
 
 bool HalGPIO::wasAnyPressed() const {
-  return InputWake::capturing() ? buttonFrame.pressed != 0 : inputMgr.wasAnyPressed();
+  const bool captured = InputWake::capturing() && (buttonFrame.pressed != 0);
+  return captured || inputMgr.wasAnyPressed();
 }
 
 bool HalGPIO::wasReleased(uint8_t buttonIndex) const {
-  return InputWake::capturing() ? buttonFrame.released & (1u << buttonIndex) : inputMgr.wasReleased(buttonIndex);
+  const bool captured = InputWake::capturing() && ((buttonFrame.released & (1u << buttonIndex)) != 0);
+  return captured || inputMgr.wasReleased(buttonIndex);
 }
 
 bool HalGPIO::wasAnyReleased() const {
-  return InputWake::capturing() ? buttonFrame.released != 0 : inputMgr.wasAnyReleased();
+  const bool captured = InputWake::capturing() && (buttonFrame.released != 0);
+  return captured || inputMgr.wasAnyReleased();
 }
 
 unsigned long HalGPIO::getHeldTime() const {
@@ -351,7 +420,9 @@ bool HalGPIO::hasEdgeSideButtons() const {
 bool HalGPIO::verifyPowerButtonWakeup(const bool shortPressWakes, const uint16_t longHoldMs) {
   // M5Paper v1.1 reaches setup after a normal wheel click has already been
   // released. Its hardware pull-ups make this ghost-wake debounce unnecessary.
-  if (BoardConfig::isPaperMono() || BoardConfig::isM5PaperV11() || BoardConfig::ACTIVE.input.power < 0) {
+  // The Metalio boots after the button is released, so it skips the check.
+  if (BoardConfig::isPaperMono() || BoardConfig::isM5PaperV11() || BoardConfig::isMetalioEInk4() ||
+      BoardConfig::ACTIVE.input.power < 0) {
     return true;
   }
 
@@ -453,7 +524,8 @@ bool HalGPIO::coldBootImpliesPowerButton() const {
   // a no-USB POWERON can be trusted as a power-button boot. Unknown/future
   // topologies must continue booting instead of risking an immediate sleep
   // after flashing or when charge detection is unavailable.
-  return isXteinkDevice() || BoardConfig::isPaperMono() || BoardConfig::isSticky();
+  // The Metalio sleeps powered off and only its button turns it back on.
+  return isXteinkDevice() || BoardConfig::isPaperMono() || BoardConfig::isSticky() || BoardConfig::isMetalioEInk4();
 }
 
 HalGPIO::WakeupReason HalGPIO::getWakeupReason() const {

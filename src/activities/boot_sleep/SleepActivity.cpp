@@ -836,7 +836,11 @@ bool SleepActivity::renderBitmapSleepScreen(Bitmap& bitmap) const {
   }
 
   if (!hasGreyscale) {
+#if FREEINK_DEVICE_METALIO_EINK4
+    renderer.displayBuffer(HalDisplay::FULL_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);
+#else
     renderer.displayBuffer(HalDisplay::FAST_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);
+#endif
     return true;
   }
 
@@ -844,6 +848,9 @@ bool SleepActivity::renderBitmapSleepScreen(Bitmap& bitmap) const {
   // base into the grayscale pass rather than pushing a separate base refresh
   // first. Cover tone selection is independent of the panel refresh mode.
   if (absolute) {
+#if FREEINK_DEVICE_METALIO_EINK4
+    if (!direct) renderer.displayBuffer(HalDisplay::FULL_REFRESH);
+#endif
     if (!(direct ? renderer.displayDirectGrayscaleBase() : renderer.displayAbsoluteGrayscaleBase())) return false;
   } else {
     renderer.displayGrayscaleBase(HalDisplay::HALF_REFRESH);

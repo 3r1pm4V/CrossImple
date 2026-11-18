@@ -207,6 +207,22 @@ const std::vector<SettingInfo>& getBaseSettingsList() {
                           "rightEdgeDown", StrId::STR_CAT_CONTROLS)
             .withEnumRawValues(twoFingerSwipeActionValues));
 #endif
+#if FREEINK_CAP_HAPTIC
+    add(SettingInfo::Enum(StrId::STR_VIBRATION, &CrossPointSettings::vibration,
+                          {StrId::STR_VIBRATION_TOUCH, StrId::STR_VIBRATION_TOUCH_PAGE, StrId::STR_OFF},
+                          "vibration", StrId::STR_CAT_CONTROLS));
+    add(SettingInfo::Enum(StrId::STR_HAPTIC_INTENSITY, &CrossPointSettings::hapticIntensity,
+                          {StrId::STR_HAPTIC_LOW, StrId::STR_HAPTIC_MEDIUM, StrId::STR_HAPTIC_HIGH},
+                          "hapticIntensity", StrId::STR_CAT_CONTROLS));
+#endif
+#if FREEINK_DEVICE_METALIO_EINK4
+    add(buildHomeButtonActionSetting(StrId::STR_PILL_BUTTON_LEFT, &CrossPointSettings::pillButtonLeftAction,
+                                     "pillButtonLeftAction"));
+    add(buildHomeButtonActionSetting(StrId::STR_PILL_BUTTON_RIGHT, &CrossPointSettings::pillButtonRightAction,
+                                     "pillButtonRightAction"));
+    add(buildHomeButtonActionSetting(StrId::STR_AI_BUTTON, &CrossPointSettings::aiButtonAction,
+                                     "aiButtonAction"));
+#endif
     add(SettingInfo::Toggle(StrId::STR_ORIENTATION_AWARE, &CrossPointSettings::sideButtonOrientationAware,
                             "sideButtonOrientationAware", StrId::STR_CAT_CONTROLS));
     add(buildSideButtonActionSetting(StrId::STR_SHORT_PWR_BTN, &CrossPointSettings::sideButtonUpShort,

@@ -464,8 +464,8 @@ EpubReaderDrawerActivity::EpubReaderDrawerActivity(
       isBookCompleted(isBookCompleted),
       showReadingPaceReset(showReadingPaceReset),
       automaticPageTurnActive(automaticPageTurnActive),
-      autoPageTurnIntervalSeconds(std::clamp(autoPageTurnIntervalSeconds, READER_AUTO_PAGE_TURN_MIN_SECONDS,
-                                             READER_AUTO_PAGE_TURN_MAX_SECONDS)),
+      autoPageTurnIntervalSeconds(automaticPageTurnActive ? std::clamp(autoPageTurnIntervalSeconds, static_cast<uint16_t>(5),
+                                                                       READER_AUTO_PAGE_TURN_MAX_SECONDS) : 0),
       state(initialState),
       draft(captureSettings()),
       sourceSettings(draft),
@@ -1392,7 +1392,11 @@ void EpubReaderDrawerActivity::buildAutoPageTurnPane(UiApp::ScreenType& screen) 
   const bool buttonDevice = !mappedInput.hasTouchHardware();
   if (!buttonDevice) buildConfirmButton(screen);
   char value[16];
-  std::snprintf(value, sizeof(value), "%us", autoPageTurnIntervalSeconds);
+  if (autoPageTurnIntervalSeconds == 0) {
+    std::snprintf(value, sizeof(value), "%s", tr(STR_OFF));
+  } else {
+    std::snprintf(value, sizeof(value), "%us", autoPageTurnIntervalSeconds);
+  }
   ReaderSliderRowProps slider;
   slider.value = value;
   slider.sliderValue =
@@ -1401,7 +1405,7 @@ void EpubReaderDrawerActivity::buildAutoPageTurnPane(UiApp::ScreenType& screen) 
   slider.sliderAction = ACTION_SLIDER;
   slider.decrement = ACTION_STEP;
   slider.increment = ACTION_STEP;
-  configureReaderSliderScale(slider, "5s", "120s");
+  configureReaderSliderScale(slider, tr(STR_OFF), "120s");
   const int16_t hintLineHeight =
       buttonDevice ? screen.target().lineHeight(ReaderSliderHints::style(screen.theme()).font) : 0;
   const int16_t hintsHeight =
@@ -3078,6 +3082,9 @@ const char* EpubReaderDrawerActivity::rowValue(const RowId row, char* buffer, co
     case RowId::IndexingMethod:
       return draft.indexingMethod == 0 ? tr(STR_INDEXING_INCREMENTAL) : tr(STR_INDEXING_FULL_SECTION);
     case RowId::AutoPageTurn:
+      if (autoPageTurnIntervalSeconds == 0 || !automaticPageTurnActive) {
+        return tr(STR_OFF);
+      }
       std::snprintf(buffer, bufferSize, "%us", autoPageTurnIntervalSeconds);
       return buffer;
     default:

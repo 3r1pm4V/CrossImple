@@ -887,6 +887,14 @@ bool MappedInputManager::wasReaderMenuHold() const {
 #endif
 }
 
+bool MappedInputManager::wasHomeKeyAction() const {
+#ifdef SIMULATOR
+  return simulatorHomeKeyInput.wasTapped() || simulatorHomeKeyInput.wasLongPressed();
+#else
+  return hasHomeKeyHardware() && (gpio.wasHomeKeyTapped() || gpio.wasHomeKeyLongPressed());
+#endif
+}
+
 bool MappedInputManager::wasLightPanelGesture() const { return usesFrontlightSwipeLayout() && wasTopEdgeDownSwipe(); }
 #endif
 

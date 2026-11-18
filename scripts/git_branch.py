@@ -63,6 +63,8 @@ def get_hardware_version(project_dir, pioenv):
         return 'v0.26-x4-classic'
     if pioenv == 'x4-pro':
         return 'v0.26-x4-pro'
+    if pioenv in ('metalio-eink4', 'metalio-eink4-debug'):
+        return 'v0.26-metalio-eink4'
     return 'v0.26'
 
 

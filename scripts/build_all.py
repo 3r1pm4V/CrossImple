@@ -56,16 +56,24 @@ def main() -> None:
         env,
     )
 
-    # Stream 2: Isolated build for Xteink X4 family (ESP32-S3 Xtensa: X4 Classic & X4 Pro)
+    # Stream 2: Isolated build for ESP32-S3 family (X4 Classic, X4 Pro, Metalio 4)
+    s3_envs = ["x4-classic", "x4-pro"]
+    if "--metalio" in sys.argv or "--all" in sys.argv:
+        s3_envs.append("metalio-eink4")
+    
+    s3_cmd = [pio_exe, "run"]
+    for e in s3_envs:
+        s3_cmd.extend(["-e", e])
+
     run_step(
-        "Stream 2/2 - Building Xteink X4 Classic & X4 Pro (ESP32-S3)",
-        [pio_exe, "run", "-e", "x4-classic", "-e", "x4-pro"],
+        f"Stream 2/2 - Building ESP32-S3 ({', '.join(s3_envs)})",
+        s3_cmd,
         project_dir,
         env,
     )
 
     print(f"\n{'=' * 72}")
-    print("[CrossImple Build] Completed both isolated build streams (X3 + X4 Classic + X4 Pro)!")
+    print(f"[CrossImple Build] Completed build for: default, {', '.join(s3_envs)}!")
     print(f"{'=' * 72}")
 
 

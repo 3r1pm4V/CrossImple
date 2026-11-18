@@ -3,6 +3,9 @@
 #include <BoardConfig.h>
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
+#if FREEINK_CAP_HAPTIC
+#include <HapticManager.h>
+#endif
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
@@ -391,6 +394,11 @@ void SettingsActivity::rebuildSettingsLists() {
   const size_t expectedControlsCount = controlsParentBaseCount +
                                        // cppcheck-suppress knownConditionTrueFalse
                                        (hasFrontButtons ? 2u : 0u) + (gpio.hasHomeKey() ? 1u : 0u) +
+                                       (hasSettingByName(allSettings, StrId::STR_VIBRATION) ? 1u : 0u) +
+                                       (hasSettingByName(allSettings, StrId::STR_HAPTIC_INTENSITY) ? 1u : 0u) +
+                                       (hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_LEFT) ? 1u : 0u) +
+                                       (hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_RIGHT) ? 1u : 0u) +
+                                       (hasSettingByName(allSettings, StrId::STR_AI_BUTTON) ? 1u : 0u) +
                                        (hasSettingByName(allSettings, StrId::STR_TILT_PAGE_TURN) ? 1u : 0u) +
                                        (hasSettingByName(allSettings, StrId::STR_TILT_PAGE_TURN_DIRECTION) ? 1u : 0u) +
                                        (hasSettingByName(allSettings, StrId::STR_TILT_NEXT_PAGE_ONLY) ? 1u : 0u) +
@@ -634,6 +642,17 @@ void SettingsActivity::openEnumOptionPicker(const SettingInfo& setting) {
         const bool quickResumeTimeoutChanged = selectedSetting.valuePtr == &CrossPointSettings::quickResumeSleepScreen;
         syncQuickResumeTimeoutForSleepScreen(sleepScreenChanged, quickResumeTimeoutChanged);
         SETTINGS.saveToFile();
+#if FREEINK_CAP_HAPTIC
+        if (selectedSetting.valuePtr == &CrossPointSettings::vibration ||
+            selectedSetting.valuePtr == &CrossPointSettings::hapticIntensity) {
+          SETTINGS.applyHapticFeedback();
+          if (HapticManager::getInstance().supported() && HapticManager::getInstance().enabled()) {
+            const uint8_t gain = HapticManager::getInstance().intensity();
+            const uint32_t ms = (gain <= 160) ? 35 : ((gain >= 220) ? 60 : 45);
+            HapticManager::getInstance().pulse(ms, 255);
+          }
+        }
+#endif
         rebuildSettingsLists();
         requestUpdate();
       },

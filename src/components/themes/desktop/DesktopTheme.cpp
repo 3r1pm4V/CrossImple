@@ -66,10 +66,13 @@ DesktopLayout computeDesktopLayout(const GfxRenderer& renderer, const Rect& rect
   const int contentW = rect.width - inset * 2;
   out.hasTouchFooter = gpio.hasTouch();
   const int touchFooterH = out.hasTouchFooter ? kTouchFooterHeight : 0;
-  const int usableH = rect.height - touchFooterH;
+  const int screenH = renderer.getScreenHeight();
+  const int bottomLimit = out.hasTouchFooter ? std::max(rect.y + rect.height, screenH) : (rect.y + rect.height);
+  constexpr int kFooterPadBottom = 4;
+  const int footerY = bottomLimit - touchFooterH - kFooterPadBottom;
 
   out.touchMenuRect = Rect{rect.x + inset + contentW - 24, rect.y + 6, 24, 24};
-  const int bookY = rect.y + usableH - kBookCardHeight - 8;
+  const int bookY = out.hasTouchFooter ? (footerY - kBookCardHeight - 8) : (bottomLimit - kBookCardHeight - 16);
   const int statsY = bookY - kStatsCardHeight - kGap;
   const int wallpaperY = out.hasTouchFooter ? (out.touchMenuRect.y + out.touchMenuRect.height + 6) : (rect.y + 8);
   const int wallpaperH = std::max(100, statsY - wallpaperY - 10);
@@ -80,7 +83,7 @@ DesktopLayout computeDesktopLayout(const GfxRenderer& renderer, const Rect& rect
   out.bookThumbRect = Rect{out.bookCardRect.x + kBookCardPad,
                            out.bookCardRect.y + (out.bookCardRect.height - DesktopMetrics::homeCoverImageHeight) / 2,
                            DesktopMetrics::homeCoverImageWidth, DesktopMetrics::homeCoverImageHeight};
-  out.footerRect = Rect{rect.x + inset, rect.y + usableH, contentW, touchFooterH};
+  out.footerRect = Rect{rect.x + inset, footerY, contentW, touchFooterH};
   return out;
 }
 
@@ -326,7 +329,7 @@ void drawStatsCards(const GfxRenderer& renderer, const Rect& area, const GlobalR
   renderer.drawText(UI_10_FONT_ID, leftCard.x + pad, leftCard.y + 18, "Today's reading", true);
 
   snprintf(buf, sizeof(buf), "%lu min", static_cast<unsigned long>(snap.todayMinutes));
-  renderer.drawText(LEXENDDECA_16_FONT_ID, leftCard.x + pad, leftCard.y + 66, buf, true, EpdFontFamily::BOLD);
+  renderer.drawText(UI_12_FONT_ID, leftCard.x + pad, leftCard.y + 60, buf, true, EpdFontFamily::BOLD);
 
   if (snap.streakDays > 0) {
     snprintf(buf, sizeof(buf), tr(STR_STATS_DAY_STREAK_FORMAT), static_cast<unsigned>(snap.streakDays));
@@ -339,9 +342,9 @@ void drawStatsCards(const GfxRenderer& renderer, const Rect& area, const GlobalR
   renderer.drawText(UI_10_FONT_ID, rightCard.x + pad, rightCard.y + 18, "This week", true);
 
   snprintf(buf, sizeof(buf), "%lu", static_cast<unsigned long>(snap.weekMinutes));
-  const int numW = renderer.getTextWidth(LEXENDDECA_16_FONT_ID, buf, EpdFontFamily::BOLD);
-  renderer.drawText(LEXENDDECA_16_FONT_ID, rightCard.x + pad, rightCard.y + 52, buf, true, EpdFontFamily::BOLD);
-  renderer.drawText(UI_10_FONT_ID, rightCard.x + pad + numW + 5, rightCard.y + 62, "min", true);
+  const int numW = renderer.getTextWidth(UI_12_FONT_ID, buf, EpdFontFamily::BOLD);
+  renderer.drawText(UI_12_FONT_ID, rightCard.x + pad, rightCard.y + 54, buf, true, EpdFontFamily::BOLD);
+  renderer.drawText(UI_10_FONT_ID, rightCard.x + pad + numW + 5, rightCard.y + 56, "min", true);
 
   snprintf(buf, sizeof(buf), "Avg %lu min/day", static_cast<unsigned long>(snap.avgMinutesPerDay));
   renderer.drawText(SMALL_FONT_ID, rightCard.x + pad, rightCard.y + 96, buf, true);

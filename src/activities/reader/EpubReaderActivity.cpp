@@ -89,7 +89,7 @@ namespace {
 // pagesPerRefresh now comes from SETTINGS.getRefreshFrequency()
 constexpr unsigned long longPressMenuMs = 600;
 constexpr uint16_t DEFAULT_AUTO_PAGE_TURN_INTERVAL_S = 30;
-constexpr uint16_t MIN_AUTO_PAGE_TURN_INTERVAL_S = 5;
+constexpr uint16_t MIN_AUTO_PAGE_TURN_INTERVAL_S = 0;
 constexpr uint16_t MAX_AUTO_PAGE_TURN_INTERVAL_S = 120;
 constexpr int MAX_PAGE_LOAD_RETRIES = 3;
 constexpr uint8_t LEGACY_READER_SETTINGS_FILE_VERSION = 1;
@@ -1056,7 +1056,16 @@ void buildBookmarkSnippet(const Page& page, char* out, const size_t outSize) {
 }
 
 uint16_t clampAutoPageTurnIntervalSeconds(const uint16_t seconds) {
-  return std::clamp(seconds, MIN_AUTO_PAGE_TURN_INTERVAL_S, MAX_AUTO_PAGE_TURN_INTERVAL_S);
+  if (seconds == 0) return 0;
+  return std::clamp(seconds, static_cast<uint16_t>(5), MAX_AUTO_PAGE_TURN_INTERVAL_S);
+}
+
+void formatAutoPageTurnInterval(int value, char* buf, size_t len) {
+  if (value <= 0) {
+    snprintf(buf, len, "%s", tr(STR_OFF));
+  } else {
+    snprintf(buf, len, "%ds", value);
+  }
 }
 
 bool readExact(FsFile& file, void* data, const size_t size) { return file.read(data, size) == static_cast<int>(size); }
@@ -4762,15 +4771,16 @@ void EpubReaderActivity::openAutoPageTurnIntervalPicker(const bool ignoreInitial
   startActivityForResult(
       std::make_unique<IntervalSelectionActivity>(
           renderer, mappedInput, "EpubReaderAutoPageTurnInterval", StrId::STR_AUTO_TURN_INTERVAL_SECONDS,
-          getAutoPageTurnIntervalSeconds(), MIN_AUTO_PAGE_TURN_INTERVAL_S, MAX_AUTO_PAGE_TURN_INTERVAL_S, 1, 5,
+          automaticPageTurnActive ? getAutoPageTurnIntervalSeconds() : 0, 0, MAX_AUTO_PAGE_TURN_INTERVAL_S, 5, 5,
           StrId::STR_NONE_OPT, /*readerActivity=*/true,
           /*allowPowerAsConfirm=*/true, ignoreInitialConfirmRelease,
           /*showPercentValue=*/false, StrId::STR_NONE_OPT,
           /*overrideDisabledReaderTouchscreen=*/true,
-          /*showTouchHeaderBackButton=*/false, /*valueFormatter=*/nullptr, /*tapStep=*/5),
+          /*showTouchHeaderBackButton=*/false, formatAutoPageTurnInterval, /*tapStep=*/5),
       [this, returnToReaderMenu](const ActivityResult& result) {
         if (!result.isCancelled) {
-          setAutoPageTurnIntervalSeconds(static_cast<uint16_t>(std::get<IntervalResult>(result.data).value));
+          const int val = std::get<IntervalResult>(result.data).value;
+          setAutoPageTurnIntervalSeconds(val <= 0 ? 0 : static_cast<uint16_t>(val));
         } else {
           resumeReadingPaceTimer("auto_turn_interval_cancel");
         }
@@ -5946,6 +5956,18 @@ void EpubReaderActivity::setAutoPageTurnIntervalSeconds(uint16_t seconds) {
   clearPendingManualPageTurns();
   if (seconds == 0) {
     automaticPageTurnActive = false;
+    bookHasAutoPageTurnInterval = false;
+    lastAutoPageTurnIntervalSeconds = 0;
+    if (epub) {
+      BookReaderSettingsData data = loadBookReaderSettingsFile(epub->getCachePath());
+      data.hasAutoPageTurnInterval = false;
+      data.autoPageTurnSeconds = 0;
+      if (saveBookReaderSettingsFile(epub->getCachePath(), data)) {
+        initialBookReaderSettings.hasAutoPageTurnInterval = false;
+        initialBookReaderSettings.autoPageTurnSeconds = 0;
+      }
+    }
+    requestUpdate();
     return;
   }
 

@@ -8,12 +8,151 @@ because on Windows pioarduino wraps middlewares and discards None return values.
 """
 
 import os
+from pathlib import Path
 from platformio.builder.tools import piobuild
 
 try:
     Import("env")  # noqa: F821
 except NameError:
     env = None
+
+
+def _patch_file_once(path: Path, old: str, new: str) -> None:
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    if new in text:
+        return
+    if old in text:
+        path.write_text(text.replace(old, new, 1), encoding="utf-8")
+        print(f"[prune_freeink_sdk] Patched {path.name}")
+
+
+def _patch_freeink_sdk(project_dir: Path) -> None:
+    sdk_dir = project_dir / "freeink-sdk"
+    if not sdk_dir.is_dir():
+        return
+
+    # 1. Metalio E-Ink 4: Hold modem MRDY (GPIO21) HIGH at boot
+    board_h = sdk_dir / "libs/hardware/BoardConfig/include/MetalioEInk4Board.h"
+    _patch_file_once(
+        board_h,
+        "constexpr uint8_t PIN_POWER_PULSE = 11;\nconstexpr int VIBRATION_GPIO = 44;",
+        "constexpr uint8_t PIN_POWER_PULSE = 11;\nconstexpr int MODEM_MRDY_GPIO = 21;\nconstexpr int VIBRATION_GPIO = 44;",
+    )
+    _patch_file_once(
+        board_h,
+        "  pinMode(VIBRATION_GPIO, OUTPUT);\n  digitalWrite(VIBRATION_GPIO, LOW);\n  ready = true;",
+        "  pinMode(VIBRATION_GPIO, OUTPUT);\n  digitalWrite(VIBRATION_GPIO, LOW);\n  pinMode(MODEM_MRDY_GPIO, OUTPUT);\n  digitalWrite(MODEM_MRDY_GPIO, HIGH);\n  ready = true;",
+    )
+
+    # 2. InputManager.h: Expose BTN_EXTRA = 7
+    input_h = sdk_dir / "libs/hardware/InputManager/include/InputManager.h"
+    _patch_file_once(
+        input_h,
+        "  static constexpr uint8_t BTN_POWER = 6;\n",
+        "  static constexpr uint8_t BTN_POWER = 6;\n  static constexpr uint8_t BTN_EXTRA = 7;\n",
+    )
+
+    # 3. InputManager.cpp: CST816S immediate IRQ poll, Lift-Up bezel latch, and Left/Right pill mapping
+    input_cpp = sdk_dir / "libs/hardware/InputManager/src/InputManager.cpp"
+    _patch_file_once(
+        input_cpp,
+        """  if (now < touchReadAt) return;
+  touchReadAt = now + TOUCH_SAMPLE_DELAY_MS;
+  const bool active = touchPressed || touchHomeKeyDown || cstVirtualButtons;
+  const bool fresh = cstInterrupt || t.irq < 0 || digitalRead(t.irq) == LOW;
+  if (!active && !fresh) return;
+  cstInterrupt = false;""",
+        """  const bool active = touchPressed || touchHomeKeyDown || cstVirtualButtons;
+  if (active && now < touchReadAt) return;
+  const bool fresh = cstInterrupt || t.irq < 0 || digitalRead(t.irq) == LOW;
+  if (!active && !fresh) return;
+  touchReadAt = now + TOUCH_SAMPLE_DELAY_MS;
+  cstInterrupt = false;""",
+    )
+    _patch_file_once(
+        input_cpp,
+        """  if (!(data[0] & 0x0F) || (data[1] >> 6) == 1) {
+    release();
+    return;
+  }
+  const uint16_t rawX = ((data[1] & 0x0F) << 8) | data[2];
+  const uint16_t rawY = ((data[3] & 0x0F) << 8) | data[4];
+  if (BoardConfig::isMetalioEInk4() && rawY >= 800) {
+    // Vendor cover key centers: HOME=(80,900), NEXT=(240,900), PREV=(400,900).
+    // Ignore invalid off-panel samples rather than clamping them into screen taps.
+    if (rawY < 860 || rawY > 940 || rawX > 479) { release(); return; }
+    if (touchPressed) { suppressTouchContact(); release(); }
+    if (rawX < 160) {
+      cstVirtualButtons = 0;
+      if (!touchHomeKeyDown) {
+        touchHomeKeyDown = true;
+        touchHomeKeyPressedEvent = true;
+        touchHomeKeyStart = now;
+        touchHomeKeyLongFired = false;
+      } else if (!touchHomeKeyLongFired && now - touchHomeKeyStart >= HOME_KEY_LONG_PRESS_MS) {
+        touchHomeKeyLongFired = true;
+        touchHomeKeyEvent = true;
+        touchHomeKeyLongPressEvent = true;
+      }
+    } else {
+      if (touchHomeKeyDown) release();
+      cstVirtualButtons = (1 << (rawX < 320 ? BTN_DOWN : BTN_UP));
+    }
+    return;
+  }""",
+        """  const uint16_t rawX = ((data[1] & 0x0F) << 8) | data[2];
+  const uint16_t rawY = ((data[3] & 0x0F) << 8) | data[4];
+  const bool isUpFrame = !(data[0] & 0x0F) || (data[1] >> 6) == 1;
+  if (isUpFrame) {
+    // If a quick bezel-key tap completed before the first poll (active == false
+    // on a fresh Lift-Up frame), latch that bezel key for one sample window so
+    // the tap is not lost.
+    if (!active && fresh && (data[1] >> 6) == 1 && BoardConfig::isMetalioEInk4() &&
+        rawY >= 840 && rawY <= 980 && rawX <= 479) {
+      if (rawX < 160) {
+        touchHomeKeyEvent = true;
+        touchHomeKeyTapEvent = true;
+      } else {
+        cstVirtualButtons = (1 << (rawX < 320 ? BTN_UP : BTN_DOWN));
+      }
+      return;
+    }
+    release();
+    return;
+  }
+  if (BoardConfig::isMetalioEInk4() && rawY >= 800) {
+    // Vendor cover key centers: HOME=(80,900), NEXT=(240,900), PREV=(400,900).
+    // Bezel buttons sit strictly in 840..980px range below screen; ignore near-screen margin (800..839px).
+    if (rawY < 840 || rawY > 980 || rawX > 479) {
+      release();
+      return;
+    }
+    if (touchPressed) {
+      suppressTouchContact();
+      release();
+    }
+    if (rawX < 160) {
+      cstVirtualButtons = 0;
+      if (!touchHomeKeyDown) {
+        touchHomeKeyDown = true;
+        touchHomeKeyPressedEvent = true;
+        touchHomeKeyStart = now;
+        touchHomeKeyLongFired = false;
+      } else if (!touchHomeKeyLongFired && now - touchHomeKeyStart >= HOME_KEY_LONG_PRESS_MS) {
+        touchHomeKeyLongFired = true;
+        touchHomeKeyEvent = true;
+        touchHomeKeyLongPressEvent = true;
+      }
+    } else {
+      if (touchHomeKeyDown) release();
+      // Field guide: middle pill = Page Up (BTN_UP), right pill = Page Down (BTN_DOWN)
+      cstVirtualButtons = (1 << (rawX < 320 ? BTN_UP : BTN_DOWN));
+    }
+    return;
+  }""",
+    )
 
 
 def _append_src_filter(current_filter, exclusions):
@@ -24,6 +163,8 @@ def _append_src_filter(current_filter, exclusions):
 
 
 def _prune_freeink_sdk(build_env):
+    project_dir = Path(build_env.subst("$PROJECT_DIR"))
+    _patch_freeink_sdk(project_dir)
     pioenv = build_env.get("PIOENV", "")
 
     skip_drivers = [

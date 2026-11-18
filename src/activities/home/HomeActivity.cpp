@@ -36,6 +36,7 @@
 #include "RecentBookProgress.h"
 #include "RecentBooksStore.h"
 #include "SavedItemsHomeActivity.h"
+#include "components/TouchRegistry.h"
 #include "components/UITheme.h"
 #include "components/themes/dashboard/DashboardTheme.h"
 #include "components/themes/desktop/DesktopTheme.h"
@@ -277,6 +278,7 @@ HomeMenuEntries buildMinimalMenuItems(bool hasReadingStats, bool hasBookmarks, b
   }
 
   items.push({tr(STR_FILE_TRANSFER), Transfer, HomeMenuAction::FileTransfer});
+  items.push({tr(STR_SETTINGS_SHORT), Settings, HomeMenuAction::Settings});
   return items;
 }
 
@@ -1388,6 +1390,31 @@ void HomeActivity::loop() {
 
   if (quickActionsPopup.handleInput(mappedInput, [this] { requestUpdate(); })) return;
 
+  // 1) Home / Menu key (e.g. Orange button on Metalio 4) opens Settings while on Home screen
+  if (mappedInput.wasHomeGesture() || mappedInput.wasReaderMenuHold()) {
+    onSettingsOpen();
+    return;
+  }
+
+  // 2) Tapping the top status bar / header area on ANY theme opens Settings
+  if (mappedInput.hasTouchHardware() && !minimalMenuOpen) {
+    const int touchTopH =
+        std::max(UITheme::getTopStatusBarY(renderer) + UITheme::getDisplayStatusBarTextHeight(renderer) + 4, 28);
+    int tapX = 0, tapY = 0;
+    int btnId = -1;
+    if (mappedInput.wasScreenTapped(tapX, tapY) && tapY >= 0 && tapY <= touchTopH &&
+        !TouchRegistry::getInstance().hitTest(tapX, tapY, TouchRegistry::Kind::Button, btnId)) {
+      onSettingsOpen();
+      return;
+    }
+  }
+
+  // 3) Global swipe down from top on ANY theme opens Settings
+  if (mappedInput.wasSwipe() == MappedInputManager::SwipeDir::Down) {
+    onSettingsOpen();
+    return;
+  }
+
   if (coverGridUi) {
     const int touched = coverGridUi->selectedAction(mappedInput);
     if (coverGridUi->app.invalidated()) requestUpdate();
@@ -1479,7 +1506,9 @@ void HomeActivity::loop() {
             onFileTransferOpen();
             break;
           case HomeMenuAction::ContinueReading:
+            break;
           case HomeMenuAction::Settings:
+            onSettingsOpen();
             break;
         }
       };
@@ -1560,26 +1589,24 @@ void HomeActivity::loop() {
       return;
     }
 
-    const int homeNavCount = minimalHomeNavCount(!recentBooks.empty());
+    const int homeNavCount = (isDesktopTheme() && mappedInput.hasTouch()) ? 4 : minimalHomeNavCount(!recentBooks.empty());
     if (minimalHomeNavIndex >= homeNavCount) {
       minimalHomeNavIndex = homeNavCount - 1;
     }
 
-    // Touch readers do not show the front-button hints, so retain their
-    // existing side-button handling without moving the non-touch hint focus.
+    // Touch readers do not show the front-button hints, so let Up/Down cycle
+    // recent books, or open continue reading if only one book exists.
     if (mappedInput.hasTouch()) {
-      if (mappedInput.wasPressed(MappedInputManager::Button::Up)) {
-        minimalHomeNavIndex = minimalHomeNavIndex < 0
-                                  ? homeNavCount - 1
-                                  : ButtonNavigator::previousIndex(minimalHomeNavIndex, homeNavCount);
-        requestUpdate();
-        return;
-      }
-      if (mappedInput.wasPressed(MappedInputManager::Button::Down)) {
-        minimalHomeNavIndex =
-            minimalHomeNavIndex < 0 ? 0 : ButtonNavigator::nextIndex(minimalHomeNavIndex, homeNavCount);
-        requestUpdate();
-        return;
+      if (mappedInput.wasPressed(MappedInputManager::Button::Up) ||
+          mappedInput.wasPressed(MappedInputManager::Button::Down)) {
+        if (canSwapHomeBook()) {
+          showNextRecentBookOnHome();
+          return;
+        }
+        if (!recentBooks.empty()) {
+          onContinueReading();
+          return;
+        }
       }
     }
 
@@ -1591,13 +1618,27 @@ void HomeActivity::loop() {
           requestUpdate();
           break;
         case 1:
-          onMinimalBrowseOpen();
+          if (isDesktopTheme() && mappedInput.hasTouch()) {
+            if (SETTINGS.isLibraryFileBrowserSwapped())
+              onFileBrowserOpen();
+            else
+              onLibraryOpen();
+          } else {
+            onMinimalBrowseOpen();
+          }
           break;
         case 2:
           onSettingsOpen();
           break;
         case 3:
-          onContinueReading();
+          if (isDesktopTheme() && mappedInput.hasTouch()) {
+            if (SETTINGS.isLibraryFileBrowserSwapped())
+              onLibraryOpen();
+            else
+              onFileBrowserOpen();
+          } else {
+            onContinueReading();
+          }
           break;
       }
     };

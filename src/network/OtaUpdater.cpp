@@ -37,6 +37,8 @@ constexpr char latestReleaseUrl[] = CROSSINK_OTA_RELEASE_URL;
 constexpr char crossimpleAssetPrefix[] = "crossimple_x4-pro_v";
 #elif defined(FREEINK_DEVICE_X4CLASSIC) && FREEINK_DEVICE_X4CLASSIC
 constexpr char crossimpleAssetPrefix[] = "crossimple_x4-classic_v";
+#elif defined(FREEINK_DEVICE_METALIO_EINK4) && FREEINK_DEVICE_METALIO_EINK4
+constexpr char crossimpleAssetPrefix[] = "crossimple_metalio-eink4_v";
 #elif defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3 && (!defined(FREEINK_DEVICE_X4) || !FREEINK_DEVICE_X4)
 constexpr char crossimpleAssetPrefix[] = "crossimple_x3_v";
 #else

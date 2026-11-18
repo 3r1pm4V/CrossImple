@@ -40,7 +40,7 @@ constexpr ReaderDrawerTab adjacentReaderDrawerTab(const ReaderDrawerTab tab, con
   return static_cast<ReaderDrawerTab>((current + (forward ? 1 : READER_DRAWER_TAB_COUNT - 1)) %
                                       READER_DRAWER_TAB_COUNT);
 }
-constexpr uint16_t READER_AUTO_PAGE_TURN_MIN_SECONDS = 5;
+constexpr uint16_t READER_AUTO_PAGE_TURN_MIN_SECONDS = 0;
 constexpr uint16_t READER_AUTO_PAGE_TURN_MAX_SECONDS = 120;
 
 enum class ReaderDrawerPane : uint8_t {

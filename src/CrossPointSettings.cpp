@@ -5,6 +5,9 @@
 #include <HalClock.h>
 #include <HalGPIO.h>
 #include <HalStorage.h>
+#if FREEINK_CAP_HAPTIC
+#include <HapticManager.h>
+#endif
 #include <I18n.h>
 #include <Logging.h>
 #include <ObfuscationUtils.h>
@@ -261,6 +264,7 @@ const char* CrossPointSettings::getDefaultDeviceName() {
 #endif
   if (BoardConfig::isSticky()) return "Sticky";
   if (BoardConfig::isX4Pro()) return "CrossImple X4 Pro";
+  if (BoardConfig::isMetalioEInk4()) return "CrossImple Metalio 4";
   if (gpio.deviceIsX3()) return "CrossImple X3";
   if (gpio.deviceIsX4()) return "CrossImple X4";
   return "CrossImple";
@@ -555,6 +559,18 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
       !doc["tiltPageTurnDirection"].isNull() &&
       ((doc["tiltPageTurnDirectionSchema"] | static_cast<uint8_t>(1)) < TILT_DIRECTION_SCHEMA_CURRENT);
   if (doc["statusBarChapterPageCount"].isNull()) applyLegacyStatusBarSettings(*this);
+  if (doc["vibration"].isNull() && !doc["hapticFeedback"].isNull()) {
+    const uint8_t legacy = doc["hapticFeedback"] | static_cast<uint8_t>(2);
+    if (legacy == 0) {
+      vibration = VIBRATION_OFF;
+    } else {
+      vibration = VIBRATION_TOUCH_PAGE;
+      if (legacy == 1) hapticIntensity = HAPTIC_LOW;
+      else if (legacy == 3) hapticIntensity = HAPTIC_HIGH;
+      else hapticIntensity = HAPTIC_MEDIUM;
+    }
+    needsResave = true;
+  }
   screenInverted = clamp(doc["screenInverted"] | screenInverted, 2, screenInverted);
 
   for (const auto& info : getBaseSettingsList()) {
@@ -1044,10 +1060,34 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
   return true;
 }
 
+void CrossPointSettings::applyHapticFeedback() const {
+#if FREEINK_CAP_HAPTIC
+  if (vibration == VIBRATION_OFF) {
+    HapticManager::getInstance().setEnabled(false);
+  } else {
+    HapticManager::getInstance().setEnabled(true);
+    gpio.setHapticPageTurnsEnabled(vibration == VIBRATION_TOUCH_PAGE);
+    switch (hapticIntensity) {
+      case HAPTIC_LOW:
+        HapticManager::getInstance().setIntensity(153);
+        break;
+      case HAPTIC_HIGH:
+        HapticManager::getInstance().setIntensity(240);
+        break;
+      case HAPTIC_MEDIUM:
+      default:
+        HapticManager::getInstance().setIntensity(191);
+        break;
+    }
+  }
+#endif
+}
+
 bool CrossPointSettings::saveToFile() const {
   std::lock_guard<std::mutex> lock(storeMutex);
   JsonDocument doc;
   toJson(doc);
+  applyHapticFeedback();
   WifiTransmitPower::setLimit(doc["wifiTransmitPower"] | uint8_t{0});
   return PersistableStoreBase::writeDocToFileAtomic(SETTINGS_FILE_JSON, doc);
 }
@@ -1095,11 +1135,15 @@ bool CrossPointSettings::loadFromFile() {
   // damaged. Falling through would import another firmware's settings.json
   // and replace the user's CrossInk preferences.
   if (hasCrossInkSettings || jsonStatus != JsonLoadStatus::MissingOrEmpty) {
+    applyHapticFeedback();
     return jsonStatus == JsonLoadStatus::Loaded;
   }
 
   jsonStatus = loadJsonSettings(LEGACY_SETTINGS_FILE_JSON, true);
-  if (jsonStatus != JsonLoadStatus::MissingOrEmpty) return jsonStatus == JsonLoadStatus::Loaded;
+  if (jsonStatus != JsonLoadStatus::MissingOrEmpty) {
+    applyHapticFeedback();
+    return jsonStatus == JsonLoadStatus::Loaded;
+  }
 
   // Fall back to binary migration
   if (Storage.exists(SETTINGS_FILE_BIN)) {
@@ -1113,6 +1157,7 @@ bool CrossPointSettings::loadFromFile() {
       bottomReaderStatusBar.batteryStyle = legacyBatteryStyle(hideBatteryPercentage, false);
       displayStatusBar.batteryStyle = legacyBatteryStyle(hideBatteryPercentage, true);
       migrateLanguageBinaryFile();
+      applyHapticFeedback();
       if (saveToFile()) {
         Storage.rename(SETTINGS_FILE_BIN, SETTINGS_FILE_BAK);
         LOG_DBG("CPS", "Migrated settings.bin to crossink-settings.json");
@@ -1125,6 +1170,7 @@ bool CrossPointSettings::loadFromFile() {
   }
 
   // No settings files at all -- check for standalone language.bin
+  applyHapticFeedback();
   return migrateLanguageBinaryFile();
 }
 

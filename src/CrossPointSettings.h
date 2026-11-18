@@ -391,6 +391,9 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     PAGE_TURN_GESTURE_COUNT
   };
 
+  enum VIBRATION { VIBRATION_TOUCH = 0, VIBRATION_TOUCH_PAGE = 1, VIBRATION_OFF = 2, VIBRATION_COUNT };
+  enum HAPTIC_INTENSITY { HAPTIC_LOW = 0, HAPTIC_MEDIUM = 1, HAPTIC_HIGH = 2, HAPTIC_INTENSITY_COUNT };
+
   enum INDEXING_METHOD { INDEXING_INCREMENTAL = 0, INDEXING_FULL_SECTION = 1, INDEXING_METHOD_COUNT };
   static uint8_t defaultIndexingMethod();
 
@@ -550,10 +553,14 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Up + Down shortcut action. On touch hardware, while the reader touchscreen
   // is disabled, this chord instead opens Settings as the recovery route.
   uint8_t sideButtonChordAction = CHORD_DISABLED;
-  // X4 Pro capacitive Home-key actions. Values below SHORT_PWRBTN_COUNT map
+  // Capacitive Home-key actions. Values below SHORT_PWRBTN_COUNT map
   // directly to the matching power-button shortcut action.
   uint8_t homeButtonTapAction = HOME_BUTTON_BACK_HOME;
+#if FREEINK_DEVICE_METALIO_EINK4
+  uint8_t homeButtonDoubleTapAction = HOME_READER;
+#else
   uint8_t homeButtonDoubleTapAction = HOME_BUTTON_TOGGLE_FRONTLIGHT;
+#endif
   uint8_t homeButtonLongPressAction = HOME_BUTTON_READER_MENU;
   // Home-key devices can lock the capacitive Home key while a reader page is
   // active. Reader menus temporarily override this without changing the value.
@@ -630,6 +637,11 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   enum DESKTOP_WALLPAPER_MODE { DESKTOP_WALLPAPER_1BIT = 0, DESKTOP_WALLPAPER_4GRAY = 1 };
   uint8_t uiTheme = LYRA;
   uint8_t desktopWallpaperMode = DESKTOP_WALLPAPER_1BIT;
+  uint8_t vibration = VIBRATION_TOUCH_PAGE;
+  uint8_t hapticIntensity = HAPTIC_HIGH;
+  uint8_t pillButtonLeftAction = PREVIOUS_PAGE;
+  uint8_t pillButtonRightAction = PAGE_TURN;
+  uint8_t aiButtonAction = FORCE_REFRESH;
   uint8_t swapLibraryFileBrowser = 0;
   bool supportsLibraryFileBrowserSwap() const {
     return uiTheme == MINIMAL || uiTheme == DASHBOARD || uiTheme == DESKTOP;
@@ -800,6 +812,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
 
   bool saveToFile() const;
   bool loadFromFile();
+  void applyHapticFeedback() const;
   static const char* getFilePath() { return "/.crosspoint/crossink-settings.json"; }
   void toJson(JsonDocument& doc) const;
   bool fromJson(JsonVariantConst doc, bool importingCrossPoint = false);

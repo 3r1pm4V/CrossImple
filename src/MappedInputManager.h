@@ -190,6 +190,8 @@ class MappedInputManager {
   bool wasReaderLightPanelGesture() const;
   // Reader-menu shortcut: a long press of the capacitive home key.
   bool wasReaderMenuHold() const;
+  // Raw physical/capacitive Home-key tap or hold without reader/settings locks
+  bool wasHomeKeyAction() const;
 #else
   constexpr bool hasTouch() const { return false; }
   constexpr bool hasTouchHardware() const { return false; }
@@ -239,6 +241,7 @@ class MappedInputManager {
   constexpr bool wasReaderHomeGesture() const { return false; }
   constexpr bool wasReaderLightPanelGesture() const { return false; }
   constexpr bool wasReaderMenuHold() const { return false; }
+  constexpr bool wasHomeKeyAction() const { return false; }
 #endif
   // Directions for tabbed menus, derived from the physical button layout.
   Button menuButton(Button direction) const;

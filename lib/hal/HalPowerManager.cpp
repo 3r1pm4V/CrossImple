@@ -158,6 +158,12 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
   // guarantees that ordering).
   freeink::PowerManager::powerDownRailsForSleep();
 
+#if FREEINK_DEVICE_METALIO_EINK4
+  // Deep sleep leaves the board, 4G modem and audio module powered, so cut
+  // power instead; the button cold-boots it. Returns only on USB power.
+  freeink::metalio::powerOff();
+#endif
+
   // The SDK convenience helper currently isolates every GPIO after arming the
   // wake source. On the ESP32-C3 that overwrites the power pin's sleep input
   // configuration, so short presses can be missed. Isolate first, then restore

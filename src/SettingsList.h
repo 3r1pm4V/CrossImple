@@ -512,9 +512,9 @@ inline SettingInfo buildSideButtonActionSetting(const StrId nameId, uint8_t Cros
 // 110 common entries, plus Publisher Fonts on scalable-font builds and four
 // edge gestures on touch devices; getBaseSettingsCapacity() adds the three persisted IMU entries.
 #if CROSSINK_SCALABLE_FONTS
-inline constexpr size_t BASE_SETTINGS_CAPACITY = 112 + (CROSSINK_APP_CAP_TOUCH ? 4 : 0);
+inline constexpr size_t BASE_SETTINGS_CAPACITY = 122 + (CROSSINK_APP_CAP_TOUCH ? 4 : 0);
 #else
-inline constexpr size_t BASE_SETTINGS_CAPACITY = 111 + (CROSSINK_APP_CAP_TOUCH ? 4 : 0);
+inline constexpr size_t BASE_SETTINGS_CAPACITY = 121 + (CROSSINK_APP_CAP_TOUCH ? 4 : 0);
 #endif
 
 inline size_t getBaseSettingsCapacity() {
@@ -547,6 +547,9 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
                  setting.valuePtr == &CrossPointSettings::homeButtonTapAction ||
                  setting.valuePtr == &CrossPointSettings::homeButtonDoubleTapAction ||
                  setting.valuePtr == &CrossPointSettings::homeButtonLongPressAction ||
+                 setting.valuePtr == &CrossPointSettings::pillButtonLeftAction ||
+                 setting.valuePtr == &CrossPointSettings::pillButtonRightAction ||
+                 setting.valuePtr == &CrossPointSettings::aiButtonAction ||
                  isSideButtonActionSetting(setting) || isFrontButtonActionSetting(setting)) {
         removeEnumRawValue(setting, CrossPointSettings::READING_STATS);
       } else if (setting.valuePtr == &CrossPointSettings::powerChordAction ||
@@ -783,19 +786,31 @@ inline std::vector<SettingInfo> buildControlsSettingsParentList(const std::vecto
   const bool hasTapsGestures = hasSettingByName(allSettings, StrId::STR_NEXT_PAGE);
   const bool hasFrontButtons = deviceHasFrontButtons();
   const bool hasHomeKey = gpio.hasHomeKey();
+  const bool hasVibration = hasSettingByName(allSettings, StrId::STR_VIBRATION);
+  const bool hasHapticIntensity = hasSettingByName(allSettings, StrId::STR_HAPTIC_INTENSITY);
+  const bool hasPillLeft = hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_LEFT);
+  const bool hasPillRight = hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_RIGHT);
+  const bool hasAiButton = hasSettingByName(allSettings, StrId::STR_AI_BUTTON);
 
   std::vector<SettingInfo> settings;
   settings.reserve(3 + (hasHomeKey ? 1u : 0u) + (hasFrontButtons ? 2u : 0u) +
                    (hasTiltPageTurnSetting ? 1u : 0u) + (hasTiltPageTurnDirectionSetting ? 1u : 0u) +
-                   (hasTiltNextPageOnlySetting ? 1u : 0u) + (hasTapsGestures ? 1u : 0u));
+                   (hasTiltNextPageOnlySetting ? 1u : 0u) + (hasTapsGestures ? 1u : 0u) +
+                   (hasVibration ? 1u : 0u) + (hasHapticIntensity ? 1u : 0u) +
+                   (hasPillLeft ? 1u : 0u) + (hasPillRight ? 1u : 0u) + (hasAiButton ? 1u : 0u));
   if (hasHomeKey) {
     settings.push_back(SettingInfo::Submenu(StrId::STR_HOME_BUTTON, SettingAction::ControlsHomeButton));
   }
+  if (hasVibration) addSettingByName(settings, allSettings, StrId::STR_VIBRATION);
+  if (hasHapticIntensity) addSettingByName(settings, allSettings, StrId::STR_HAPTIC_INTENSITY);
   settings.push_back(SettingInfo::Submenu(StrId::STR_POWER_BUTTON, SettingAction::ControlsPowerButton));
   if (hasFrontButtons) {
     settings.push_back(SettingInfo::Submenu(StrId::STR_FRONT_BUTTONS, SettingAction::ControlsFrontButtons));
   }
   settings.push_back(SettingInfo::Submenu(StrId::STR_SIDE_BUTTONS, SettingAction::ControlsSideButtons));
+  if (hasPillLeft) addSettingByName(settings, allSettings, StrId::STR_PILL_BUTTON_LEFT);
+  if (hasPillRight) addSettingByName(settings, allSettings, StrId::STR_PILL_BUTTON_RIGHT);
+  if (hasAiButton) addSettingByName(settings, allSettings, StrId::STR_AI_BUTTON);
   settings.push_back(SettingInfo::Action(StrId::STR_QUICK_ACTIONS, SettingAction::QuickActions));
   if (hasTapsGestures) {
     settings.push_back(SettingInfo::Submenu(StrId::STR_TAPS_AND_GESTURES, SettingAction::ControlsTapsGestures));
