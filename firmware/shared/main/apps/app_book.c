@@ -2633,13 +2633,16 @@ static void draw_custom_settings(uint8_t *fb) {
     ui_text_box(fb, (EpdRect){card1.x+21, card1.y+50, card1.width-120, 30}, 21, book_fonts ? "Ưu tiên phông chữ nhúng trong sách" : "Luôn dùng phông chữ bạn đã chọn", EPD_DRAW_ALIGN_LEFT, false);
     draw_reading_switch(fb, (EpdRect){card1.x+card1.width-89, card1.y+card1.height/2-19, 69, 39}, book_fonts);
 
-    // 2. Đường dẫn dòng
-    static const char *const rule_names[] = {"Không", "Nét đứt", "Đường chấm"};
+    // 2. Nền trang & Dẫn dòng
+    static const char *const rule_names[] = {
+        "Không", "Chấm thưa", "Chấm dày", "Gạch mảnh", "Gạch đậm",
+        "Kẻ mảnh", "Kẻ đậm", "Ô ly chấm", "Ô ly vuông"
+    };
     int selected_rule = app_settings_book_reading_line();
     EpdRect card2 = {36, 770, 612, 94};
     ui_fill_round_rect(fb, card2, 20, UI_GRAY_WHITE); ui_draw_control_frame(fb, card2, 20, 0x70);
-    ui_text_box(fb, (EpdRect){card2.x+21, card2.y+12, card2.width-120, 32}, 24, "Đường dẫn dòng", EPD_DRAW_ALIGN_LEFT, false);
-    ui_text_box(fb, (EpdRect){card2.x+21, card2.y+50, card2.width-180, 30}, 21, rule_names[selected_rule < 3 ? selected_rule : 0], EPD_DRAW_ALIGN_LEFT, false);
+    ui_text_box(fb, (EpdRect){card2.x+21, card2.y+12, card2.width-120, 32}, 24, "Nền trang & Dẫn dòng", EPD_DRAW_ALIGN_LEFT, false);
+    ui_text_box(fb, (EpdRect){card2.x+21, card2.y+50, card2.width-180, 30}, 21, rule_names[selected_rule < 9 ? selected_rule : 0], EPD_DRAW_ALIGN_LEFT, false);
     ui_draw_icon(fb, card2.x+card2.width-24, card2.y+card2.height/2, 27, UI_ICON_CHEVRON_RIGHT, 0x38);
 
     // 3. Khử răng cưa
@@ -2762,33 +2765,65 @@ static void draw_weight_settings(uint8_t *fb) {
 }
 
 static EpdRect rule_style_rect(int index) {
-    return (EpdRect){36 + index * 208, 788, 196, 120};
+    int col = index % 3;
+    int row = index / 3;
+    return (EpdRect){36 + col * 208, 666 + row * 74, 196, 66};
 }
 
 static void draw_rule_settings(uint8_t *fb) {
-    const int top = 580;
-    draw_sheet(fb, top, "Đường dẫn dòng");
+    const int top = 560;
+    draw_sheet(fb, top, "Nền trang & Dẫn dòng");
     draw_sheet_back(fb, top);
-    reader_panel_text(fb, 42, 741, 21, "Chọn kiểu", EPD_DRAW_ALIGN_LEFT, false);
-    static const char *const names[] = {"Không", "Nét đứt", "Đường chấm"};
+    reader_panel_text(fb, 42, 638, 21, "Chọn kiểu nền", EPD_DRAW_ALIGN_LEFT, false);
+    static const char *const names[] = {
+        "Không", "Chấm thưa", "Chấm dày", "Gạch mảnh", "Gạch đậm",
+        "Kẻ mảnh", "Kẻ đậm", "Ô ly chấm", "Ô ly vuông"
+    };
     int selected = app_settings_book_reading_line();
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 9; ++i) {
         EpdRect card = rule_style_rect(i);
-        ui_fill_round_rect(fb, card, 20, selected == i ? 0xc8 : 0xe8);
-        ui_draw_control_frame(fb, card, 20, selected == i ? 0x40 : 0x78);
-        reader_panel_text_vc(fb, card.x + card.width / 2, card.y + 37, 24, names[i], EPD_DRAW_ALIGN_CENTER, false);
-        if (i) {
-            int span = i == 1 ? 14 : 3, step = i == 1 ? 24 : 13;
-            int start = card.x + 25, end = card.x + card.width - 25;
-            for (int x = start; x < end; x += step)
-                ui_fill_rect_fast((EpdRect){x, card.y + 83, x + span <= end ? span : end - x, 2}, 0x48, fb);
-        } else reader_panel_text_vc(fb, card.x + card.width / 2, card.y + 83, 17, "Ẩn", EPD_DRAW_ALIGN_CENTER, false);
+        ui_fill_round_rect(fb, card, 14, selected == i ? 0xc8 : 0xe8);
+        ui_draw_control_frame(fb, card, 14, selected == i ? 0x20 : 0x78);
+        reader_panel_text_vc(fb, card.x + card.width / 2, card.y + 20, 19, names[i], EPD_DRAW_ALIGN_CENTER, false);
+        int start = card.x + 18, end = card.x + card.width - 18;
+        int py = card.y + 46;
+        if (i == 0) {
+            reader_panel_text_vc(fb, card.x + card.width / 2, py, 16, "Ẩn", EPD_DRAW_ALIGN_CENTER, false);
+        } else if (i == 1) { // 1. Chấm thưa
+            for (int x = start; x < end; x += 8)
+                ui_fill_rect_fast((EpdRect){x, py, 2, 2}, 0x48, fb);
+        } else if (i == 2) { // 2. Chấm dày
+            for (int x = start; x < end; x += 4)
+                ui_fill_rect_fast((EpdRect){x, py, 2, 2}, 0x48, fb);
+        } else if (i == 3) { // 3. Gạch mảnh
+            for (int x = start; x < end; x += 14)
+                ui_fill_rect_fast((EpdRect){x, py, (x + 8 <= end) ? 8 : end - x, 1}, 0x48, fb);
+        } else if (i == 4) { // 4. Gạch đậm
+            for (int x = start; x < end; x += 16)
+                ui_fill_rect_fast((EpdRect){x, py, (x + 10 <= end) ? 10 : end - x, 2}, 0x48, fb);
+        } else if (i == 5) { // 5. Kẻ mảnh
+            ui_fill_rect_fast((EpdRect){start, py, end - start, 1}, 0x48, fb);
+        } else if (i == 6) { // 6. Kẻ đậm
+            ui_fill_rect_fast((EpdRect){start, py, end - start, 2}, 0x48, fb);
+        } else if (i == 7) { // 7. Ô ly chấm
+            for (int x = start; x < end; x += 8)
+                ui_fill_rect_fast((EpdRect){x, py, 2, 2}, 0x48, fb);
+            for (int x = start; x <= end; x += 24) {
+                ui_fill_rect_fast((EpdRect){x, py - 10, 2, 2}, 0x48, fb);
+                ui_fill_rect_fast((EpdRect){x, py + 8, 2, 2}, 0x48, fb);
+            }
+        } else if (i == 8) { // 8. Ô ly vuông
+            ui_fill_rect_fast((EpdRect){start, py, end - start, 1}, 0x48, fb);
+            ui_fill_rect_fast((EpdRect){start, py - 14, end - start, 1}, 0x48, fb);
+            for (int x = start; x <= end; x += 24)
+                ui_fill_rect_fast((EpdRect){x, py - 14, 1, 15}, 0x48, fb);
+        }
     }
     char offset[36];
     snprintf(offset, sizeof(offset), "Vị trí dọc  %+d", app_settings_book_reading_line_offset());
-    reader_panel_text(fb, 42, 936, 21, offset, EPD_DRAW_ALIGN_LEFT, false);
-    if(selected)draw_reader_choice(fb,(EpdRect){36,980,612,88},READ_PICK_RULE_OFFSET,"Vị trí dẫn dòng");
-    if (!selected) reader_panel_text(fb, 42, 1080, 18, "Chọn Nét đứt hoặc Đường chấm để chỉnh vị trí", EPD_DRAW_ALIGN_LEFT, false);
+    reader_panel_text(fb, 42, 896, 21, offset, EPD_DRAW_ALIGN_LEFT, false);
+    if (selected) draw_reader_choice(fb, (EpdRect){36, 936, 612, 84}, READ_PICK_RULE_OFFSET, "Vị trí dẫn dòng");
+    if (!selected) reader_panel_text(fb, 42, 950, 18, "Chọn một kiểu nền để chỉnh vị trí", EPD_DRAW_ALIGN_LEFT, false);
     EpdRect done = {36, 1113, 612, 72};
     ui_fill_round_rect(fb, done, 20, UI_GRAY_BLACK);
     reader_panel_text_vc(fb, 342, 1149, 23, "Về Tùy chỉnh", EPD_DRAW_ALIGN_CENTER, true);
@@ -7234,19 +7269,20 @@ static app_redraw_t reader_panel_action(app_ctx_t* ctx, uint16_t x, uint16_t y) 
         return APP_REDRAW_NONE;
     }
     if (s_reader_panel == READER_PANEL_RULE_SETTINGS) {
-        if (y < 729 || ui_rect_hit((EpdRect){36, 1113, 612, 72}, x, y)) {
+        if (y < 560 || ui_rect_hit((EpdRect){36, 1113, 612, 72}, x, y)) {
             s_reader_panel = READER_PANEL_CUSTOM_SETTINGS;
             return APP_REDRAW_PAGE;
         }
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < 9; ++i) {
             if (!ui_rect_hit(rule_style_rect(i), x, y)) continue;
             app_settings_set_book_reading_line((uint8_t)i);
             book_layout_set_reading_line((unsigned)i);
             invalidate_prep();
             return APP_REDRAW_PAGE;
         }
-        if(app_settings_book_reading_line()&&ui_rect_hit((EpdRect){36,980,612,88},x,y)) {
-            reader_choice_open(READ_PICK_RULE_OFFSET);return APP_REDRAW_PAGE;
+        if (app_settings_book_reading_line() && ui_rect_hit((EpdRect){36, 936, 612, 84}, x, y)) {
+            reader_choice_open(READ_PICK_RULE_OFFSET);
+            return APP_REDRAW_PAGE;
         }
         return APP_REDRAW_NONE;
     }

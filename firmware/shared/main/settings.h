@@ -308,7 +308,17 @@ void app_settings_set_book_indent(uint8_t em);
 /// 正文首行缩进微调，-100..100像素，默认0；无缩进时不生效。/ First-line adjustment in pixels, -100..100 (default 0); ignored with no indent.
 int8_t app_settings_book_indent_adjust(void);
 void app_settings_set_book_indent_adjust(int8_t px);
-/// 正文阅读线：0 无，1 虚线，2 点线。/ Body reading guides: none, dashed or dotted.
+/// Nền trang & Đường dẫn dòng: 0: Không, 1: Chấm thưa, 2: Chấm dày, 3: Gạch mảnh, 4: Gạch đậm, 5: Kẻ mảnh, 6: Kẻ đậm, 7: Ô ly chấm, 8: Ô ly vuông.
+#define APP_BOOK_BG_NONE 0
+#define APP_BOOK_BG_DOTS_FINE 1
+#define APP_BOOK_BG_DOTS_DENSE 2
+#define APP_BOOK_BG_DASH_LIGHT 3
+#define APP_BOOK_BG_DASH_HEAVY 4
+#define APP_BOOK_BG_LINE_THIN 5
+#define APP_BOOK_BG_LINE_THICK 6
+#define APP_BOOK_BG_GRID_SMALL 7
+#define APP_BOOK_BG_GRID_LARGE 8
+#define APP_BOOK_BG_COUNT 9
 uint8_t app_settings_book_reading_line(void);
 void app_settings_set_book_reading_line(uint8_t style);
 /// 正文对齐：0 两端对齐（原行为），1 左对齐，2 居中，3 右对齐。/ Body alignment: justified (previous behaviour), left, center, right.

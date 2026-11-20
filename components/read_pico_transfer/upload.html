@@ -70,7 +70,7 @@ button:focus-visible,input:focus-visible,[role=tabpanel]:focus-visible{outline:2
 .storage-summary .hint{font-size:12px;margin:5px 0 0}
 main{grid-column:2;min-width:0}
 #panel-books .upload{border:1px dashed #79323e;background:radial-gradient(ellipse at 50% 0%,#ff3c5012,transparent 80%),#111116}
-.upload.dragging{outline:2px solid var(--red);outline-offset:3px}
+.upload.dragging{outline:2px dashed #00d26a;outline-offset:6px;background:rgba(0,210,106,0.08)!important;transform:scale(1.01);transition:all 0.15s ease}
 @media(max-width:700px){body{display:block;padding:0 14px 32px;margin-top:8px}
 header{align-items:start;flex-wrap:wrap;padding-bottom:20px}
 h1{font-size:27px}
@@ -241,7 +241,7 @@ $('dictionarySend').onclick=async()=>{
  }catch(error){result.textContent='Đã lưu '+saved+'/'+planned.length+' tệp · '+error.message+' · Chọn lại đủ bộ để thử lại'}finally{lock(false)}
 };
 function transferRate(bytes,elapsed){const seconds=Math.max(elapsed,1)/1000;return (bytes/seconds/1000).toFixed(0)+' KB/s · '+seconds.toFixed(1)+' giây'}
-function uploadProgress(name,done,total,elapsed){return (done>=total?'Đang chờ thiết bị lưu ':'Đang tải lên ')+name+' · '+size(done)+' / '+size(total)+' · '+transferRate(done,elapsed)}
+function uploadProgress(name,done,total,elapsed){const pct=total?Math.min(100,Math.round(done*100/total)):0;return (done>=total?'Đang lưu vào thẻ nhớ… ':'Đang tải lên ['+pct+'%] ')+name+' · '+size(done)+' / '+size(total)+' · '+transferRate(done,elapsed)}
 function upload(file,url,onProgress){return new Promise((resolve,reject)=>{
  const xhr=new XMLHttpRequest();xhr.open('PUT',url);
  const start=performance.now();let loaded=0,total=file.size;
@@ -299,10 +299,10 @@ document.querySelectorAll('.upload').forEach(section=>{
  input.onchange=()=>{result.textContent=[...input.files].map(file=>file.name+' · '+size(file.size)).join(' / ')};
  section.ondragover=event=>{event.preventDefault();if(!busy)section.classList.toggle('dragging',true)};
  section.ondragleave=()=>section.classList.toggle('dragging',false);
- section.ondrop=event=>{
+ section.ondrop=async event=>{
   event.preventDefault();section.classList.toggle('dragging',false);
   if(busy||!event.dataTransfer.files.length)return;
-  try{input.files=event.dataTransfer.files;input.onchange()}catch(_){result.textContent='Vui lòng dùng nút chọn tệp của trình duyệt'}
+  try{input.files=event.dataTransfer.files;input.onchange();await sendFiles(section)}catch(_){result.textContent='Vui lòng dùng nút chọn tệp của trình duyệt'}
  };
  section.querySelector('.send').onclick=()=>sendFiles(section);
 });

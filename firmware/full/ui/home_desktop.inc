@@ -98,8 +98,8 @@ static void render_desktop_root(uint8_t *fb) {
     label_on(fb, 362, 648, 19, sub_right, EPD_DRAW_ALIGN_LEFT, 0x60, card_gray);
     DESKTOP_STAGE("stats");
 
-    // 3. Book Card: (36, 708, 612, 390)
-    EpdRect book_rect = {36, 708, 612, 390};
+    // 3. Book Card: (36, 708, 612, 366) - căn chỉnh tránh tràn vào thanh điều hướng đáy UI_NAV_TOP 1096
+    EpdRect book_rect = {36, 708, 612, 366};
     ui_fill_round_rect(fb, book_rect, 20, card_gray);
     home_frame(fb, book_rect, 20);
 

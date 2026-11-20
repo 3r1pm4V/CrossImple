@@ -55,3 +55,20 @@ uint8_t ui_image_dither_acrylic_bw(uint8_t gray, int x, int y) {
     const unsigned threshold = thresholds[(unsigned)y & 7u][(unsigned)x & 7u];
     return gray * 128u > (threshold * 2u + 1u) * 255u ? 255 : 0;
 }
+
+uint8_t ui_image_apply_cover_filter(uint8_t gray, int x, int y, uint8_t filter) {
+    switch (filter) {
+        case 1: // 1-bit high contrast B&W
+            return ui_image_dither_bw(gray, x, y);
+        case 2: // Inverted 1-bit B&W
+            return 255 - ui_image_dither_bw(gray, x, y);
+        case 3: { // 4-level gray
+            uint8_t q = (uint8_t)((gray + 42u) / 85u);
+            if (q > 3u) q = 3u;
+            return (uint8_t)(q * 85u);
+        }
+        case 0: // Normal 16-level grayscale dither
+        default:
+            return ui_image_dither_gray(gray, x, y);
+    }
+}

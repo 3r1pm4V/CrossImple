@@ -17,8 +17,10 @@
 
 #include "book_cover.h"
 #include "esp_heap_caps.h"
+#include "settings.h"
 #include "ui_image_dither.h"
 #include "ui_kit.h"
+#include "ui/stock_wallpaper.h"
 #include "ui_wallpaper_crop.h"
 
 static bool inside_rounded(EpdRect area, int radius, int x, int y) {
@@ -126,19 +128,25 @@ static bool image_pixels(uint8_t *fb, uint8_t *pixels, const char *path, EpdRect
             int source_y = crop_y + (int)((int64_t)(y - area.y) * crop_h / area.height);
             uint8_t value = gray[(size_t)source_y * width + source_x];
             if (pixels) pixels[(size_t)(y-area.y)*area.width + x-area.x] = value;
-            else epd_draw_pixel(x,y,ui_image_dither_gray(value,x,y),fb);
+            else epd_draw_pixel(x,y,ui_image_apply_cover_filter(value,x,y,app_settings_cover_filter()),fb);
         }
     free(gray);
     return true;
 }
 
 bool ui_wallpaper_draw(uint8_t *fb, const char *path, EpdRect area) {
-    return image_pixels(fb, NULL, path, area, 0);
+    if (path && path[0] && image_pixels(fb, NULL, path, area, 0)) {
+        return true;
+    }
+    return stock_wallpaper_draw(fb, area);
 }
 
 bool ui_wallpaper_draw_rounded(uint8_t *fb, const char *path, EpdRect area, int radius) {
     if (radius < 0 || radius > area.width / 2 || radius > area.height / 2) return false;
-    return image_pixels(fb, NULL, path, area, radius);
+    if (path && path[0] && image_pixels(fb, NULL, path, area, radius)) {
+        return true;
+    }
+    return stock_wallpaper_draw(fb, area);
 }
 
 void ui_wallpaper_draw_avatar(uint8_t *fb, const uint8_t *pixels, EpdRect area, int radius) {

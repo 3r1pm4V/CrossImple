@@ -1378,7 +1378,7 @@ static EpdRect control(int x,int y) {
     }
     if(s_view==HOME_ROOT) {
         if(app_settings_ui_mode() == APP_UI_DESKTOP) {
-            if(hit((EpdRect){36,708,612,390},x,y))return (EpdRect){36,708,612,390};
+            if(hit((EpdRect){36,708,612,366},x,y))return (EpdRect){36,708,612,366};
             if(hit((EpdRect){36,516,612,176},x,y))return (EpdRect){36,516,612,176};
             if(hit((EpdRect){36,92,612,408},x,y))return (EpdRect){36,92,612,408};
             return (EpdRect){0};
@@ -1529,7 +1529,7 @@ static app_redraw_t on_gesture(app_ctx_t *ctx,const ui_gesture_event_t *ev) {
     }else {
         int tab=ui_nav_hit(x,y);if(tab>=0){ui_nav_request(ctx,tab);return APP_REDRAW_NONE;}
         if(app_settings_ui_mode() == APP_UI_DESKTOP) {
-            if(hit((EpdRect){36,708,612,390},x,y)) {
+            if(hit((EpdRect){36,708,612,366},x,y)) {
                 home_book_t *b=featured();
                 if(b->path[0] && app_book_request_open_from_home(b->path)){
 #if DPREADER_BOARD_METALIO47

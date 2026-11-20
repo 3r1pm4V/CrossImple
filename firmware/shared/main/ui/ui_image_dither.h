@@ -17,3 +17,6 @@ uint8_t ui_image_dither_bw(uint8_t gray, int x, int y);
 uint8_t ui_image_dither_cover_bw(uint8_t gray, int x, int y);
 /// 亚克力用一像素规则棋盘格点阵，固定坐标且保持黑白端点，无额外内存。/ One-pixel regular checkerboard dots for acrylic, coordinate-stable and endpoint-preserving, with no extra memory.
 uint8_t ui_image_dither_acrylic_bw(uint8_t gray, int x, int y);
+
+/// Áp dụng bộ lọc cho ảnh màn hình khóa (0: 16-gray dither, 1: 1-bit B&W, 2: Inverted 1-bit, 3: 4-level gray).
+uint8_t ui_image_apply_cover_filter(uint8_t gray, int x, int y, uint8_t filter);

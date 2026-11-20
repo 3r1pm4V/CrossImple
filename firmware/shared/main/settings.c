@@ -731,7 +731,7 @@ void app_settings_init(void) {
             s_book_tracking=(uint8_t)(px-APP_BOOK_TRACK_MIN);
         } else if(tracking>=192 && tracking<192+APP_BOOK_TRACK_COUNT)s_book_tracking=tracking-192;
     }
-    if (nvs_get_u8(h, NVS_KEY_BOOK_RULE, &reading_line) == ESP_OK && reading_line <= 2)
+    if (nvs_get_u8(h, NVS_KEY_BOOK_RULE, &reading_line) == ESP_OK && reading_line < APP_BOOK_BG_COUNT)
         s_book_reading_line = reading_line;
     if (nvs_get_u8(h, NVS_KEY_BOOK_RULE_OFFSET, &rule_offset) == ESP_OK && rule_offset <= 8)
         s_book_rule_offset = rule_offset;
@@ -1483,7 +1483,7 @@ void app_settings_set_book_indent_adjust(int8_t px) {
 }
 uint8_t app_settings_book_reading_line(void) { return s_book_reading_line; }
 void app_settings_set_book_reading_line(uint8_t style) {
-    if (style > 2 || style == s_book_reading_line) return;
+    if (style >= APP_BOOK_BG_COUNT || style == s_book_reading_line) return;
     s_book_reading_line = style;
     nvs_put_u8(NVS_KEY_BOOK_RULE, style);
 }
@@ -1914,7 +1914,7 @@ static const reader_backup_field_t s_reader_backup_fields[]={
     {NVS_KEY_BOOK_PARA,&s_book_para,0,255,false},
     {NVS_KEY_BOOK_MARGIN,&s_book_margin,0,48,false},
     {NVS_KEY_BOOK_TRACK,&s_book_tracking,0,APP_BOOK_TRACK_MAX-APP_BOOK_TRACK_MIN,false},
-    {NVS_KEY_BOOK_RULE,&s_book_reading_line,0,2,false},
+    {NVS_KEY_BOOK_RULE,&s_book_reading_line,0,APP_BOOK_BG_COUNT-1,false},
     {NVS_KEY_BOOK_RULE_OFFSET,&s_book_rule_offset,0,8,false},
     {NVS_KEY_BOOK_INDENT,&s_book_indent,0,3,false},
     {NVS_KEY_BOOK_INDENT_ADJUST,&s_book_indent_adjust,0,200,false},
@@ -2642,7 +2642,7 @@ static bool backup_valid(const settings_backup_v1_t *backup) {
         f[BK_LOCK] > 3 || f[BK_BOOK_PX] < BOOK_READER_PX_MIN || f[BK_BOOK_PX] > BOOK_READER_PX_MAX ||
         f[BK_SHAKE] > 1 || !reader_full_pages_valid(f[BK_FULL_PAGES]) ||
         f[BK_TURN] > READER_TURN_EFFECT_MAX || f[BK_POWER_TURN] > 1 || f[BK_IMMERSIVE] > 1 ||
-        f[BK_TRACKING] > (backup_version(backup)>=20 ? APP_BOOK_TRACK_COUNT-1 : backup_version(backup)==19 ? 20 : 4) || f[BK_READING_LINE] > 2 ||
+        f[BK_TRACKING] > (backup_version(backup)>=20 ? APP_BOOK_TRACK_COUNT-1 : backup_version(backup)==19 ? 20 : 4) || f[BK_READING_LINE] >= APP_BOOK_BG_COUNT ||
         (!(f[BK_LINE_SPACING]>=206&&f[BK_LINE_SPACING]<=246&&(f[BK_LINE_SPACING]-206)%10==0)&&f[BK_LINE_SPACING]!=0&&(f[BK_LINE_SPACING]<100||f[BK_LINE_SPACING]>150)) ||
         f[BK_MARGIN] > 60 ||
         (backup_version(backup)>=20 ?

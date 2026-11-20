@@ -342,10 +342,18 @@ EpdRect book_layout_balanced_rect(EpdRect outer, int px, int tracking_px) {
     return outer;
 }
 void book_layout_set_reading_line(unsigned style) {
-    s_reading_line = style <= 2 ? style : 0;
+    unsigned new_style = style <= 8 ? style : 0;
+    if (s_reading_line != new_style) {
+        s_reading_line = new_style;
+        ++s_generation;
+    }
 }
 void book_layout_set_reading_line_offset(int offset_px) {
-    s_reading_line_offset = offset_px < -8 ? -8 : offset_px > 8 ? 8 : offset_px;
+    int new_offset = offset_px < -8 ? -8 : offset_px > 8 ? 8 : offset_px;
+    if (s_reading_line_offset != new_offset) {
+        s_reading_line_offset = new_offset;
+        ++s_generation;
+    }
 }
 void book_layout_set_images_visible(bool visible) { s_images_visible = visible; }
 void book_layout_set_vertical(bool vertical) { s_vertical = vertical; }
@@ -989,22 +997,57 @@ static void draw_vertical_column(uint8_t* fb, EpdRect rect, int left, int pitch,
         const int cell_left = left + (pitch - px) / 2;
         int guide_x = left + pitch - 2 + s_reading_line_offset;
         if (guide_x < cell_left + px + 1) guide_x = cell_left + px + 1;
-        const int dash = s_reading_line == 1 ? 19 : 2;
-        const int period = s_reading_line == 1 ? 31 : 13;
-        // 与横排对称：竖排走整页高度、从页上边起算，每列的虚实节奏完全一样，不会因为列首缩进、
-        // 居中或列长短而各画各的。只在有字的纵向范围内落墨：列首缩进与列尾留白保持白底。
-        // Symmetric with the horizontal rule: the rhythm counts from the page's top edge so every
-        // column shares it regardless of indent, centring or column length. The dashes ink only the
-        // column's glyph span; the leading indent and the trailing blank stay white.
-        const int ink_top = y;
-        int ink_bottom = y + ttf_vertical_text_height_word_px(px, s_line, s_tracking_px + extra,word_px);
-        if (ink_bottom > rect.y + rect.height) ink_bottom = rect.y + rect.height;
-        for (int pos = rect.y; pos < rect.y + rect.height; pos += period) {
-            int top = pos, bottom = pos + dash;
-            if (bottom > rect.y + rect.height) bottom = rect.y + rect.height;
-            if (top < ink_top) top = ink_top;
-            if (bottom > ink_bottom) bottom = ink_bottom;
-            if (bottom > top) epd_fill_rect((EpdRect){guide_x, top, 2, bottom - top}, 0x50, fb);
+        if (guide_x >= rect.x && guide_x + 2 <= rect.x + rect.width) {
+            if (s_reading_line == 1) { // 1. Chấm thưa (Fine dots)
+                for (int dy = 0; dy < rect.height; dy += 4) {
+                    epd_fill_rect((EpdRect){guide_x, rect.y + dy, 1, 1}, 0x78, fb);
+                }
+            } else if (s_reading_line == 2) { // 2. Chấm dày (Dense dots)
+                for (int dy = 0; dy < rect.height; dy += 2) {
+                    epd_fill_rect((EpdRect){guide_x, rect.y + dy, 1, 1}, 0x78, fb);
+                }
+            } else if (s_reading_line == 3) { // 3. Gạch mảnh (Light dash)
+                for (int dy = 0; dy < rect.height; dy += 8) {
+                    int h = (dy + 4 <= rect.height) ? 4 : rect.height - dy;
+                    epd_fill_rect((EpdRect){guide_x, rect.y + dy, 1, h}, 0x78, fb);
+                }
+            } else if (s_reading_line == 4) { // 4. Gạch đậm (Heavy dash)
+                for (int dy = 0; dy < rect.height; dy += 10) {
+                    int h = (dy + 6 <= rect.height) ? 6 : rect.height - dy;
+                    epd_fill_rect((EpdRect){guide_x, rect.y + dy, 2, h}, 0x78, fb);
+                }
+            } else if (s_reading_line == 5) { // 5. Kẻ dọc mảnh (Thin line)
+                epd_fill_rect((EpdRect){guide_x, rect.y, 1, rect.height}, 0x88, fb);
+            } else if (s_reading_line == 6) { // 6. Kẻ dọc đậm (Thick line)
+                epd_fill_rect((EpdRect){guide_x, rect.y, 2, rect.height}, 0x88, fb);
+            } else if (s_reading_line == 7) { // 7. Ô ly chấm (Grid Dotted)
+                int cell_step = pitch;
+                int num_rows = rect.height / cell_step;
+                if (num_rows < 1) num_rows = 1;
+                int grid_h = num_rows * cell_step;
+                int grid_y0 = rect.y + (rect.height - grid_h) / 2;
+                int grid_y1 = grid_y0 + grid_h;
+                for (int dy = 0; dy <= grid_h; dy += 4) {
+                    epd_fill_rect((EpdRect){guide_x, grid_y0 + dy, 1, 1}, 0x78, fb);
+                }
+                for (int gy = grid_y0; gy <= grid_y1; gy += cell_step) {
+                    for (int gx = left; gx <= guide_x; gx += 4) {
+                        epd_fill_rect((EpdRect){gx, gy, 1, 1}, 0x78, fb);
+                    }
+                }
+            } else if (s_reading_line == 8) { // 8. Ô ly vuông (Grid Square 100%)
+                int cell_step = pitch;
+                int num_rows = rect.height / cell_step;
+                if (num_rows < 1) num_rows = 1;
+                int grid_h = num_rows * cell_step;
+                int grid_y0 = rect.y + (rect.height - grid_h) / 2;
+                int grid_y1 = grid_y0 + grid_h;
+                epd_fill_rect((EpdRect){guide_x, grid_y0, 1, grid_h}, 0x88, fb);
+                epd_fill_rect((EpdRect){left, grid_y0, 1, grid_h}, 0x88, fb);
+                for (int gy = grid_y0; gy <= grid_y1; gy += cell_step) {
+                    epd_fill_rect((EpdRect){left, gy, guide_x - left + 1, 1}, 0x88, fb);
+                }
+            }
         }
     }
     // 整列一次交给字体引擎：它按 run 换字体，并按竖排规则决定每字正立、抬角还是转 90°。
@@ -1173,19 +1216,65 @@ void book_layout_draw_page(uint8_t* fb, size_t page, EpdRect rect, int px) {
             // The guide inks only the line's glyph span: the first-line indent, trailing blanks and
             // alignment slack stay white. Dashes still count from the page's left edge so every line
             // keeps the same rhythm.
+            // Nền trang & Đường dẫn dòng (Styles 1..8: Chấm thưa, Chấm dày, Gạch mảnh, Gạch đậm, Kẻ mảnh, Kẻ đậm, Ô ly chấm, Ô ly vuông)
+            // Đường kẻ được neo tại đáy dòng (line_top + line_height), tạo khoảng cách thông thoáng
+            // tự nhiên ("cách chân chữ ra 1 khoảng") cho chân chữ và dấu nặng tiếng Việt.
             if (!s_visit && s_reading_line && line_has_ink(s_line)) {
-                int guide_y = rect.y + (int)used + line_px + (line_height - line_px) / 2 +
-                              s_reading_line_offset;
-                int dash = s_reading_line == 1 ? 19 : 2;
-                int period = s_reading_line == 1 ? 31 : 13;
-                const int ink_left = x, ink_right = x + line_extent;
-                for (int dx = 0; dx < rect.width; dx += period) {
-                    int left = rect.x + dx, right = rect.x + dx + dash;
-                    if (right > rect.x + rect.width) right = rect.x + rect.width;
-                    if (left < ink_left) left = ink_left;
-                    if (right > ink_right) right = ink_right;
-                    if (right > left && guide_y>=rect.y && guide_y+2<=rect.y+rect.height)
-                        epd_fill_rect((EpdRect){left, guide_y, right - left, 2}, 0x50, fb);
+                int line_top = rect.y + (int)used;
+                int guide_y = line_top + line_height + s_reading_line_offset;
+                if (guide_y >= rect.y && guide_y + 2 <= rect.y + rect.height) {
+                    if (s_reading_line == 1) { // 1. Chấm thưa (Fine dots)
+                        for (int dx = 0; dx < rect.width; dx += 4) {
+                            epd_fill_rect((EpdRect){rect.x + dx, guide_y, 1, 1}, 0x78, fb);
+                        }
+                    } else if (s_reading_line == 2) { // 2. Chấm dày (Dense dots)
+                        for (int dx = 0; dx < rect.width; dx += 2) {
+                            epd_fill_rect((EpdRect){rect.x + dx, guide_y, 1, 1}, 0x78, fb);
+                        }
+                    } else if (s_reading_line == 3) { // 3. Gạch mảnh (Light dash)
+                        for (int dx = 0; dx < rect.width; dx += 8) {
+                            int w = (dx + 4 <= rect.width) ? 4 : rect.width - dx;
+                            epd_fill_rect((EpdRect){rect.x + dx, guide_y, w, 1}, 0x78, fb);
+                        }
+                    } else if (s_reading_line == 4) { // 4. Gạch đậm (Heavy dash)
+                        for (int dx = 0; dx < rect.width; dx += 10) {
+                            int w = (dx + 6 <= rect.width) ? 6 : rect.width - dx;
+                            epd_fill_rect((EpdRect){rect.x + dx, guide_y, w, 2}, 0x78, fb);
+                        }
+                    } else if (s_reading_line == 5) { // 5. Kẻ ngang mảnh (Thin line)
+                        epd_fill_rect((EpdRect){rect.x, guide_y, rect.width, 1}, 0x88, fb);
+                    } else if (s_reading_line == 6) { // 6. Kẻ ngang đậm (Thick line)
+                        epd_fill_rect((EpdRect){rect.x, guide_y - 1, rect.width, 2}, 0x88, fb);
+                    } else if (s_reading_line == 7) { // 7. Ô ly chấm (Grid Dotted)
+                        int cell_step = line_height;
+                        int num_cols = rect.width / cell_step;
+                        if (num_cols < 1) num_cols = 1;
+                        int grid_w = num_cols * cell_step;
+                        int grid_x0 = rect.x + (rect.width - grid_w) / 2;
+                        int grid_x1 = grid_x0 + grid_w;
+                        for (int dx = 0; dx <= grid_w; dx += 4) {
+                            epd_fill_rect((EpdRect){grid_x0 + dx, guide_y, 1, 1}, 0x78, fb);
+                        }
+                        for (int gx = grid_x0; gx <= grid_x1; gx += cell_step) {
+                            for (int gy = line_top; gy <= guide_y; gy += 4) {
+                                epd_fill_rect((EpdRect){gx, gy, 1, 1}, 0x78, fb);
+                            }
+                        }
+                    } else if (s_reading_line == 8) { // 8. Ô ly vuông (Grid Square 100%)
+                        int cell_step = line_height;
+                        int num_cols = rect.width / cell_step;
+                        if (num_cols < 1) num_cols = 1;
+                        int grid_w = num_cols * cell_step;
+                        int grid_x0 = rect.x + (rect.width - grid_w) / 2;
+                        int grid_x1 = grid_x0 + grid_w;
+                        if (used == 0 || (page == 0 && used == s_lead_height)) {
+                            epd_fill_rect((EpdRect){grid_x0, line_top, grid_w, 1}, 0x88, fb);
+                        }
+                        epd_fill_rect((EpdRect){grid_x0, guide_y, grid_w, 1}, 0x88, fb);
+                        for (int gx = grid_x0; gx <= grid_x1; gx += cell_step) {
+                            epd_fill_rect((EpdRect){gx, line_top, 1, guide_y - line_top + 1}, 0x88, fb);
+                        }
+                    }
                 }
             }
             // 绘制按 run 换字体：行宽、字距、两端对齐的算法一个字没动，只有取字形的槽跟着走。

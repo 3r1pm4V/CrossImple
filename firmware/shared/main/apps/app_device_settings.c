@@ -1799,7 +1799,9 @@ static void render_content(app_ctx_t *ctx, uint8_t *fb) {
         }
         settings_line(fb,54,966,21,"Chép PNG trong suốt vào pictures · Khuyên dùng 684 × 1216",EPD_DRAW_ALIGN_LEFT,false);
         if (app_settings_wallpaper_path()[0])
-            row(fb, 1010, "Hình nền hiện tại", strrchr(app_settings_wallpaper_path(), '/') + 1);
+            row(fb, 1000, "Hình nền hiện tại", strrchr(app_settings_wallpaper_path(), '/') + 1);
+        const char *filter_names[] = {"Chuẩn (16 Gray)", "Đơn sắc (1-Bit)", "Đảo màu (Inverted)", "Cổ điển (4-Gray)"};
+        row(fb, 1056, "Bộ lọc ảnh bìa", filter_names[app_settings_cover_filter()]);
         settings_navigation(fb);
         return;
     }
@@ -3522,6 +3524,11 @@ static app_redraw_t on_gesture(app_ctx_t *ctx, const ui_gesture_event_t *ev) {
             s_bookmark_picker=true;wallpaper_scan();s_page=SETTINGS_WALLPAPER;
             return APP_REDRAW_PAGE;
 #endif
+        }
+        if (y >= 1040 && y < 1110) {
+            uint8_t next_f = (app_settings_cover_filter() + 1) % 4;
+            app_settings_set_cover_filter(next_f);
+            return APP_REDRAW_PAGE;
         }
         if (y >= 1010 && app_settings_wallpaper_path()[0]) {
 #if DPREADER_BOARD_METALIO47
