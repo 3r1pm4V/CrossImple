@@ -868,6 +868,23 @@ void TxtReaderActivity::render(RenderLock&&) {
 void TxtReaderActivity::renderPage() {
   const int lineHeight = getReaderLineHeight(renderer, cachedFontId);
   const int contentWidth = viewportWidth;
+  const int contentHeight = renderer.getScreenHeight() - cachedOrientedMarginTop - cachedOrientedMarginBottom;
+
+  if (SETTINGS.pageBackground != CrossPointSettings::PAGE_BG_NONE) {
+    const int fontAscender = renderer.getFontAscenderSize(cachedFontId);
+    pageBgLinesBuffer.clear();
+    if (pageBgLinesBuffer.capacity() < currentPageLines.size()) {
+      pageBgLinesBuffer.reserve(currentPageLines.size());
+    }
+    int lineY = cachedOrientedMarginTop;
+    for (size_t i = 0; i < currentPageLines.size(); ++i) {
+      pageBgLinesBuffer.push_back({lineY, lineY + fontAscender, lineY + lineHeight, lineHeight});
+      lineY += lineHeight;
+    }
+    ReaderUtils::drawPageBackground(renderer, cachedOrientedMarginLeft, cachedOrientedMarginTop, contentWidth,
+                                    contentHeight, lineHeight, fontAscender, SETTINGS.pageBackground,
+                                    ReaderUtils::readerForegroundBlack(), pageBgLinesBuffer);
+  }
 
   // Render text lines with alignment
   auto renderLines = [&]() {
@@ -926,12 +943,11 @@ void TxtReaderActivity::renderPage() {
   renderLines();
   renderStatusBar();
 
-  const bool deferred =
-      useTextAa &&
-      ReaderUtils::displayDeferredGrayscale(renderer, pagesUntilFullRefresh, deferredGrayscalePlanes, [&]() {
-        renderLines();
-        return true;
-      });
+  const bool deferred = useTextAa && ReaderUtils::displayDeferredGrayscale(renderer, pagesUntilFullRefresh,
+                                                                           deferredGrayscalePlanes, [&]() {
+                                                                             renderLines();
+                                                                             return true;
+                                                                           });
   if (!deferred) {
     auto request = ReaderUtils::PageRefresh::Blocking;
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, request);
@@ -1184,8 +1200,7 @@ void TxtReaderActivity::savePageIndexCache() const {
   serialization::writePod(f, cachedCharacterSpacing);
   serialization::writePod(f, static_cast<int32_t>(viewportWidth));
   serialization::writePod(f, static_cast<int32_t>(linesPerPage));
-  const int32_t fontSig =
-      static_cast<int32_t>(static_cast<uint32_t>(cachedFontId) ^ filenameFontSystem.fingerprint());
+  const int32_t fontSig = static_cast<int32_t>(static_cast<uint32_t>(cachedFontId) ^ filenameFontSystem.fingerprint());
   serialization::writePod(f, fontSig);
   serialization::writePod(f, static_cast<int32_t>(cachedVerticalMargin));
   serialization::writePod(f, static_cast<int32_t>(cachedHorizontalMargin));
@@ -1360,6 +1375,19 @@ bool TxtReaderActivity::drawCurrentPageToBuffer(const std::string& filePath, Gfx
 
   // Render lines to frame buffer (no displayBuffer call)
   renderer.clearScreen(ReaderUtils::readerBackgroundColor());
+  if (SETTINGS.pageBackground != CrossPointSettings::PAGE_BG_NONE) {
+    const int fontAscender = renderer.getFontAscenderSize(fontId);
+    static constexpr size_t kMaxTxtLines = 64;
+    ReaderUtils::PageBgLine lines[kMaxTxtLines];
+    const size_t lineCount = std::min(pageLines.size(), kMaxTxtLines);
+    int lineY = marginTop;
+    for (size_t i = 0; i < lineCount; ++i) {
+      lines[i] = {lineY, lineY + fontAscender, lineY + lineHeight, lineHeight};
+      lineY += lineHeight;
+    }
+    ReaderUtils::drawPageBackground(renderer, marginLeft, marginTop, vw, vh, lineHeight, fontAscender,
+                                    SETTINGS.pageBackground, ReaderUtils::readerForegroundBlack(), lines, lineCount);
+  }
   int y = marginTop;
   for (const auto& line : pageLines) {
     if (!line.empty()) {

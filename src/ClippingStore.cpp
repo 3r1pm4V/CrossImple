@@ -227,6 +227,10 @@ bool ClippingStore::loadForBook(const std::string& filePath, const std::string& 
   bookTitle = title;
   bookAuthor = author;
   deletedIds.clear();
+  if (!Storage.exists(CLIPPINGS_DIR)) {
+    loaded = true;
+    return true;
+  }
   storeFilePath = storeFilePathForBook(filePath, bookType);
   const std::string backup = storeFilePath + ".bak";
   if (!Storage.exists(storeFilePath.c_str()) && Storage.exists(backup.c_str()) &&

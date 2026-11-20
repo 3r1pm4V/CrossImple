@@ -49,6 +49,7 @@ enum class SettingAction {
   SystemReadingStats,
   SystemGlobalStats,
   Network,
+  Bluetooth,
   ResetGlobalStats,
   ClearCache,
   CheckForUpdates,

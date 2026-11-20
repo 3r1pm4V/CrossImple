@@ -20,6 +20,7 @@
 #include "AboutActivity.h"
 #include "AppCapabilities.h"
 #include "AppVersion.h"
+#include "BleSettingsActivity.h"
 #include "ButtonRemapActivity.h"
 #include "ClearCacheActivity.h"
 #include "ClockOffsetActivity.h"
@@ -1599,6 +1600,15 @@ void SettingsActivity::toggleCurrentSetting() {
                                  }
                                });
         break;
+      case SettingAction::Bluetooth: {
+        auto activity = makeUniqueNoThrow<BleSettingsActivity>(renderer, mappedInput);
+        if (!activity) {
+          LOG_ERR("SETTINGS", "OOM: BleSettingsActivity");
+          return;
+        }
+        startActivityForResult(std::move(activity), [this](const ActivityResult&) { requestUpdate(); });
+        break;
+      }
       case SettingAction::ResetGlobalStats:
         startActivityForResult(
             std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_RESET_ALL_TIME_STATS),

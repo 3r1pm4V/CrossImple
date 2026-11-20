@@ -151,6 +151,7 @@ class XtcReaderActivity final : public Activity {
   }
   bool isReaderActivity() const override { return true; }
   bool isBookReaderActivity() const override { return true; }
+  bool acceptsRemoteInput() const override { return true; }
   bool usesMenuButtonOrientation() const override;
   bool usesFullScreenReaderVerticalSwipes() const override { return false; }
   void onInputLockChanged(bool locked) override;

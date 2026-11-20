@@ -559,9 +559,11 @@ void HomeActivity::loadRecentBooks(int maxBooks) {
     }
 
     RecentBook book = storedBook;
+#if !FREEINK_DEVICE_X3
     if (RecentBooksStore::isMissing(book)) {
       continue;
     }
+#endif
 
     ensureReusableCoverPath(book);
     recentBooks.push_back(book);
@@ -818,8 +820,13 @@ void HomeActivity::onEnter() {
       static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::LYRA_CAROUSEL;
 
   // Check if any books have bookmarks (directory scan only, no file parsing)
+#if FREEINK_DEVICE_X3
+  hasBookmarks = true;
+  hasClippings = true;
+#else
   hasBookmarks = BookmarkStore::hasAnyBookmarks();
   hasClippings = ClippingStore::hasAnyClippings();
+#endif
 
   selectorIndex = 0;
   lastCarouselBookIndex = 0;
@@ -867,9 +874,13 @@ void HomeActivity::onEnter() {
     selectInitialBook(APP_STATE.openEpubPath);
   }
 
-  globalStats = GlobalReadingStats::load();
-  showAllDevicesStats = GlobalReadingStats::hasSyncedStats();
-  allDevicesGlobalStats = showAllDevicesStats ? GlobalReadingStats::loadAggregated(globalStats) : globalStats;
+  const bool needsGlobalStats =
+      static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::DASHBOARD;
+  if (needsGlobalStats) {
+    globalStats = GlobalReadingStats::load();
+    showAllDevicesStats = GlobalReadingStats::hasSyncedStats();
+    allDevicesGlobalStats = showAllDevicesStats ? GlobalReadingStats::loadAggregated(globalStats) : globalStats;
+  }
   if (isCarouselTheme) {
     loadAllBookStats();
   }
@@ -1391,10 +1402,12 @@ void HomeActivity::loop() {
   if (quickActionsPopup.handleInput(mappedInput, [this] { requestUpdate(); })) return;
 
   // 1) Home / Menu key (e.g. Orange button on Metalio 4) opens Settings while on Home screen
-  if (mappedInput.wasHomeGesture() || mappedInput.wasReaderMenuHold()) {
+#if FREEINK_DEVICE_METALIO_EINK4
+  if (BoardConfig::isMetalioEInk4() && (mappedInput.wasHomeGesture() || mappedInput.wasReaderMenuHold())) {
     onSettingsOpen();
     return;
   }
+#endif
 
   // 2) Tapping the top status bar / header area on ANY theme opens Settings
   if (mappedInput.hasTouchHardware() && !minimalMenuOpen) {

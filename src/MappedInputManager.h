@@ -8,6 +8,7 @@
 
 #include "util/EdgeSlide.h"
 #include "util/ReleaseSuppression.h"
+#include "util/RemoteButtonInput.h"
 
 class GfxRenderer;
 
@@ -90,6 +91,8 @@ class MappedInputManager {
 #endif
 
   void update() const;
+  bool injectRemoteClick(RemoteButton button);
+  bool hasRemoteClick() const { return remoteInput.button != RemoteButton::None; }
   void suppressNextBackRelease() { releaseSuppression.suppressBack(); }
   void suppressNextConfirmRelease() { releaseSuppression.suppressConfirm(); }
   void suppressNextPowerRelease() { releaseSuppression.suppressPower(); }
@@ -366,4 +369,5 @@ class MappedInputManager {
   constexpr bool wasFrontButtonHintTapped(uint8_t) const { return false; }
   constexpr bool wasFrontButtonHintTouchedDown(uint8_t) const { return false; }
 #endif
+  mutable RemoteButtonInput remoteInput;
 };

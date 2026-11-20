@@ -69,10 +69,16 @@ DesktopLayout computeDesktopLayout(const GfxRenderer& renderer, const Rect& rect
   const int screenH = renderer.getScreenHeight();
   const int bottomLimit = out.hasTouchFooter ? std::max(rect.y + rect.height, screenH) : (rect.y + rect.height);
   constexpr int kFooterPadBottom = 4;
+  constexpr int kCardBottomGap = 12;
   const int footerY = bottomLimit - touchFooterH - kFooterPadBottom;
 
+  // On non-touch devices (X3, X4 Classic, X4 Pro without touch), the bottom has a 4-button hint bar.
+  // Reserve space so the continue-reading card does not overlap the button hints.
+  const int buttonReserve = out.hasTouchFooter ? 0 : std::max(40, UITheme::getButtonHintsReserve(renderer));
+  const int contentBottom = out.hasTouchFooter ? footerY : (screenH - buttonReserve);
+
   out.touchMenuRect = Rect{rect.x + inset + contentW - 24, rect.y + 6, 24, 24};
-  const int bookY = out.hasTouchFooter ? (footerY - kBookCardHeight - 8) : (bottomLimit - kBookCardHeight - 16);
+  const int bookY = contentBottom - kBookCardHeight - kCardBottomGap;
   const int statsY = bookY - kStatsCardHeight - kGap;
   const int wallpaperY = out.hasTouchFooter ? (out.touchMenuRect.y + out.touchMenuRect.height + 6) : (rect.y + 8);
   const int wallpaperH = std::max(100, statsY - wallpaperY - 10);
@@ -228,8 +234,12 @@ void drawWallpaperArea(const GfxRenderer& renderer, const Rect& area, const bool
   if (!wallpaperPath.empty()) {
     FsFile file;
     if (Storage.openFileForRead("HOME", wallpaperPath, file)) {
+#if FREEINK_DEVICE_X3
+      const bool use4Gray = false;
+#else
       const bool use4Gray =
           !forceOneBit && (SETTINGS.desktopWallpaperMode == CrossPointSettings::DESKTOP_WALLPAPER_4GRAY);
+#endif
       Bitmap bitmap(file, true, ImageToneProfile::Even);
       bitmap.setOneBitOutput(!use4Gray);
       if (bitmap.parseHeaders() == BmpReaderError::Ok) {
@@ -260,8 +270,12 @@ void drawWallpaperArea(const GfxRenderer& renderer, const Rect& area, const bool
       file.close();
     }
   }
+#if FREEINK_DEVICE_X3
+  const bool use4Gray = false;
+#else
   const bool use4Gray =
       !forceOneBit && (SETTINGS.desktopWallpaperMode == CrossPointSettings::DESKTOP_WALLPAPER_4GRAY);
+#endif
   if (recordGrayscale) {
     wallpaperHasGrayscaleCached = true;
     pendingWallpaperGrayscale = use4Gray;
@@ -505,6 +519,11 @@ bool DesktopTheme::hasPendingWallpaperGrayscale() { return pendingWallpaperGrays
 
 void DesktopTheme::displayHomeWithGrayscale(GfxRenderer& renderer, const HalDisplay::RefreshMode refreshMode,
                                             const Rect rect) {
+#if FREEINK_DEVICE_X3
+  pendingWallpaperGrayscale = false;
+  renderer.displayBuffer(refreshMode);
+  return;
+#else
   if (!pendingWallpaperGrayscale) {
     renderer.displayBuffer(refreshMode);
     return;
@@ -558,6 +577,7 @@ void DesktopTheme::displayHomeWithGrayscale(GfxRenderer& renderer, const HalDisp
   renderer.displayGrayBuffer();
   renderer.setRenderMode(GfxRenderer::BW);
   renderer.restoreBwBuffer();
+#endif
 }
 
 void DesktopTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,

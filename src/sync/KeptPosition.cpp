@@ -10,8 +10,8 @@
 
 namespace KeptPosition {
 bool find(const std::string& bookPath, Offer& out) {
-  // Cheapest checks first: most opens stop at the empty parked file.
-  if (!FsHelpers::hasEpubExtension(bookPath) || SyncParked::empty() || !KOREADER_STORE.hasCredentials()) return false;
+  // Cheapest checks first: stop immediately if credentials not configured, avoiding disk I/O.
+  if (!FsHelpers::hasEpubExtension(bookPath) || !KOREADER_STORE.hasCredentials() || SyncParked::empty()) return false;
   SyncScope scope;
   if (!SyncState::findPreparedCovering(bookPath, scope)) return false;
   out.document = BookSyncFile::documentId(bookPath);

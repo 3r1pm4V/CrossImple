@@ -435,11 +435,12 @@ EpubReaderDrawerActivity::EpubReaderDrawerActivity(
     const bool hasBookmarks, const bool hasClippings, const bool isCurrentPageBookmarked, const bool isBookCompleted,
     const bool showReadingPaceReset, const bool globalStatsEnabled, const bool bookStatsEnabled,
     const uint32_t stableCurrentPage, const uint32_t stablePageCount, const uint16_t autoPageTurnIntervalSeconds,
-    const bool automaticPageTurnActive, SaveSettingsCallback saveReaderSettingsCallback, void* saveReaderSettingsContext,
-    SaveGlobalSettingsCallback saveGlobalSettingsCallback, void* saveGlobalSettingsContext,
-    GlobalSettingsEditCallback beginGlobalSettingsEditCallback, void* beginGlobalSettingsEditContext,
-    GlobalSettingsEditCallback endGlobalSettingsEditCallback, void* endGlobalSettingsEditContext,
-    const ReaderDrawerState initialState, std::unique_ptr<EpubReaderPreviewModel> ownedPreviewModel)
+    const bool automaticPageTurnActive, SaveSettingsCallback saveReaderSettingsCallback,
+    void* saveReaderSettingsContext, SaveGlobalSettingsCallback saveGlobalSettingsCallback,
+    void* saveGlobalSettingsContext, GlobalSettingsEditCallback beginGlobalSettingsEditCallback,
+    void* beginGlobalSettingsEditContext, GlobalSettingsEditCallback endGlobalSettingsEditCallback,
+    void* endGlobalSettingsEditContext, const ReaderDrawerState initialState,
+    std::unique_ptr<EpubReaderPreviewModel> ownedPreviewModel)
     : Activity("EpubReaderDrawer", renderer, mappedInput),
       epub(std::move(epub)),
       previewModel(previewModel),
@@ -464,8 +465,10 @@ EpubReaderDrawerActivity::EpubReaderDrawerActivity(
       isBookCompleted(isBookCompleted),
       showReadingPaceReset(showReadingPaceReset),
       automaticPageTurnActive(automaticPageTurnActive),
-      autoPageTurnIntervalSeconds(automaticPageTurnActive ? std::clamp(autoPageTurnIntervalSeconds, static_cast<uint16_t>(5),
-                                                                       READER_AUTO_PAGE_TURN_MAX_SECONDS) : 0),
+      autoPageTurnIntervalSeconds(
+          automaticPageTurnActive
+              ? std::clamp(autoPageTurnIntervalSeconds, static_cast<uint16_t>(5), READER_AUTO_PAGE_TURN_MAX_SECONDS)
+              : 0),
       state(initialState),
       draft(captureSettings()),
       sourceSettings(draft),
@@ -496,9 +499,9 @@ void EpubReaderDrawerActivity::onEnter() {
   }
   if (mappedInput.hasTouchHardware()) mappedInput.setReaderTouchscreenOverride(true);
 
-  const ReaderDrawerCatalog catalog = makeReaderDrawerCatalog(
-      {hasFootnotes, hasBookmarks, hasClippings, showReadingPaceReset, stablePageCount > 0,
-       !mappedInput.hasTouchHardware(), globalStatsEnabled, bookStatsEnabled});
+  const ReaderDrawerCatalog catalog =
+      makeReaderDrawerCatalog({hasFootnotes, hasBookmarks, hasClippings, showReadingPaceReset, stablePageCount > 0,
+                               !mappedInput.hasTouchHardware(), globalStatsEnabled, bookStatsEnabled});
   for (size_t tab = 0; tab < rootRows.size(); ++tab) {
     rootRows[tab].reserve(catalog[tab].count);
     rootRows[tab].assign(catalog[tab].items.begin(), catalog[tab].items.begin() + catalog[tab].count);
@@ -675,6 +678,7 @@ ReaderSettingsDraft EpubReaderDrawerActivity::captureSettings() {
   value.screenMarginHorizontal = SETTINGS.screenMarginHorizontal;
   value.orientation = SETTINGS.orientation;
   value.paragraphAlignment = SETTINGS.paragraphAlignment;
+  value.pageBackground = SETTINGS.pageBackground;
   value.textAntiAliasing = (SETTINGS.textAntiAliasing && !SETTINGS.fastPageTurn) ? 1 : 0;
   value.focusReadingEnabled = SETTINGS.focusReadingEnabled;
   value.guideReadingEnabled = SETTINGS.guideReadingEnabled;
@@ -703,6 +707,7 @@ void EpubReaderDrawerActivity::applySettings(const ReaderSettingsDraft& value) {
   SETTINGS.screenMarginHorizontal = value.screenMarginHorizontal;
   SETTINGS.orientation = value.orientation;
   SETTINGS.paragraphAlignment = value.paragraphAlignment;
+  SETTINGS.pageBackground = value.pageBackground;
   SETTINGS.textAntiAliasing = value.textAntiAliasing ? 1 : 0;
   SETTINGS.fastPageTurn = value.textAntiAliasing ? 0 : 1;
   SETTINGS.focusReadingEnabled = value.focusReadingEnabled;
@@ -1499,6 +1504,84 @@ void EpubReaderDrawerActivity::buildFontFamilyPane(UiApp::ScreenType& screen) {
                                screen.theme().listScrollInset);
 }
 
+static void drawPageBackgroundExampleIcon(GfxRenderer& renderer, const int mode, const int rowX, const int cy,
+                                          const int rowW, const bool color) {
+  const int sampleW = std::min(110, std::max(60, rowW - 60));
+  const int startX = rowX + (rowW - sampleW) / 2;
+  const int endX = startX + sampleW - 1;
+
+  switch (mode) {
+    case CrossPointSettings::PAGE_BG_DOTS_SPARSE: {
+      // 1. Chấm thưa
+      for (int x = startX; x <= endX; x += 10) {
+        renderer.drawPixel(x, cy, color);
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_DOTS_DENSE: {
+      // 2. Chấm đặc 2x2 px
+      for (int x = startX; x <= endX; x += 8) {
+        renderer.fillRect(x, cy - 1, 2, 2, color);
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_DASH_LIGHT: {
+      // 3. Gạch đứt mảnh (4px gạch, 4px trống)
+      for (int x = startX; x <= endX; x += 8) {
+        renderer.drawLine(x, cy, std::min(x + 3, endX), cy, 1, color);
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_DASH_HEAVY: {
+      // 4. Gạch đứt đậm (6px gạch, 4px trống, dày 2px)
+      for (int x = startX; x <= endX; x += 10) {
+        renderer.fillRect(x, cy - 1, std::min(6, endX - x + 1), 2, color);
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_LINE_LIGHT: {
+      // 5. Dòng kẻ mảnh 1px
+      renderer.drawLine(startX, cy, endX, cy, 1, color);
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_LINE_HEAVY: {
+      // 6. Dòng kẻ đậm 2px
+      renderer.fillRect(startX, cy - 1, sampleW, 2, color);
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_GRID_SMALL: {
+      // 7. Lưới ô ly nhỏ (4 ô vuông 12x12 cạnh nhau)
+      constexpr int kCell = 12;
+      constexpr int kCount = 4;
+      constexpr int kGridW = kCell * kCount;
+      const int bx = rowX + (rowW - kGridW) / 2;
+      const int by = cy - (kCell / 2);
+      renderer.drawLine(bx, by, bx + kGridW, by, 1, color);
+      renderer.drawLine(bx, by + kCell, bx + kGridW, by + kCell, 1, color);
+      for (int x = bx; x <= bx + kGridW; x += kCell) {
+        renderer.drawLine(x, by, x, by + kCell, 1, color);
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_GRID_LARGE: {
+      // 8. Lưới ô ly lớn (3 ô vuông 16x16 cạnh nhau)
+      constexpr int kCell = 16;
+      constexpr int kCount = 3;
+      constexpr int kGridW = kCell * kCount;
+      const int bx = rowX + (rowW - kGridW) / 2;
+      const int by = cy - (kCell / 2);
+      renderer.drawLine(bx, by, bx + kGridW, by, 1, color);
+      renderer.drawLine(bx, by + kCell, bx + kGridW, by + kCell, 1, color);
+      for (int x = bx; x <= bx + kGridW; x += kCell) {
+        renderer.drawLine(x, by, x, by + kCell, 1, color);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 void EpubReaderDrawerActivity::buildEnumOptionsPane(UiApp::ScreenType& screen) {
   buildPaneHeader(screen);
   const int total = static_cast<int>(enumOptionLabels.size());
@@ -1512,21 +1595,56 @@ void EpubReaderDrawerActivity::buildEnumOptionsPane(UiApp::ScreenType& screen) {
     evenlySpaceDrawerListRows(props, listBounds, drawCount);
   }
   const int selectedIndex = previewedEnumOptionIndex >= 0 ? previewedEnumOptionIndex : enumOptionSelectedIndex;
+  const bool isPageBg = enumOptionRow == RowId::PageBackground;
   for (int i = 0; i < drawCount; ++i) {
+    const int optIndex = top + i;
     itemWindow[static_cast<size_t>(i)] = fui::ListItem{};
-    itemWindow[static_cast<size_t>(i)].label = enumOptionLabels[static_cast<size_t>(top + i)].c_str();
-    itemWindow[static_cast<size_t>(i)].value = top + i == selectedIndex ? tr(STR_SELECTED) : nullptr;
-    itemWindow[static_cast<size_t>(i)].actionValue = static_cast<int16_t>(top + i);
+    if (isPageBg && optIndex > 0) {
+      itemWindow[static_cast<size_t>(i)].label = "";  // Vẽ hình ví dụ thay vì chữ
+    } else {
+      itemWindow[static_cast<size_t>(i)].label = enumOptionLabels[static_cast<size_t>(optIndex)].c_str();
+    }
+    itemWindow[static_cast<size_t>(i)].value = (optIndex == selectedIndex && !isPageBg) ? tr(STR_SELECTED) : nullptr;
+    itemWindow[static_cast<size_t>(i)].actionValue = static_cast<int16_t>(optIndex);
   }
   props.items = itemWindow.data();
   props.count = static_cast<uint16_t>(std::max(0, drawCount));
   props.action = ACTION_ROW;
   props.selectedIndex = readerDrawerFocusedWindowIndex(buttonFocusActive, state.selectedIndex, top);
   props.inputMask = fui::InputTouch;
+  if (isPageBg) {
+    props.labelText.align = fui::TextAlign::Center;
+  }
   screen.list(props);
   fui::drawListScrollIndicator(screen.target(), drawerScrollbarBounds(screen.body()), total, visibleRows, top,
                                screen.theme().listScrollWidth, screen.theme().listScrollSide,
                                screen.theme().listScrollInset);
+
+  if (isPageBg) {
+    const int16_t rowHeight = props.rowHeight;
+    const int16_t rowGap = props.rowGap < 0 ? 0 : props.rowGap;
+    for (int i = 0; i < drawCount; ++i) {
+      const int optIndex = top + i;
+      const int rowY = listBounds.y + i * (rowHeight + rowGap);
+      const int cy = rowY + rowHeight / 2;
+      const int rowX = listBounds.x;
+      const int rowW = listBounds.width;
+      const bool isFocused = (i == props.selectedIndex);
+      const bool iconColor = isFocused ? false : true;
+
+      if (optIndex > 0) {
+        drawPageBackgroundExampleIcon(renderer, optIndex, rowX, cy, rowW, iconColor);
+      }
+
+      // Vẽ dấu tick ✓ ở góc phải cho mục đang được chọn
+      if (optIndex == selectedIndex) {
+        const int checkX = rowX + rowW - 32;
+        const int checkY = cy - 4;
+        renderer.drawLine(checkX, checkY + 3, checkX + 3, checkY + 6, 2, iconColor);
+        renderer.drawLine(checkX + 3, checkY + 6, checkX + 8, checkY - 1, 2, iconColor);
+      }
+    }
+  }
 }
 
 #if CROSSINK_SCALABLE_FONTS
@@ -1733,6 +1851,7 @@ void EpubReaderDrawerActivity::activateRow(const RowId row) {
     case RowId::FontSize:
     case RowId::Orientation:
     case RowId::Alignment:
+    case RowId::PageBackground:
     case RowId::Images:
     case RowId::PublisherFonts:
     case RowId::RenderMode:
@@ -1953,6 +2072,20 @@ void EpubReaderDrawerActivity::showEnumOptions(const RowId row) {
       raw = {0, 1, 2, 3, 4};
       currentRaw = draft.paragraphAlignment;
       break;
+    case RowId::PageBackground:
+      title = StrId::STR_PAGE_BACKGROUND;
+      labels = {tr(STR_OFF),
+                tr(STR_PAGE_BG_DOTS_SPARSE),
+                tr(STR_PAGE_BG_DOTS_DENSE),
+                tr(STR_PAGE_BG_DASH_LIGHT),
+                tr(STR_PAGE_BG_DASH_HEAVY),
+                tr(STR_PAGE_BG_LINE_LIGHT),
+                tr(STR_PAGE_BG_LINE_HEAVY),
+                tr(STR_PAGE_BG_GRID_SMALL),
+                tr(STR_PAGE_BG_GRID_LARGE)};
+      raw = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+      currentRaw = draft.pageBackground;
+      break;
     case RowId::PublisherFonts:
       title = StrId::STR_PUBLISHER_FONTS;
       labels = {tr(STR_OFF), tr(STR_PUBLISHER_FONTS_ACCENTS), tr(STR_PUBLISHER_FONTS_ALL)};
@@ -2002,16 +2135,21 @@ void EpubReaderDrawerActivity::openEnumOptions(const RowId row, const StrId titl
 void EpubReaderDrawerActivity::selectEnumOption(const int index) {
   if (index < 0 || index >= static_cast<int>(enumOptionValues.size())) return;
   const uint8_t value = enumOptionValues[static_cast<size_t>(index)];
-  const bool previewsBeforeSelecting = enumOptionRow == RowId::FontSize || enumOptionRow == RowId::Alignment;
+  const bool previewsBeforeSelecting =
+      enumOptionRow == RowId::FontSize || enumOptionRow == RowId::Alignment || enumOptionRow == RowId::PageBackground;
   if (previewsBeforeSelecting && previewedEnumOptionIndex != index) {
     previewedEnumOptionIndex = static_cast<int16_t>(index);
     if (enumOptionRow == RowId::FontSize) {
       fontPreviewLoading = ReaderUtils::shouldShowFontPreviewLoading(draft.sdFontFamilyName.data());
       draft.readerFontPointSize = value;
-    } else {
+    } else if (enumOptionRow == RowId::Alignment) {
       draft.paragraphAlignment = value;
+    } else if (enumOptionRow == RowId::PageBackground) {
+      draft.pageBackground = value;
     }
-    markSettingChanged(ReaderSettingsChangeMask::Preview | ReaderSettingsChangeMask::Relayout);
+    markSettingChanged(enumOptionRow == RowId::PageBackground
+                           ? (ReaderSettingsChangeMask::Preview | ReaderSettingsChangeMask::NonLayout)
+                           : (ReaderSettingsChangeMask::Preview | ReaderSettingsChangeMask::Relayout));
     requestUpdate();
     return;
   }
@@ -2031,6 +2169,12 @@ void EpubReaderDrawerActivity::selectEnumOption(const int index) {
       enumOptionSelectedIndex = static_cast<int16_t>(index);
       previewedEnumOptionIndex = -1;
       markSettingChanged(ReaderSettingsChangeMask::Preview | ReaderSettingsChangeMask::Relayout);
+      break;
+    case RowId::PageBackground:
+      draft.pageBackground = value;
+      enumOptionSelectedIndex = static_cast<int16_t>(index);
+      previewedEnumOptionIndex = -1;
+      markSettingChanged(ReaderSettingsChangeMask::Preview | ReaderSettingsChangeMask::NonLayout);
       break;
     case RowId::PublisherFonts:
       draft.publisherFonts = value;
@@ -2425,6 +2569,7 @@ void EpubReaderDrawerActivity::renderPreviewText(const ReaderSettingsDraft& prev
                             previewSettings.screenMarginVertical == sourceSettings.screenMarginVertical &&
                             previewSettings.screenMarginHorizontal == sourceSettings.screenMarginHorizontal &&
                             previewSettings.paragraphAlignment == sourceSettings.paragraphAlignment &&
+                            previewSettings.pageBackground == sourceSettings.pageBackground &&
                             previewSettings.focusReadingEnabled == sourceSettings.focusReadingEnabled &&
                             previewSettings.guideReadingEnabled == sourceSettings.guideReadingEnabled;
   if (sourceLayout && EpubReaderPreviewModel::RETAINS_SOURCE_BLOCKS) {
@@ -2444,6 +2589,14 @@ void EpubReaderDrawerActivity::renderPreviewText(const ReaderSettingsDraft& prev
   const int previewWidth = std::max(1, renderer.getScreenWidth() - orientedLeft - orientedRight -
                                            static_cast<int>(previewSettings.screenMarginHorizontal) * 2);
   renderer.beginTextClip(safe.x, clipTop, safe.width, clipHeight);
+  if (previewSettings.pageBackground != CrossPointSettings::PAGE_BG_NONE) {
+    const int lineHeight = renderer.getLineHeight(previewFontId);
+    const int effectiveLineHeight = (lineHeight * previewSettings.lineHeightPercent) / 100;
+    const int ascender = renderer.getFontAscenderSize(previewFontId);
+    ReaderUtils::drawPageBackground(renderer, previewXOffset, previewYOffset, previewWidth, clipHeight,
+                                    effectiveLineHeight, ascender, previewSettings.pageBackground,
+                                    ReaderUtils::readerForegroundBlack());
+  }
   previewModel->renderText(
       renderer, previewFontId, previewXOffset, previewYOffset, previewWidth, previewSettings.lineHeightPercent,
       previewSettings.wordSpacing, previewSettings.paragraphAlignment, previewSettings.focusReadingEnabled,
@@ -2468,6 +2621,14 @@ void EpubReaderDrawerActivity::renderSamplePreviewText(const ReaderSettingsDraft
   const int top = area.y + metrics.previewPadding + marginY;
   const int width = std::max(1, area.width - marginX * 2);
   renderer.beginTextClip(area.x + marginX, top, width, std::max(0, textHeight - marginY * 2));
+  if (settings.pageBackground != CrossPointSettings::PAGE_BG_NONE) {
+    const int lineHeight = renderer.getLineHeight(fontId);
+    const int effectiveLineHeight = (lineHeight * settings.lineHeightPercent) / 100;
+    const int ascender = renderer.getFontAscenderSize(fontId);
+    ReaderUtils::drawPageBackground(renderer, area.x + marginX, top, width, std::max(0, textHeight - marginY * 2),
+                                    effectiveLineHeight, ascender, settings.pageBackground,
+                                    ReaderUtils::readerForegroundBlack());
+  }
   previewModel->renderText(renderer, fontId, area.x + marginX, top, width, settings.lineHeightPercent,
                            settings.wordSpacing, settings.paragraphAlignment, settings.focusReadingEnabled,
                            settings.guideReadingEnabled, ReaderUtils::readerForegroundBlack(),
@@ -2934,6 +3095,8 @@ const char* EpubReaderDrawerActivity::rowLabel(const RowId row) const {
       return tr(STR_ORIENTATION);
     case RowId::Alignment:
       return tr(STR_PARA_ALIGNMENT);
+    case RowId::PageBackground:
+      return tr(STR_PAGE_BACKGROUND);
     case RowId::Hyphenation:
       return tr(STR_HYPHENATION);
     case RowId::PublisherPages:
@@ -3062,6 +3225,21 @@ const char* EpubReaderDrawerActivity::rowValue(const RowId row, char* buffer, co
       static const std::array<StrId, 5> labels = {StrId::STR_JUSTIFY, StrId::STR_DIR_LEFT, StrId::STR_CENTER,
                                                   StrId::STR_DIR_RIGHT, StrId::STR_BOOK_S_STYLE};
       return I18N.get(labels[std::min<size_t>(draft.paragraphAlignment, labels.size() - 1)]);
+    }
+    case RowId::PageBackground: {
+      static constexpr std::array<StrId, 9> bgLabels = {StrId::STR_OFF,
+                                                        StrId::STR_PAGE_BG_DOTS_SPARSE,
+                                                        StrId::STR_PAGE_BG_DOTS_DENSE,
+                                                        StrId::STR_PAGE_BG_DASH_LIGHT,
+                                                        StrId::STR_PAGE_BG_DASH_HEAVY,
+                                                        StrId::STR_PAGE_BG_LINE_LIGHT,
+                                                        StrId::STR_PAGE_BG_LINE_HEAVY,
+                                                        StrId::STR_PAGE_BG_GRID_SMALL,
+                                                        StrId::STR_PAGE_BG_GRID_LARGE};
+      if (draft.pageBackground < bgLabels.size()) {
+        return I18N.get(bgLabels[draft.pageBackground]);
+      }
+      return tr(STR_OFF);
     }
     case RowId::PublisherFonts: {
       static constexpr std::array<StrId, 3> labels = {StrId::STR_OFF, StrId::STR_PUBLISHER_FONTS_ACCENTS,

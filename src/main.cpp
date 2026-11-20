@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <BlePageTurner.h>
 #include <BoardConfig.h>
 #include <CrossInkHalFrontlight.h>
 #include <FontCacheManager.h>
@@ -22,6 +23,9 @@
 #include <Memory.h>
 #include <SPI.h>
 #include <TrustedTime.h>
+#ifndef SIMULATOR
+#include <WiFi.h>
+#endif
 
 #if !defined(SIMULATOR) && !FREEINK_MCU_C3
 #include <XteinkDetect.h>
@@ -486,6 +490,78 @@ void silentRestartToNetwork(const NetworkBootTarget target, const uint32_t paylo
 }
 
 void silentRestartToManageFonts() { silentRestartToNetwork(NetworkBootTarget::MANAGE_FONTS); }
+
+namespace pageturner {
+std::atomic<bool> holdsCpu{false};
+
+bleturner::Heap heap() {
+#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
+  return {heap_caps_get_free_size(MALLOC_CAP_INTERNAL), heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)};
+#else
+  return {1024 * 1024, 512 * 1024};
+#endif
+}
+
+bool releaseCaches() {
+  RenderLock lock(RenderLock::Mode::Try);
+  if (!lock.ownsLock()) return false;
+  if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
+  return true;
+}
+
+bool deliver(const bleturner::Action action) {
+  switch (action) {
+    case bleturner::Action::NextPage:
+      return activityManager.remoteTurn(true, false);
+    case bleturner::Action::PrevPage:
+      return activityManager.remoteTurn(false, false);
+    case bleturner::Action::NextChapter:
+      return activityManager.remoteTurn(true, true);
+    case bleturner::Action::PrevChapter:
+      return activityManager.remoteTurn(false, true);
+    case bleturner::Action::Confirm:
+      return activityManager.remoteClick(RemoteButton::Confirm);
+    case bleturner::Action::Back:
+      return activityManager.remoteClick(RemoteButton::Back);
+    case bleturner::Action::ReaderMenu:
+      return activityManager.remoteShortcut(true);
+    case bleturner::Action::SaveQuote:
+      return false;
+    case bleturner::Action::None:
+      return false;
+  }
+  return false;
+}
+
+bool yieldForRadio() { return true; }
+bool fileTransferActive() {
+#ifndef SIMULATOR
+  if (WiFi.getMode() != WIFI_MODE_NULL) return true;
+#endif
+  return activityManager.requiresExclusiveStorageLoop();
+}
+void restartIntoBook() { silentRestartToReader(); }
+
+void holdFullSpeed(const bool hold) {
+  holdsCpu.store(hold);
+  powerManager.setPowerSaving(!hold);
+}
+
+void log(const bool error, const char* format, va_list args) {
+#ifdef ENABLE_SERIAL_LOG
+  char line[160];
+  vsnprintf(line, sizeof(line), format, args);
+  logPrintf(error ? "ERR" : "INF", "BLE", "%s", line);
+#else
+  (void)error;
+  (void)format;
+  (void)args;
+#endif
+}
+
+const bleturner::Host host{heap,          releaseCaches, deliver, yieldForRadio, fileTransferActive, restartIntoBook,
+                           holdFullSpeed, log,           nullptr};
+}  // namespace pageturner
 
 static uint32_t encodeKOReaderSyncOrientation(const uint8_t orientation) {
   return orientation < CrossPointSettings::ORIENTATION_COUNT ? static_cast<uint32_t>(orientation) + 1 : 0;
@@ -1126,6 +1202,9 @@ void enterDeepSleep(bool fromTimeout) {
   // Commit to sleeping before goToSleep() runs the outgoing activity's onExit():
   // a WiFi activity would otherwise silentRestart() here and reboot instead.
   deepSleepInProgress = true;
+#if !FREEINK_DEVICE_X3
+  bleturner::beforeSleep(2000);
+#endif
   trustedtime::note();
   activityManager.goToSleep(fromTimeout);
   // Reader exit may already have saved this state. Save after the sleep screen
@@ -1142,7 +1221,6 @@ void enterDeepSleep(bool fromTimeout) {
       Storage.remove(SLEEP_FRAME_FILE);
     }
   }
-
 
   // Last chance to sample: startDeepSleep() cuts the SD rail on X3, so nothing
   // can be written again until the next wake.
@@ -1682,16 +1760,48 @@ void setup() {
     gpio.update();
   }
 
+#if !FREEINK_DEVICE_X3
+  bleturner::begin(pageturner::host, SETTINGS.ble);
+#endif
 #ifndef SIMULATOR
   gpio.startButtonCapture();
 #endif
   allowSleepAt = millis() + 2000;
 }
 
-
-
 void loop() {
   markWatchdogMainLoopTick();
+
+  // Keep release suppression in the mapped-input layer in sync with every
+  // hardware input frame. A shortcut may open an activity that never queries
+  // the originating button, so its one-shot release guard must still expire.
+  mappedInputManager.update();
+#ifdef SIMULATOR
+  simulatorHomeKeyInput.update();
+#endif
+
+#if !FREEINK_DEVICE_X3
+  bleturner::Scene scene{};
+  const bool homeShown = activityManager.isForegroundHomeShown();
+  const bool remoteContext = activityManager.isRemoteReaderContext();
+  scene.where = remoteContext ? bleturner::Where::Reader
+                : homeShown   ? bleturner::Where::Home
+                              : bleturner::Where::Elsewhere;
+  scene.visit = activityManager.visit();
+  scene.pageShown = homeShown || (remoteContext && activityManager.isRemoteReaderPagePainted());
+  scene.bookIndexing = remoteContext && activityManager.isRemoteReaderIndexing();
+  scene.storageBusy = activityManager.requiresExclusiveStorageLoop() || pageturner::fileTransferActive();
+#ifndef SIMULATOR
+  scene.wifiOn = WiFi.getMode() != WIFI_MODE_NULL;
+#else
+  scene.wifiOn = false;
+#endif
+  scene.sleeping = deepSleepInProgress;
+  scene.localKey = gpio.wasAnyReleased();
+  const bool remoteActed = bleturner::tick(scene);
+#else
+  constexpr bool remoteActed = false;
+#endif
   static unsigned long maxLoopDuration = 0;
   const unsigned long loopStartTime = millis();
   static unsigned long lastMemPrint = 0;
@@ -1709,14 +1819,6 @@ void loop() {
       batteryCalibrationStarted = checkBatteryCapacity;
     }
   }
-#endif
-
-  // Keep release suppression in the mapped-input layer in sync with every
-  // hardware input frame. A shortcut may open an activity that never queries
-  // the originating button, so its one-shot release guard must still expire.
-  mappedInputManager.update();
-#ifdef SIMULATOR
-  simulatorHomeKeyInput.update();
 #endif
   if (activityManager.requiresExclusiveStorageLoop()) {
     // Keep the serial endpoint responsive so Inky receives ERR:not_on_home,
@@ -1768,7 +1870,7 @@ void loop() {
 #if CROSSINK_APP_CAP_TOUCH
                                  || gpio.wasTouchActivity()
 #endif
-                                 || halTiltSensor.hadActivity();
+                                 || halTiltSensor.hadActivity() || remoteActed;
 
   // Check for any user activity (button press or release) or active background work
   static unsigned long lastActivityTime = millis();
@@ -2066,7 +2168,9 @@ void loop() {
   } else {
     if (millis() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
-      powerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
+      if (!pageturner::holdsCpu.load()) {
+        powerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
+      }
 #if defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3 && (!defined(FREEINK_DEVICE_X4) || !FREEINK_DEVICE_X4)
       waitForInput(millis() - lastActivityTime >= 3000 ? 100 : 50);
 #else

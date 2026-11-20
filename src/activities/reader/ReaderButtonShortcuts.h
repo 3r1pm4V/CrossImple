@@ -59,8 +59,10 @@ class ReaderButtonShortcuts {
     bool tracking = false;
     bool longFired = false;
     bool ready = false;
+#if FREEINK_DEVICE_METALIO_EINK4 && CROSSINK_APP_CAP_TOUCH
     bool isCapacitive = false;
     uint8_t capacitiveAction = CrossPointSettings::IGNORE;
+#endif
   };
   ButtonState up_;
   ButtonState down_;
@@ -110,8 +112,13 @@ class ReaderButtonShortcuts {
     }
     if (!state.tracking) return result;
 
+#if FREEINK_DEVICE_METALIO_EINK4 && CROSSINK_APP_CAP_TOUCH
     const uint8_t effectiveShortAction = state.isCapacitive ? state.capacitiveAction : shortAction;
     const uint8_t effectiveLongAction = state.isCapacitive ? CrossPointSettings::IGNORE : longAction;
+#else
+    const uint8_t effectiveShortAction = shortAction;
+    const uint8_t effectiveLongAction = longAction;
+#endif
 
     result.consumed = true;
     if (!state.longFired && effectiveLongAction != CrossPointSettings::IGNORE &&

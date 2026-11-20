@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cctype>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "GlobalActions.h"
 #include "MappedInputManager.h"
@@ -83,6 +85,265 @@ inline bool readerDarkModeEnabled() { return false; }
 inline uint8_t readerBackgroundColor() { return readerDarkModeEnabled() ? 0x00 : 0xFF; }
 
 inline bool readerForegroundBlack() { return true; }
+
+struct PageBgLine {
+  int topY;
+  int baselineY;
+  int bottomY;
+  int lineHeight;
+};
+
+struct PageBgInfo {
+  std::vector<PageBgLine> lines;
+  std::vector<std::pair<int, int>> imageRanges;
+
+  void clear() {
+    lines.clear();
+    imageRanges.clear();
+  }
+};
+
+inline void drawPageBackground(const GfxRenderer& renderer, const int startX, const int startY, const int width,
+                               const int height, const int defaultLineHeight, int defaultFontAscender,
+                               const uint8_t mode, const bool foregroundBlack, const PageBgLine* lines,
+                               const size_t lineCount, const std::pair<int, int>* imageRanges = nullptr,
+                               const size_t imageRangeCount = 0) {
+  if (mode == CrossPointSettings::PAGE_BG_NONE || width <= 0 || height <= 0 || defaultLineHeight <= 0) return;
+  const int endX = startX + width - 1;
+  const int endY = startY + height - 1;
+
+  if (defaultFontAscender <= 0) {
+    defaultFontAscender = (defaultLineHeight * 3) / 4;
+  }
+
+  auto isInsideImage = [&](int y) {
+    if (imageRanges == nullptr) return false;
+    for (size_t i = 0; i < imageRangeCount; ++i) {
+      if (y >= imageRanges[i].first && y <= imageRanges[i].second) return true;
+    }
+    return false;
+  };
+
+  // Khoảng cách dòng chuẩn (pitch) lấy trực tiếp từ defaultLineHeight (effectiveLineHeight)
+  // để luôn chính xác tuyệt đối, không bị nhiễu bởi minDelta của drop-cap, icon hay subtitle.
+  const int pitch = defaultLineHeight;
+
+  // Đường kẻ phân tách dòng (ruled line) hoặc viền ô ly:
+  // Đặt tại đáy của mỗi dòng chữ (line.bottomY), tạo khoảng cách thông thoáng
+  // tự nhiên ("cách chân chữ ra 1 khoảng") cho chân chữ và dấu nặng tiếng Việt,
+  // tuyệt đối không chạm hay đè lên dấu nặng, đồng thời bao trọn thân chữ bên trong ô vuông.
+  static constexpr size_t kMaxUnderlines = 96;
+  int underlineYs[kMaxUnderlines];
+  size_t underlineCount = 0;
+  auto addUnderline = [&](int y) {
+    if (underlineCount < kMaxUnderlines) {
+      underlineYs[underlineCount++] = y;
+    }
+  };
+
+  int firstTopY = startY;
+  if (lines != nullptr && lineCount > 0) {
+    firstTopY = lines[0].topY;
+    // 1. Phía trên dòng đầu tiên (nếu có khoảng trống ở đầu trang)
+    for (int y = firstTopY - pitch; y >= startY; y -= pitch) {
+      addUnderline(y);
+    }
+
+    // 2. Đáy của từng dòng văn bản và các dòng trống ở đoạn văn ngắt
+    for (size_t i = 0; i < lineCount; ++i) {
+      const int lineBottomY = lines[i].bottomY;
+      addUnderline(lineBottomY);
+
+      if (i + 1 < lineCount) {
+        const int gap = lines[i + 1].topY - lines[i].bottomY;
+        // Nếu khoảng cách giữa 2 dòng >= 0.8 lần pitch (đoạn văn ngắt), chèn đều các dòng trống
+        if (gap >= static_cast<int>(pitch * 0.8f)) {
+          for (int y = lineBottomY + pitch; y + (pitch / 2) < lines[i + 1].bottomY; y += pitch) {
+            addUnderline(y);
+          }
+        }
+      }
+    }
+
+    // 3. Tiếp nối các đường kẻ phía dưới đến hết trang
+    const int lastLineY = lines[lineCount - 1].bottomY;
+    for (int y = lastLineY + pitch; y <= endY; y += pitch) {
+      addUnderline(y);
+    }
+  } else {
+    // Fallback khi không có danh sách dòng (trang rỗng / preview)
+    firstTopY = startY;
+    for (int y = startY + pitch; y <= endY; y += pitch) {
+      addUnderline(y);
+    }
+  }
+
+  // Sắp xếp và loại bỏ các dòng bị trùng hoặc quá sát nhau (<= 3px)
+  std::sort(underlineYs, underlineYs + underlineCount);
+  size_t writeIdx = 0;
+  for (size_t readIdx = 0; readIdx < underlineCount; ++readIdx) {
+    if (writeIdx == 0 || std::abs(underlineYs[readIdx] - underlineYs[writeIdx - 1]) > 3) {
+      underlineYs[writeIdx++] = underlineYs[readIdx];
+    }
+  }
+  underlineCount = writeIdx;
+
+  // Chế độ Lưới ô ly tập vở (Modes 7 & 8): Đảm bảo các ô là HÌNH VUÔNG 100% (cellWidth == cellHeight == pitch)
+  // và TUYỆT ĐỐI không có đường kẻ ngang nào cắt ngang qua giữa thân chữ.
+  if (mode == CrossPointSettings::PAGE_BG_GRID_SMALL || mode == CrossPointSettings::PAGE_BG_GRID_LARGE) {
+    const int cellStep = pitch;
+
+    // Căn chỉnh lưới ô ly theo lề trang
+    const int contentW = endX - startX + 1;
+    const int numCols = std::max(1, contentW / cellStep);
+    const int gridW = numCols * cellStep;
+    const int gridStartX = startX;
+    const int gridEndX = gridStartX + gridW;
+
+    int topBorderY = firstTopY;
+    while (topBorderY - cellStep >= startY) {
+      topBorderY -= cellStep;
+    }
+    const int gridTopY = std::max(startY, topBorderY);
+    const int gridBottomY = (underlineCount == 0) ? endY : std::min(endY, underlineYs[underlineCount - 1]);
+
+    const bool isDottedGrid = (mode == CrossPointSettings::PAGE_BG_GRID_SMALL);
+
+    // 1. Kẻ các đường ngang
+    // Đường ngang viền đỉnh lưới
+    if (gridTopY >= startY && gridTopY <= endY && !isInsideImage(gridTopY)) {
+      if (isDottedGrid) {
+        for (int x = gridStartX; x <= gridEndX; x += 4) {
+          renderer.drawPixel(x, gridTopY, foregroundBlack);
+        }
+      } else {
+        renderer.drawLine(gridStartX, gridTopY, gridEndX, gridTopY, 1, foregroundBlack);
+      }
+    }
+    for (size_t i = 0; i < underlineCount; ++i) {
+      const int y = underlineYs[i];
+      if (y >= startY && y <= endY && !isInsideImage(y)) {
+        if (isDottedGrid) {
+          for (int x = gridStartX; x <= gridEndX; x += 4) {
+            renderer.drawPixel(x, y, foregroundBlack);
+          }
+        } else {
+          renderer.drawLine(gridStartX, y, gridEndX, y, 1, foregroundBlack);
+        }
+      }
+    }
+
+    // 2. Kẻ các đường dọc (bước bằng cellStep -> tạo thành các ô vuông tuyệt đối)
+    for (int x = gridStartX; x <= gridEndX; x += cellStep) {
+      int segTop = gridTopY;
+      while (segTop <= gridBottomY) {
+        if (isInsideImage(segTop)) {
+          segTop++;
+          continue;
+        }
+        int segBottom = segTop;
+        while (segBottom + 1 <= gridBottomY && !isInsideImage(segBottom + 1)) {
+          segBottom++;
+        }
+        if (isDottedGrid) {
+          for (int y = segTop; y <= segBottom; y += 4) {
+            renderer.drawPixel(x, y, foregroundBlack);
+          }
+        } else {
+          renderer.drawLine(x, segTop, x, segBottom, 1, foregroundBlack);
+        }
+        segTop = segBottom + 1;
+      }
+    }
+    return;
+  }
+
+  // Chế độ Dòng kẻ / Gạch đứt / Chấm (Modes 1..6)
+  switch (mode) {
+    case CrossPointSettings::PAGE_BG_DOTS_SPARSE: {
+      // 1. Chấm thưa (mỗi chấm cách nhau 4px, tạo đường kẻ chấm thanh nhã như tập vở)
+      for (size_t i = 0; i < underlineCount; ++i) {
+        const int y = underlineYs[i];
+        if (y < startY || y > endY || isInsideImage(y)) continue;
+        for (int x = startX; x <= endX; x += 4) {
+          renderer.drawPixel(x, y, foregroundBlack);
+        }
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_DOTS_DENSE: {
+      // 2. Chấm dày (1 pixel vẽ, 1 pixel trống)
+      for (size_t i = 0; i < underlineCount; ++i) {
+        const int y = underlineYs[i];
+        if (y < startY || y > endY || isInsideImage(y)) continue;
+        for (int x = startX; x <= endX; x += 2) {
+          renderer.drawPixel(x, y, foregroundBlack);
+        }
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_DASH_LIGHT: {
+      // 3. Đường gạch đứt mảnh (4px gạch, 4px trống)
+      for (size_t i = 0; i < underlineCount; ++i) {
+        const int y = underlineYs[i];
+        if (y < startY || y > endY || isInsideImage(y)) continue;
+        for (int x = startX; x <= endX; x += 8) {
+          const int len = std::min(4, endX - x + 1);
+          renderer.drawLine(x, y, x + len - 1, y, 1, foregroundBlack);
+        }
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_DASH_HEAVY: {
+      // 4. Đường gạch đứt đậm (6px gạch, 4px trống, dày 2px)
+      for (size_t i = 0; i < underlineCount; ++i) {
+        const int y = underlineYs[i];
+        if (y < startY || y > endY || isInsideImage(y)) continue;
+        for (int x = startX; x <= endX; x += 10) {
+          const int len = std::min(6, endX - x + 1);
+          renderer.fillRect(x, y, len, 2, foregroundBlack);
+        }
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_LINE_LIGHT: {
+      // 5. Dòng kẻ mảnh 1px nằm ngay dưới chân từng dòng văn bản
+      for (size_t i = 0; i < underlineCount; ++i) {
+        const int y = underlineYs[i];
+        if (y < startY || y > endY || isInsideImage(y)) continue;
+        renderer.drawLine(startX, y, endX, y, 1, foregroundBlack);
+      }
+      break;
+    }
+    case CrossPointSettings::PAGE_BG_LINE_HEAVY: {
+      // 6. Dòng kẻ đậm 2px nằm ngay dưới chân từng dòng văn bản
+      for (size_t i = 0; i < underlineCount; ++i) {
+        const int y = underlineYs[i];
+        if (y < startY || y > endY || isInsideImage(y)) continue;
+        renderer.fillRect(startX, y - 1, width, 2, foregroundBlack);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+inline void drawPageBackground(const GfxRenderer& renderer, const int startX, const int startY, const int width,
+                               const int height, const int defaultLineHeight, int defaultFontAscender,
+                               const uint8_t mode, const bool foregroundBlack = readerForegroundBlack(),
+                               const std::vector<PageBgLine>& lines = {},
+                               const std::vector<std::pair<int, int>>& imageRanges = {}) {
+  drawPageBackground(renderer, startX, startY, width, height, defaultLineHeight, defaultFontAscender, mode,
+                     foregroundBlack, lines.empty() ? nullptr : lines.data(), lines.size(),
+                     imageRanges.empty() ? nullptr : imageRanges.data(), imageRanges.size());
+}
+
+inline void drawPageBackground(const GfxRenderer& renderer, const int startX, const int startY, const int width,
+                               const int height, const int lineHeight, const uint8_t mode,
+                               const bool foregroundBlack = readerForegroundBlack()) {
+  drawPageBackground(renderer, startX, startY, width, height, lineHeight, 0, mode, foregroundBlack);
+}
 
 inline int getTopStatusBarReservedHeight(const GfxRenderer& renderer) {
   const int statusBarHeight = UITheme::getReaderStatusBarHeight(ReaderStatusBarPosition::Top, renderer);

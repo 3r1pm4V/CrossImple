@@ -198,6 +198,16 @@ class ActivityManager {
   bool blocksGlobalInput() const;
   bool isHomeActivity() const;
   bool isReaderActivity() const;
+  uint32_t screenVisit = 0;
+  uint32_t visit() const { return screenVisit; }
+  bool isForegroundReader() const;
+  bool isRemoteReaderContext() const;
+  bool isRemoteReaderPagePainted() const;
+  bool isRemoteReaderIndexing() const;
+  bool isForegroundHomeShown() const;
+  bool remoteClick(RemoteButton button);
+  bool remoteTurn(bool forward, bool chapter);
+  bool remoteShortcut(bool readerMenu);
   bool openReaderSettingsForTouchscreenEscapeHatch();
   bool handleHomeButtonBackOrHome();
   bool openReaderMenuFromShortcut();

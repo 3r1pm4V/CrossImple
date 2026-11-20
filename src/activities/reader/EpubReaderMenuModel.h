@@ -97,6 +97,7 @@ enum class ReaderDrawerCatalogItem : uint8_t {
   Margins,
   Orientation,
   Alignment,
+  PageBackground,
   Hyphenation,
   PublisherPages,
   ExtraSpacing,
@@ -176,6 +177,7 @@ constexpr ReaderDrawerCatalog makeReaderDrawerCatalog(const ReaderDrawerAvailabi
   layout.add(ReaderDrawerCatalogItem::Margins);
   layout.add(ReaderDrawerCatalogItem::Orientation);
   layout.add(ReaderDrawerCatalogItem::Alignment);
+  layout.add(ReaderDrawerCatalogItem::PageBackground);
   layout.add(ReaderDrawerCatalogItem::Images);
   layout.add(ReaderDrawerCatalogItem::Hyphenation);
   layout.add(ReaderDrawerCatalogItem::PublisherPages);
@@ -315,6 +317,7 @@ struct ReaderSettingsDraft {
   uint8_t screenMarginHorizontal = 0;
   uint8_t orientation = 0;
   uint8_t paragraphAlignment = 0;
+  uint8_t pageBackground = 0;
   uint8_t textAntiAliasing = 0;
   uint8_t focusReadingEnabled = 0;
   uint8_t guideReadingEnabled = 0;

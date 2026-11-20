@@ -1,5 +1,6 @@
 #pragma once
 #include <ArduinoJson.h>
+#include <BlePageTurner.h>
 #include <Epub/ReaderRenderSpec.h>
 #include <Epub/WordSpacing.h>
 #include <HalStorage.h>
@@ -220,6 +221,18 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     RIGHT_ALIGN = 3,
     BOOK_STYLE = 4,
     PARAGRAPH_ALIGNMENT_COUNT
+  };
+  enum PAGE_BACKGROUND {
+    PAGE_BG_NONE = 0,
+    PAGE_BG_DOTS_SPARSE = 1,
+    PAGE_BG_DOTS_DENSE = 2,
+    PAGE_BG_DASH_LIGHT = 3,
+    PAGE_BG_DASH_HEAVY = 4,
+    PAGE_BG_LINE_LIGHT = 5,
+    PAGE_BG_LINE_HEAVY = 6,
+    PAGE_BG_GRID_SMALL = 7,
+    PAGE_BG_GRID_LARGE = 8,
+    PAGE_BACKGROUND_COUNT
   };
 
   // Auto-sleep timeout options (in minutes)
@@ -608,6 +621,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t wordSpacing = 0;
   uint8_t characterSpacing = 5;  // 0..10 represents -5..+5; each step is half a pixel.
   uint8_t paragraphAlignment = JUSTIFIED;
+  uint8_t pageBackground = PAGE_BG_NONE;
   // Auto-sleep timeout setting (default 10 minutes). Legacy sleepTimeout enum values are migration-only.
   uint8_t sleepTimeoutMinutes = 10;
   // Quarter-dBm ceiling; 0 preserves the driver's default transmit power.
@@ -741,6 +755,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t quickResumeSleepScreen = QUICK_RESUME_NEVER;
   // Master switch for automatic reading statistics; Time Left pace remains independent.
   uint8_t trackReadingStats = 1;
+  // Bluetooth page turner, saved under the keys lib/BlePageTurner reads and writes (BlePageTurnerJson.h).
+  bleturner::Config ble;
 
   ~CrossPointSettings() = default;
 

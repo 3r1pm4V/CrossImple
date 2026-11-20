@@ -261,10 +261,15 @@ void HalGPIO::update() {
     }
   }
 
+#if FREEINK_CAP_TOUCH
   const uint8_t pageButtons = inputMgr.capacitivePageButtonMask();
   capacitivePagePressed = (pageButtons & ~previousCapacitivePageButtons) != 0;
   releasedCapacitivePageButtons = (previousCapacitivePageButtons & ~pageButtons);
   previousCapacitivePageButtons = pageButtons;
+#else
+  capacitivePagePressed = false;
+  releasedCapacitivePageButtons = 0;
+#endif
 
 #if FREEINK_CAP_HAPTIC
   if (HapticManager::getInstance().supported() && HapticManager::getInstance().enabled()) {
@@ -300,28 +305,23 @@ void HalGPIO::update() {
 bool HalGPIO::wasUsbStateChanged() const { return usbStateChanged; }
 
 bool HalGPIO::isPressed(uint8_t buttonIndex) const {
-  const bool captured = InputWake::capturing() && ((buttonFrame.state & (1u << buttonIndex)) != 0);
-  return captured || inputMgr.isPressed(buttonIndex);
+  return InputWake::capturing() ? ((buttonFrame.state & (1u << buttonIndex)) != 0) : inputMgr.isPressed(buttonIndex);
 }
 
 bool HalGPIO::wasPressed(uint8_t buttonIndex) const {
-  const bool captured = InputWake::capturing() && ((buttonFrame.pressed & (1u << buttonIndex)) != 0);
-  return captured || inputMgr.wasPressed(buttonIndex);
+  return InputWake::capturing() ? ((buttonFrame.pressed & (1u << buttonIndex)) != 0) : inputMgr.wasPressed(buttonIndex);
 }
 
 bool HalGPIO::wasAnyPressed() const {
-  const bool captured = InputWake::capturing() && (buttonFrame.pressed != 0);
-  return captured || inputMgr.wasAnyPressed();
+  return InputWake::capturing() ? (buttonFrame.pressed != 0) : inputMgr.wasAnyPressed();
 }
 
 bool HalGPIO::wasReleased(uint8_t buttonIndex) const {
-  const bool captured = InputWake::capturing() && ((buttonFrame.released & (1u << buttonIndex)) != 0);
-  return captured || inputMgr.wasReleased(buttonIndex);
+  return InputWake::capturing() ? ((buttonFrame.released & (1u << buttonIndex)) != 0) : inputMgr.wasReleased(buttonIndex);
 }
 
 bool HalGPIO::wasAnyReleased() const {
-  const bool captured = InputWake::capturing() && (buttonFrame.released != 0);
-  return captured || inputMgr.wasAnyReleased();
+  return InputWake::capturing() ? (buttonFrame.released != 0) : inputMgr.wasAnyReleased();
 }
 
 unsigned long HalGPIO::getHeldTime() const {

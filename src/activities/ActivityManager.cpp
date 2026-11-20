@@ -1,6 +1,5 @@
 #include "ActivityManager.h"
 
-
 #if CROSSINK_SCALABLE_FONTS
 #include <HalScalableFont.h>
 #endif
@@ -43,6 +42,7 @@
 #include "reader/BookReadingStats.h"
 #include "reader/BookStatsActivity.h"
 #include "reader/BookStatsTracking.h"
+#include "reader/EpubReaderActivity.h"
 #include "reader/GlobalReadingStats.h"
 #include "reader/ReaderActivity.h"
 #include "settings/OpdsServerListActivity.h"
@@ -57,9 +57,7 @@ namespace {
 constexpr uint32_t FILE_TRANSFER_MODE_MASK = 0xFF;
 constexpr uint32_t FILE_TRANSFER_RETURN_TO_READER = 1U << 8;
 
-constexpr bool hasStickyReaderDetailsPanel() {
-  return false;
-}
+constexpr bool hasStickyReaderDetailsPanel() { return false; }
 
 uint32_t fileTransferBootPayload(const NetworkMode mode, const bool returnToReader) {
   return static_cast<uint32_t>(mode) | (returnToReader ? FILE_TRANSFER_RETURN_TO_READER : 0);
@@ -915,6 +913,7 @@ void ActivityManager::exitActivity(const RenderLock& lock) {
 }
 
 void ActivityManager::enterCurrentActivity() {
+  ++screenVisit;
   {
     RenderLock lock;
     mappedInput.setMenuMode(currentActivity->usesMenuButtonOrientation());
@@ -949,7 +948,6 @@ void ActivityManager::replaceActivity(std::unique_ptr<Activity>&& newActivity) {
 void ActivityManager::goToFileTransfer(std::string returnBookPath) {
   replaceActivity(std::make_unique<CrossPointWebServerActivity>(renderer, mappedInput, std::move(returnBookPath)));
 }
-
 
 void ActivityManager::goToCalibreWireless(const std::string& returnBookPath) {
   restartToFileTransfer(NetworkMode::CONNECT_CALIBRE, returnBookPath);
@@ -1006,7 +1004,6 @@ bool ActivityManager::resumeFileTransferFromNetworkBoot(const uint32_t payload) 
   return true;
 }
 
-
 void ActivityManager::goToSettings(const bool dismissOnUpSwipe, const bool openLanguageDownloads,
                                    const bool touchscreenRecovery) {
   preferredHomeBookPath.clear();
@@ -1036,7 +1033,6 @@ void ActivityManager::goToLibrary() {
   }
   replaceActivity(std::move(library));
 }
-
 
 void ActivityManager::goToBrowser() {
   const auto& servers = OPDS_STORE.getServers();
@@ -1468,3 +1464,50 @@ bool RenderLock::heldByCurrentTask() {
   return xSemaphoreGetMutexHolder(activityManager.renderingMutex) == xTaskGetCurrentTaskHandle();
 }
 
+bool ActivityManager::isForegroundReader() const { return currentActivity && currentActivity->isReaderActivity(); }
+
+bool ActivityManager::isRemoteReaderContext() const { return currentActivity && currentActivity->acceptsRemoteInput(); }
+
+bool ActivityManager::isRemoteReaderPagePainted() const {
+  if (currentActivity && currentActivity->isEpubReaderActivity()) {
+    return static_cast<EpubReaderActivity*>(currentActivity.get())->isPageShown();
+  }
+  return isForegroundReader();
+}
+
+bool ActivityManager::isRemoteReaderIndexing() const {
+  if (currentActivity && currentActivity->isEpubReaderActivity()) {
+    return static_cast<EpubReaderActivity*>(currentActivity.get())->isIndexing();
+  }
+  return false;
+}
+
+bool ActivityManager::isForegroundHomeShown() const { return currentActivity && currentActivity->isHomeActivity(); }
+
+bool ActivityManager::remoteClick(const RemoteButton button) {
+  if (!isRemoteReaderContext()) return false;
+  return mappedInput.injectRemoteClick(button);
+}
+
+bool ActivityManager::remoteTurn(const bool forward, const bool chapter) {
+  if (!isRemoteReaderContext() || mappedInput.hasRemoteClick()) return false;
+  if (currentActivity && currentActivity->isEpubReaderActivity()) {
+    auto* reader = static_cast<EpubReaderActivity*>(currentActivity.get());
+    if (!reader->canAcceptRemoteTurn()) return false;
+    if (chapter) {
+      reader->skipChapter(forward);
+    } else {
+      reader->requestManualPageTurn(forward, "ble");
+    }
+    requestUpdate();
+    return true;
+  }
+  return !chapter && remoteClick(forward ? RemoteButton::Next : RemoteButton::Previous);
+}
+
+bool ActivityManager::remoteShortcut(const bool readerMenu) {
+  if (readerMenu) {
+    return openReaderMenuFromShortcut();
+  }
+  return false;
+}

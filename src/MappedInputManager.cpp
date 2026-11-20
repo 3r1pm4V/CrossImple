@@ -123,6 +123,7 @@ void MappedInputManager::setMenuMode(const bool enabled) {
 }
 
 void MappedInputManager::update() const {
+  remoteInput.reset();
   gpio.update();
   expireReleaseSuppressions();
   for (const auto button : {HalGPIO::BTN_BACK, HalGPIO::BTN_CONFIRM, HalGPIO::BTN_LEFT, HalGPIO::BTN_RIGHT}) {
@@ -130,6 +131,12 @@ void MappedInputManager::update() const {
   }
   if (!gpio.isPressed(HalGPIO::BTN_UP) && !gpio.wasReleased(HalGPIO::BTN_UP)) suppressPhysicalUpRelease = false;
   if (!gpio.isPressed(HalGPIO::BTN_DOWN) && !gpio.wasReleased(HalGPIO::BTN_DOWN)) suppressPhysicalDownRelease = false;
+}
+
+bool MappedInputManager::injectRemoteClick(const RemoteButton button) {
+  if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || isPressed(Button::Confirm) || isPressed(Button::Back))
+    return false;
+  return remoteInput.click(button);
 }
 
 void MappedInputManager::suppressNextFrontRelease(const Button button) {
@@ -829,9 +836,7 @@ bool MappedInputManager::wasBottomEdgeUpSwipe() const {
   return false;
 }
 
-bool MappedInputManager::usesFrontlightSwipeLayout() const {
-  return hasHomeKeyHardware();
-}
+bool MappedInputManager::usesFrontlightSwipeLayout() const { return hasHomeKeyHardware(); }
 
 // Drawer-layout boards use the bottom edge for menus and the top for light controls.
 bool MappedInputManager::wasMenuGesture() const {
@@ -938,6 +943,15 @@ bool MappedInputManager::wasPressed(const Button button) const {
 }
 
 bool MappedInputManager::wasReleased(const Button button) const {
+  if (button == Button::Confirm && remoteInput.button == RemoteButton::Confirm) return true;
+  if (button == Button::Back && remoteInput.button == RemoteButton::Back) return true;
+  if ((button == Button::PageForward || button == Button::Right || button == Button::Down) &&
+      remoteInput.button == RemoteButton::Next)
+    return true;
+  if ((button == Button::PageBack || button == Button::Left || button == Button::Up) &&
+      remoteInput.button == RemoteButton::Previous)
+    return true;
+
   if (injectedReleases[static_cast<size_t>(button)]) {
     return true;
   }

@@ -1,5 +1,6 @@
 #include "CrossPointSettings.h"
 
+#include <BlePageTurnerJson.h>
 #include <BoardConfig.h>
 #include <CrossInkHalFrontlight.h>
 #include <HalClock.h>
@@ -543,6 +544,8 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
   doc["characterSpacingSchema"] = 2;
   doc["clockDateHasBeenSynced"] = clockDateHasBeenSynced;
   doc["screenInverted"] = screenInverted;
+  doc["pageBackground"] = pageBackground;
+  bleturner::writeJson(ble, doc);
 }
 
 bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint) {
@@ -572,6 +575,8 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
     needsResave = true;
   }
   screenInverted = clamp(doc["screenInverted"] | screenInverted, 2, screenInverted);
+  pageBackground =
+      clamp(doc["pageBackground"] | static_cast<uint8_t>(PAGE_BG_NONE), PAGE_BACKGROUND_COUNT, PAGE_BG_NONE);
 
   for (const auto& info : getBaseSettingsList()) {
     if (!info.key || (!info.valuePtr && !info.value16Ptr && !info.stringOffset)) continue;
@@ -683,7 +688,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
     this->*(info.valuePtr) = value;
   }
 
-  if (doc["fastPageTurn"].isNull()) {
+  if (importingCrossPoint || doc["fastPageTurn"].isNull()) {
     fastPageTurn = 1;
     textAntiAliasing = 0;
     needsResave = true;
@@ -1053,6 +1058,10 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc, bool importingCrossPoint
     keyboardLayouts = doc["keyboardLayouts"].as<uint16_t>();
   }
   clockDateHasBeenSynced = clamp(doc["clockDateHasBeenSynced"] | static_cast<uint8_t>(0), 2, 0);
+
+  if (!bleturner::readJson(ble, doc)) {
+    needsResave = true;
+  }
 
   if (needsResave) requestResave();
   WifiTransmitPower::setLimit(wifiTransmitPower);

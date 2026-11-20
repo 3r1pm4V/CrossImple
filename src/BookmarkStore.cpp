@@ -294,11 +294,12 @@ bool BookmarkStore::loadForBook(const std::string& filePath, const std::string& 
 
   storeFilePath = currentStoreFilePathForBook(filePath, bookType);
   const std::string legacyStoreFilePath = legacyStoreFilePathForBook(filePath, bookType);
-  const bool hasCurrentFile = hasBookmarkFile(storeFilePath);
-  const bool hasLegacyFile = legacyStoreFilePath != storeFilePath && hasBookmarkFile(legacyStoreFilePath);
+  const bool dirExists = Storage.exists(BOOKMARKS_DIR);
+  const bool hasCurrentFile = dirExists && hasBookmarkFile(storeFilePath);
+  const bool hasLegacyFile = dirExists && legacyStoreFilePath != storeFilePath && hasBookmarkFile(legacyStoreFilePath);
 
   if (!hasCurrentFile && !hasLegacyFile) {
-    if (bookType == "epub" && isInReadFolder(filePath) && Storage.exists(BOOKMARKS_DIR)) {
+    if (dirExists && bookType == "epub" && isInReadFolder(filePath)) {
       for (const auto& name : Storage.listFiles(BOOKMARKS_DIR)) {
         BookmarkFileHeader header;
         const std::string fullPath = bookmarkScanPath(name.c_str());

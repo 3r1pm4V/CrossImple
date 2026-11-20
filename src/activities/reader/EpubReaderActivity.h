@@ -30,6 +30,7 @@
 #include "ReadingSessionStats.h"
 #include "StableReadingPace.h"
 #include "activities/Activity.h"
+#include "activities/reader/ReaderUtils.h"
 #include "activities/reader/TouchReaderPreviewModel.h"
 #include "components/OptionPopup.h"
 #include "sync/KeptPosition.h"
@@ -46,6 +47,7 @@ struct ToastRect {
 };
 
 class EpubReaderActivity final : public Activity {
+  friend class ActivityManager;
 #ifdef SIMULATOR
   friend struct BookmarkListSmokeTest;
   friend struct ReaderMenuOrientationSmokeTest;
@@ -67,6 +69,7 @@ class EpubReaderActivity final : public Activity {
     uint8_t screenMarginHorizontal = 5;
     uint8_t publisherPageNumbers = 0;
     uint8_t paragraphAlignment = 0;
+    uint8_t pageBackground = 0;
     uint8_t embeddedStyle = 1;
     uint8_t publisherFonts = 0;
     uint8_t hyphenationEnabled = 0;
@@ -217,8 +220,7 @@ class EpubReaderActivity final : public Activity {
   } nextPageFrameCache;
   void computeFrameCacheSignatures(int targetSpine, int targetPage, int renderFontId, uint32_t& layoutSig,
                                    uint32_t& dynamicSig) const;
-  bool tryBlitPrefetchedNextPage(const Page& page, int renderFontId, int orientedMarginTop,
-                                 int orientedMarginLeft);
+  bool tryBlitPrefetchedNextPage(const Page& page, int renderFontId, int orientedMarginTop, int orientedMarginLeft);
   void preRenderNextPageToPsram(int renderFontId);
 #endif
   bool paceSampleWarmupPending = true;
@@ -344,6 +346,7 @@ class EpubReaderActivity final : public Activity {
 
   // Footnote support
   std::vector<FootnoteEntry> currentPageFootnotes;
+  ReaderUtils::PageBgInfo pageBgInfoBuffer;
 #if CROSSINK_APP_CAP_TOUCH
   ReaderPinchGesture pinchFontGesture;
   FootnoteLinkTargets currentPageFootnoteTouchTargets{};
@@ -547,6 +550,7 @@ class EpubReaderActivity final : public Activity {
   void cancelSilentNextChapterPrefetchForForwardTurn();
   bool isAtBookStart() const;
   void pageTurn(bool isForwardTurn, const char* source = "unknown");
+  void skipChapter(bool forward);
   float getCurrentBookProgressPercent() const;
   // Caller holds RenderLock. Matches the status bar's chapter-group title.
   std::string currentChapterTitle() const;
@@ -604,6 +608,10 @@ class EpubReaderActivity final : public Activity {
     return true;
   }
   bool preventAutoSleep() override { return automaticPageTurnActive; }
+  bool acceptsRemoteInput() const override { return true; }
+  bool isPageShown() const { return pageShownAtMs > 0; }
+  bool isIndexing() const { return section && section->isBuilding(); }
+  bool canAcceptRemoteTurn() const;
   // Hold the loop hot only while the build has work this loop would do: a kept-alive
   // build sitting outside the lookahead window is dormant, and reporting it here would
   // pin the CPU at full clock (no power saving, yield-only loop) for the whole read.

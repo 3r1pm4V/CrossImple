@@ -47,25 +47,25 @@ def get_crossink_version(project_dir):
                     match = re.search(r'#define APP_VERSION\s+"([^"]+)"', line)
                     if match:
                         return match.group(1)
-        return '0.26'
+        return '0.28'
     except Exception:
-        return '0.26'
+        return '0.28'
 
 
 def get_production_version(project_dir):
-    return '0.26'
+    return '0.28'
 
 
 def get_hardware_version(project_dir, pioenv):
     if pioenv == 'default':
-        return 'v0.26'
+        return 'v0.28'
     if pioenv == 'x4-classic':
-        return 'v0.26-x4-classic'
+        return 'v0.28-x4-classic'
     if pioenv == 'x4-pro':
-        return 'v0.26-x4-pro'
+        return 'v0.28-x4-pro'
     if pioenv in ('metalio-eink4', 'metalio-eink4-debug'):
-        return 'v0.26-metalio-eink4'
-    return 'v0.26'
+        return 'v0.28-metalio-eink4'
+    return 'v0.28'
 
 
 def inject_download_endpoints(env):

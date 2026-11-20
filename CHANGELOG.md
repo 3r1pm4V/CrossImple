@@ -1,3 +1,39 @@
+## [v0.28] - 2026-11-20
+
+### Đã thêm & Tối ưu (Added & Improved)
+- **Khắc phục Triệt để Lỗi Layout Desktop Theme trên Máy Dùng Nút Bấm Vật lý (X3, X4 Classic, X4 Pro)**:
+  - Sửa lỗi thẻ *Continue Reading* (Sách đang đọc) bị vẽ tràn đè lên 4 tab phím điều hướng (`[ Menu ] [ Browse ] [ Settings ] [ Read ]`) ở đáy màn hình.
+  - Tự động trừ vùng đệm `getButtonHintsReserve()` (40px) và căn chỉnh khoảng cách thoáng `8px` giữa thẻ sách và thanh phím bấm; khung hình nền (*Wallpaper*) tự động co giãn theo tỷ lệ màn hình.
+- **Tính năng Nền trang (Page Background) Đa dạng cho Trình Đọc Sách (EPUB & TXT)**:
+  - Bổ sung menu chọn **Nền trang** với 9 chế độ hoa văn trực quan theo chuẩn dpReader:
+    1. Tắt (`TẮT`)
+    2. Chấm thưa (Fine dots)
+    3. Chấm dày (Dense dots - bullet journal)
+    4. Gạch đứt mảnh (Light dash)
+    5. Gạch đứt đậm (Heavy dash)
+    6. Dòng kẻ mảnh (Thin line)
+    7. Dòng kẻ đậm (Thick line)
+    8. Lưới ô ly nhỏ (Small grid - 4 ô vuông)
+    9. Lưới ô ly lớn (Large grid - 3 ô caro tập học sinh)
+  - **Menu trực quan bằng hình vẽ vector**: Thay vì chỉ hiển thị chuỗi ký tự text, menu tự động vẽ các nét minh họa đồ họa thực tế (đường chấm, nét đứt, dòng kẻ, ô lưới caro) trực tiếp vào từng hàng kèm dấu tick `✓` ở mục đang chọn.
+  - **Căn chỉnh Y theo chân dòng chữ (Font Baseline)**: Đường kẻ bám chính xác 100% vào chân các ký tự trên trang (`baseline + 1`), không bị cắt ngang thân chữ; tự động bổ sung đường kẻ đệm ở khoảng cách ngắt đoạn (paragraph gaps) và tiếp nối đến cuối trang.
+  - **Lưu cấu hình vĩnh viễn**: Lưu trực tiếp vào `/settings.json` trên thẻ nhớ SD, duy trì liên tục giữa các lần mở/thoát sách.
+- **Tối ưu Kiến trúc Bộ nhớ ESP32-C3 trên X3 (Bảo vệ RAM Wi-Fi File Transfer)**:
+  - Tắt hoàn toàn Bluetooth trên X3 (`CONFIG_BT_ENABLED=n`), giải phóng ~60 KB DRAM nội bộ quý giá, khắc phục triệt để lỗi crash / ngắt kết nối khi truyền file Wi-Fi (`CrossPointWebServerActivity`).
+  - Giữ nguyên Bluetooth cho các thiết bị ESP32-S3 (Metalio 4, X4 Pro, X4 Classic) có 8 MB PSRAM.
+- **Tích hợp Điều Khiển Lật Trang Không Dây Bluetooth (BLE Page Turner)**:
+  - Hỗ trợ remote BLE lật trang cho các thiết bị ESP32-S3 (Metalio 4, X4 Pro, X4 Classic).
+  - Thêm menu Cài đặt Bluetooth riêng biệt với công tắc Bật/Tắt và chức năng quét & ghép nối remote.
+- **Cô lập & Phục hồi Độ Chuẩn xác Phím Bấm Giữa các Dòng Máy**:
+  - Tách biệt hoàn toàn logic phím cảm ứng dạng viên thuốc (pill button) và phím AI của Metalio 4 vào cờ biên dịch `#if FREEINK_DEVICE_METALIO_EINK4 && CROSSINK_APP_CAP_TOUCH`.
+  - Khôi phục nguyên bản hành vi phím cạnh và 4 phím trước trên X4 Classic, X3 và X4 Pro, loại bỏ triệt để hiện tượng sai lệch map phím và lỗi kẹt phím nguồn ảo gây chụp ảnh màn hình liên tục khi bấm phím cạnh phải.
+- **Tối Ưu Hóa Tốc Độ Toàn Diện cho X3 (Boot, Mở Sách & Về Home Siêu Nhanh)**:
+  - **Home I/O Lazy Loading**: Loại bỏ vòng lặp quét đĩa `Storage.exists` cho danh sách sách gần đây trên X3; bỏ quét tìm Bookmark/Clipping lúc vào Home.
+  - **Tối ưu Desktop Theme trên X3**: Chuyển hình nền Desktop Theme trên X3 sang 1-bit Dither trực tiếp vào Framebuffer, loại bỏ hoàn toàn quy trình multi-pass 4-gray (chia buffer LSB/MSB) giúp màn hình Home hiển thị tức thì trong 1 lượt (~350ms) không bị chớp nháy.
+  - **Tối ưu Mở Sách & Đồng Bộ**: Kiểm tra bộ nhớ `hasCredentials()` trước khi đọc đĩa; kiểm tra sự tồn tại của thư mục bookmark/clipping trước khi quét file con, giảm hơn 8 lần I/O qua bus SPI SD.
+  - **Khởi động Nhanh**: Tận dụng ngôn ngữ tích hợp trong ROM Flash (Tiếng Việt & Tiếng Anh) khi `generation == 0`, bỏ qua chu kỳ mở và ánh xạ phân vùng Flash khi thức dậy.
+  - **Triệt tiêu Overhead BLE trên X3**: Bao bọc toàn bộ code BLE Page Turner bằng cờ điều kiện `#if !FREEINK_DEVICE_X3`, giải phóng hoàn toàn chu kỳ CPU trong vòng lặp chính `loop()`.
+
 ## [v0.26] - 2026-11-16
 
 ### Đã thêm & Tối ưu (Added & Improved)

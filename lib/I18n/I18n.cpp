@@ -88,6 +88,7 @@ void I18n::begin(const char* preferredCode, uint64_t generation) {
   begun_ = true;
   if (!preferredCode || std::strcmp(preferredCode, "EN") == 0) return;
   selectBuiltin(languageFromCode(preferredCode));
+  if (generation == 0) return;
   LOG_INF("LANG", "Built-in fallback %s", active_.code);
   const uint64_t start = microseconds();
   if (!flash_.begin()) {

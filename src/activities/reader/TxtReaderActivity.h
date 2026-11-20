@@ -9,6 +9,7 @@
 #include "DeferredGrayscale.h"
 #include "ReaderButtonShortcuts.h"
 #include "ReaderProgressSaveDebouncer.h"
+#include "ReaderUtils.h"
 #include "activities/Activity.h"
 #include "components/OptionPopup.h"
 #if CROSSINK_APP_CAP_TOUCH
@@ -43,6 +44,7 @@ class TxtReaderActivity final : public Activity {
   // Streaming text reader - stores file offsets for each page
   std::vector<size_t> pageOffsets;  // File offset for start of each page
   std::vector<std::string> currentPageLines;
+  std::vector<ReaderUtils::PageBgLine> pageBgLinesBuffer;
   int linesPerPage = 0;
   int viewportWidth = 0;
   bool initialized = false;
@@ -128,6 +130,7 @@ class TxtReaderActivity final : public Activity {
   }
   bool isReaderActivity() const override { return true; }
   bool isBookReaderActivity() const override { return true; }
+  bool acceptsRemoteInput() const override { return true; }
   bool usesMenuButtonOrientation() const override { return quickActionsPopup.isActive(); }
   bool usesFullScreenReaderVerticalSwipes() const override { return false; }
   bool canSnapshotForSleepOverlay() const override { return true; }

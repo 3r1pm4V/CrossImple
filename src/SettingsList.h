@@ -7,6 +7,9 @@
 #include <I18n.h>
 #include <SdCardFontRegistry.h>
 #include <WifiTransmitPower.h>
+#if FREEINK_CAP_HAPTIC
+#include <HapticManager.h>
+#endif
 
 #include <algorithm>
 #include <cstring>
@@ -563,10 +566,38 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
     }
   }
   if (!deviceHasFrontButtons()) {
-    v.erase(
-        std::remove_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_MENU_NAVIGATION; }),
-        v.end());
+    v.erase(std::remove_if(v.begin(), v.end(),
+                           [](const SettingInfo& s) {
+                             return s.nameId == StrId::STR_MENU_NAVIGATION ||
+                                    settingKeyIs(s, "frontButtonLeftLong") ||
+                                    settingKeyIs(s, "frontButtonRightLong") ||
+                                    settingKeyIs(s, "longPressBackAction") ||
+                                    settingKeyIs(s, "longPressMenuAction") ||
+                                    settingKeyIs(s, "frontButtonOrientationAware");
+                           }),
+            v.end());
   }
+#if FREEINK_DEVICE_METALIO_EINK4
+  if (!BoardConfig::isMetalioEInk4()) {
+    v.erase(std::remove_if(v.begin(), v.end(),
+                           [](const SettingInfo& s) {
+                             return s.nameId == StrId::STR_PILL_BUTTON_LEFT ||
+                                    s.nameId == StrId::STR_PILL_BUTTON_RIGHT ||
+                                    s.nameId == StrId::STR_AI_BUTTON;
+                           }),
+            v.end());
+  }
+#endif
+#if FREEINK_CAP_HAPTIC
+  if (!HapticManager::getInstance().supported()) {
+    v.erase(std::remove_if(v.begin(), v.end(),
+                           [](const SettingInfo& s) {
+                             return s.nameId == StrId::STR_VIBRATION ||
+                                    s.nameId == StrId::STR_HAPTIC_INTENSITY;
+                           }),
+            v.end());
+  }
+#endif
   const bool hasTouch = gpio.hasTouch();
   if (!hasTouch) {
     v.erase(std::remove_if(v.begin(), v.end(),
@@ -783,14 +814,24 @@ inline std::vector<SettingInfo> buildControlsSettingsParentList(const std::vecto
   const bool hasTiltPageTurnSetting = hasSettingByName(allSettings, StrId::STR_TILT_PAGE_TURN);
   const bool hasTiltPageTurnDirectionSetting = hasSettingByName(allSettings, StrId::STR_TILT_PAGE_TURN_DIRECTION);
   const bool hasTiltNextPageOnlySetting = hasSettingByName(allSettings, StrId::STR_TILT_NEXT_PAGE_ONLY);
-  const bool hasTapsGestures = hasSettingByName(allSettings, StrId::STR_NEXT_PAGE);
+  const bool hasTapsGestures = gpio.hasTouch() && hasSettingByName(allSettings, StrId::STR_NEXT_PAGE);
   const bool hasFrontButtons = deviceHasFrontButtons();
   const bool hasHomeKey = gpio.hasHomeKey();
-  const bool hasVibration = hasSettingByName(allSettings, StrId::STR_VIBRATION);
-  const bool hasHapticIntensity = hasSettingByName(allSettings, StrId::STR_HAPTIC_INTENSITY);
-  const bool hasPillLeft = hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_LEFT);
-  const bool hasPillRight = hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_RIGHT);
-  const bool hasAiButton = hasSettingByName(allSettings, StrId::STR_AI_BUTTON);
+#if FREEINK_CAP_HAPTIC
+  const bool hasHapticHw = HapticManager::getInstance().supported();
+#else
+  const bool hasHapticHw = false;
+#endif
+  const bool hasVibration = hasHapticHw && hasSettingByName(allSettings, StrId::STR_VIBRATION);
+  const bool hasHapticIntensity = hasHapticHw && hasSettingByName(allSettings, StrId::STR_HAPTIC_INTENSITY);
+#if FREEINK_DEVICE_METALIO_EINK4
+  const bool isMetalio = BoardConfig::isMetalioEInk4();
+#else
+  const bool isMetalio = false;
+#endif
+  const bool hasPillLeft = isMetalio && hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_LEFT);
+  const bool hasPillRight = isMetalio && hasSettingByName(allSettings, StrId::STR_PILL_BUTTON_RIGHT);
+  const bool hasAiButton = isMetalio && hasSettingByName(allSettings, StrId::STR_AI_BUTTON);
 
   std::vector<SettingInfo> settings;
   settings.reserve(3 + (hasHomeKey ? 1u : 0u) + (hasFrontButtons ? 2u : 0u) +
@@ -998,12 +1039,15 @@ inline std::vector<SettingInfo> buildDisplaySleepSettingsList(const std::vector<
 
 inline std::vector<SettingInfo> buildSystemSettingsParentList(const std::vector<SettingInfo>& allSettings) {
   std::vector<SettingInfo> systemSettings;
-  systemSettings.reserve(12);
+  systemSettings.reserve(13);
   systemSettings.push_back(SettingInfo::Submenu(StrId::STR_SYSTEM_DEVICE, SettingAction::SystemDevice));
   systemSettings.push_back(SettingInfo::Submenu(StrId::STR_SYSTEM_FILES_CACHE, SettingAction::SystemFilesCache));
   systemSettings.push_back(SettingInfo::Submenu(StrId::STR_READING_STATS, SettingAction::SystemReadingStats));
   systemSettings.push_back(SettingInfo::Submenu(StrId::STR_SYSTEM_ADVANCED, SettingAction::SystemAdvanced));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_WIFI_NETWORKS, SettingAction::Network));
+  if (bleturner::status().compiledIn) {
+    systemSettings.push_back(SettingInfo::Action(StrId::STR_BT_PAGE_TURNER, SettingAction::Bluetooth));
+  }
   systemSettings.push_back(SettingInfo::Action(StrId::STR_SYNC_SERVER, SettingAction::KOReaderSync));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_CHECK_UPDATES, SettingAction::CheckForUpdates));
