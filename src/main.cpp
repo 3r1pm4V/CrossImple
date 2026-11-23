@@ -413,6 +413,8 @@ static void silentRestartToHome(const uint32_t payload, const char* const descri
   // Without an overlay, users don't see the reboot and fire input through to
   // Home. Select on the default selectorIndex=0 then opens the most-recent
   // book, looking like a trampoline back to the reader they just exited.
+  I18N.ensureLoaded(SETTINGS.languageCode, SETTINGS.languageCacheGeneration);
+  filenameFontSystem.ensureLoaded(renderer);
   GUI.drawPopup(renderer, tr(STR_LOADING));
   delay(50);
   restartWithSilentToken();
@@ -1207,31 +1209,41 @@ void enterDeepSleep(bool fromTimeout) {
 #endif
   trustedtime::note();
   activityManager.goToSleep(fromTimeout);
-  // Reader exit may already have saved this state. Save after the sleep screen
-  // appears, skipping an unchanged snapshot while still retrying failed saves.
-  APP_STATE.saveToFile();
 
+  // Consolidated persistence and cleanup before shutting down storage.
   // Refreshes are synchronous; display.deepSleep() also finishes pending
   // display work and power-off, so an extra settle delay serves no purpose.
   if (isQuickResumeSleep) {
     saveSleepFrameBuffer();
-  } else {
-    if (Storage.exists(SLEEP_FRAME_FILE)) {
-      // A stale Quick Resume frame must not replace the selected sleep screen during wake.
-      Storage.remove(SLEEP_FRAME_FILE);
-    }
+  } else if (Storage.exists(SLEEP_FRAME_FILE)) {
+    // A stale Quick Resume frame must not replace the selected sleep screen during wake.
+    Storage.remove(SLEEP_FRAME_FILE);
   }
+
+  // Reader exit may already have saved this state. Save after the sleep screen
+  // appears, skipping an unchanged snapshot while still retrying failed saves.
+  APP_STATE.saveToFile();
 
   // Last chance to sample: startDeepSleep() cuts the SD rail on X3, so nothing
   // can be written again until the next wake.
   BatteryDiagnosticLog::record(BatteryDiagnosticLog::Event::Sleep, BoardConfig::ACTIVE.name);
+
   // All sleep-time file writes are complete. Stop SDMMC before the power path
   // cuts peripheral rails and isolates the bus pads; SPI boards are a no-op.
   libraryScanSleepToken.save(!library::libraryIndexNeedsRefresh());
+
+  // Mirror wake setting to NVS before peripheral shutdown so flash writes don't
+  // delay chip sleep after display is powered off.
+  mirrorWakeShortPressToNvs();
+
+  // Ensure remaining font caches are released before deep sleep.
+  if (auto* fcm = renderer.getFontCacheManager()) {
+    fcm->releaseSdFontCaches();
+  }
+
   Storage.shutdown();
   putTiltSensorToSleepForDeepSleep();
   display.deepSleep();
-  mirrorWakeShortPressToNvs();
   LOG_DBG("MAIN", "Entering deep sleep");
   powerManager.startDeepSleep(gpio);
 }
@@ -1279,8 +1291,6 @@ void setupDisplayAndFonts(const bool seamless, const bool loadReaderResources, c
   } else {
     LOG_DBG("MAIN", "Skipping EPUB scratch workspace and SD reader fonts for minimal network boot");
   }
-  // Startup notices and minimal-network screens use translated UI text too.
-  filenameFontSystem.ensureLoaded(renderer);
 }
 
 void setup() {
@@ -1436,7 +1446,7 @@ void setup() {
   }
 
   // SD Card Initialization
-  // We need 6 open files concurrently when parsing a new chapter
+  // File access during EPUB parsing and chapter building runs in sequential stages
   if (!Storage.begin()) {
     LOG_ERR("MAIN", "SD card initialization failed");
     setupDisplayAndFonts(isSilentReboot, !isNetworkResume, useReaderRenderStack);
@@ -1462,8 +1472,6 @@ void setup() {
   BatteryDiagnosticLog::record(BatteryDiagnosticLog::Event::Wake, BoardConfig::ACTIVE.name,
                                wakeupRouteName(wakeupReason));
   const bool isSleepWake = wakeupReason == HalGPIO::WakeupReason::PowerButton;
-  I18N.begin(SETTINGS.languageCode, SETTINGS.languageCacheGeneration);
-  HyphenationPackStore::begin();
   // Normal boot store deferral adapted from Sichroteph/YACP commit
   // 20af8aee8d3e1d560456753b08d1f52e5488621f (MIT). Accessors load these
   // stores when Home, reader bookkeeping, or sync actually need them.
@@ -1563,8 +1571,12 @@ void setup() {
       !APP_STATE.openEpubPath.empty() && APP_STATE.lastSleepFromReader &&
       !mappedInputManager.isPressed(MappedInputManager::Button::Back) && APP_STATE.readerActivityLoadCount == 0;
 
+  // When resuming into the reader from a valid sleep frame, defer SD reader font
+  // loading until the reader needs to render a new page or menu.
+  const bool preloadSdReaderFont = bootToReaderFromState && !shouldRestoreSleepFrame;
+
   setupDisplayAndFonts(SleepWakePolicy::shouldInitializeSeamlessly(resume, isUc8279X3, hasValidSleepFrame),
-                       resume != BootResume::Network, useReaderRenderStack, bootToReaderFromState);
+                       resume != BootResume::Network, useReaderRenderStack, preloadSdReaderFont);
   logBootHeap("display and font resolver ready");
 
   switch (resume) {
@@ -1714,7 +1726,8 @@ void setup() {
     }
   } else if (resume == BootResume::Silent && snapshotTarget == SILENT_REBOOT_TARGET_READER &&
              !APP_STATE.openEpubPath.empty()) {
-    activityManager.goToReader(APP_STATE.openEpubPath, false, false, cleanImageBaseOnEntry);
+    activityManager.goToReader(APP_STATE.openEpubPath, false, false, cleanImageBaseOnEntry, false,
+                               /*skipXLocations=*/true);
   } else if (resume == BootResume::Silent) {
     // target == home (or reader with no open book): land on home — don't fall
     // through to the sleep-wake "resume reader" logic, which fires on stale
@@ -1740,7 +1753,8 @@ void setup() {
     APP_STATE.readerActivityLoadCount++;
     stateDirty = false;
     APP_STATE.saveToFile();
-    activityManager.goToReader(path, false, allowFastInitialReaderRefresh, false, quickResumeFrameVisible);
+    activityManager.goToReader(path, false, allowFastInitialReaderRefresh, false, quickResumeFrameVisible,
+                               /*skipXLocations=*/quickResumeFrameVisible);
   }
 
   if (resume == BootResume::Silent || resume == BootResume::Network) {

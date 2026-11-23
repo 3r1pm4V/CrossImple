@@ -72,9 +72,11 @@ ReaderActivity::EpubOpenResult ReaderActivity::loadEpub(const std::string& path)
   // rebuild stale/missing CSS and need miniz's ~43 KB streaming workspace. The
   // panel keeps showing its last image, and the next activity redraws fully.
   GfxRenderer::FrameBufferLoan loan(renderer);
+  const auto xLocationLoadMode =
+      skipXLocations ? Epub::XLocationLoadMode::Skip : Epub::XLocationLoadMode::Immediate;
   const bool loaded = epub->load(
       true, result.readerSettings.hasSafeModeOverride || result.readerSettings.readerSettings.embeddedStyle == 0,
-      Epub::XLocationLoadMode::Immediate, true);
+      xLocationLoadMode, true);
   if (loaded) epub->ensureOptimizerImageIndex();
   loan.end();
   if (loaded && openingFeedback.showIfPending(renderer)) allowFastInitialRefresh = false;

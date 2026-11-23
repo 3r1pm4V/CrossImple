@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 
 #if defined(SIMULATOR)
 #include <chrono>
@@ -83,9 +84,18 @@ bool I18n::hasTranslation(StrId id) const {
   if (activeData_) return offsets_[index] != MISSING;
   return builtin_.offsets[index] != I18N_ENGLISH_FALLBACK_OFFSET;
 }
+void I18n::ensureLoaded(const char* preferredCode, uint64_t generation) {
+  if (begun_.load(std::memory_order_acquire)) return;
+  begin(preferredCode, generation);
+}
 void I18n::begin(const char* preferredCode, uint64_t generation) {
-  if (begun_) return;
-  begun_ = true;
+  static std::mutex beginLock;
+  std::lock_guard<std::mutex> guard(beginLock);
+  if (begun_.load(std::memory_order_acquire)) return;
+  struct MarkBegunOnReturn {
+    std::atomic<bool>& flag;
+    ~MarkBegunOnReturn() { flag.store(true, std::memory_order_release); }
+  } markBegun{begun_};
   if (!preferredCode || std::strcmp(preferredCode, "EN") == 0) return;
   selectBuiltin(languageFromCode(preferredCode));
   if (generation == 0) return;
@@ -125,13 +135,13 @@ void I18n::begin(const char* preferredCode, uint64_t generation) {
     LOG_ERR("LANG", "Cached language %s unavailable; using %s", preferredCode, active_.name);
     return;
   }
-  activeData_ = mapping_.data;
+  const uint8_t* activeData = mapping_.data;
 #if defined(CROSSINK_LANGUAGE_BACKEND_PSRAM)
   // Explicit diagnostic selection, never an implicit C3 internal-heap fallback.
   psram_ = makePsramByteBufferNoThrow(SLOT_SIZE);
   if (psram_) {
     std::memcpy(psram_.get(), mapping_.data, SLOT_SIZE);
-    activeData_ = psram_.get();
+    activeData = psram_.get();
     LOG_INF("LANG", "Diagnostic PSRAM backend active (%u bytes)", unsigned(SLOT_SIZE));
   } else {
     LOG_ERR("LANG", "Diagnostic PSRAM allocation unavailable; retaining mapped flash");
@@ -139,6 +149,7 @@ void I18n::begin(const char* preferredCode, uint64_t generation) {
 #endif
   active_ = selected.metadata;
   generation_ = selected.generation;
+  activeData_ = activeData;
   LOG_INF("LANG", "Mapped %s in %llu us; index=%u bytes, generation=%llu", active_.code,
           static_cast<unsigned long long>(microseconds() - start), static_cast<unsigned>(sizeof(offsets_)),
           static_cast<unsigned long long>(generation_));

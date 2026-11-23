@@ -1,7 +1,7 @@
 # 🐰 CrossImple
 
 [![Release](https://img.shields.io/github/v/release/3r1pm4V/CrossImple?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
-[![Version](https://img.shields.io/badge/Version-v0.28-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
+[![Version](https://img.shields.io/badge/Version-v0.29-brightgreen?style=flat-square)](https://github.com/3r1pm4V/CrossImple/releases)
 [![Device](https://img.shields.io/badge/Devices-Xteink%20X3%20%7C%20X4%20Classic%20%7C%20X4%20Pro%20%7C%20Metalio%204-blue?style=flat-square)](#-thiết-bị-hỗ-trợ-supported-devices)
 [![Base](https://img.shields.io/badge/Base-CrossPoint%20v2.0.0%20%7C%20CrossInk%20v2.0.0--rc-brightgreen?style=flat-square)](https://github.com/uxjulia/CrossInk)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
@@ -53,10 +53,10 @@ Toàn bộ lịch sử thay đổi chi tiết qua từng phiên bản (`v0.25`, 
 
 | Thiết bị | Vi điều khiển (MCU) | Màn hình | Điều khiển | Tên file Firmware xuất ra |
 |---|---|---|---|---|
-| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.28.bin` |
-| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.28.bin` |
-| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.28.bin` |
-| **Metalio 4** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng + Phím Pill + Phím AI + Rung Haptics | `crossimple_metalio-eink4_v0.28.bin` |
+| **Xteink X3** | ESP32-C3 (RISC-V) | 3.97" E-Ink (792x528, ~300 PPI) | Phím cứng (4 phím mặt trước) | `crossimple_x3_v0.29.bin` |
+| **Xteink X4 Classic** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) | Phím cứng (2 phím cạnh + 4 phím trước) | `crossimple_x4-classic_v0.29.bin` |
+| **Xteink X4 Pro** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng (Capacitive Touch) + Home cảm ứng | `crossimple_x4-pro_v0.29.bin` |
+| **Metalio 4** | ESP32-S3R8 (Xtensa Dual-Core, 8MB PSRAM) | 4.2" E-Ink (800x480, ~220 PPI) + Đèn nền Warm/Cool | Cảm ứng + Phím Pill + Phím AI + Rung Haptics | `crossimple_metalio-eink4_v0.29.bin` |
 
 ---
 
@@ -72,10 +72,10 @@ Toàn bộ lịch sử thay đổi chi tiết qua từng phiên bản (`v0.25`, 
 
 ### Cách 1: Nâng cấp trực tiếp qua Thẻ nhớ SD (Khuyên dùng)
 1. Tải file firmware tương ứng với thiết bị của bạn từ mục [Releases](https://github.com/3r1pm4V/CrossImple/releases):
-   * Với **Xteink X3**: tải `crossimple_x3_v0.28.bin`
-   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.28.bin`
-   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.28.bin`
-   * Với **Metalio 4**: tải `crossimple_metalio-eink4_v0.28.bin`
+   * Với **Xteink X3**: tải `crossimple_x3_v0.29.bin`
+   * Với **Xteink X4 Classic**: tải `crossimple_x4-classic_v0.29.bin`
+   * Với **Xteink X4 Pro**: tải `crossimple_x4-pro_v0.29.bin`
+   * Với **Metalio 4**: tải `crossimple_metalio-eink4_v0.29.bin`
 2. Chép file `.bin` vào thư mục gốc của thẻ MicroSD (định dạng FAT32).
 3. Bật máy đọc sách, mở mục **Quản lý tệp (File Browser)**, chọn file `.bin` vừa chép và nhấn **Xác nhận (Confirm)**.
 4. Máy sẽ tự động kiểm tra chip ESP32, tag phần cứng, tính toàn vẹn SHA256 và tiến hành flash an toàn. Sau khi hoàn tất máy sẽ tự khởi động lại.
@@ -111,11 +111,11 @@ python scripts/build_all.py --export-bin
 # Cách 2: Chạy thủ công từng luồng riêng biệt
 # Luồng 1 — Biên dịch riêng cho Xteink X3 (ESP32-C3)
 pio run -e default
-# File xuất ra: crossimple_x3_v0.28.bin
+# File xuất ra: crossimple_x3_v0.29.bin
 
 # Luồng 2 — Biên dịch cho dòng ESP32-S3 (X4 Classic, X4 Pro, Metalio 4)
 pio run -e x4-classic -e x4-pro -e metalio-eink4
-# File xuất ra: crossimple_x4-classic_v0.28.bin, crossimple_x4-pro_v0.28.bin, crossimple_metalio-eink4_v0.28.bin
+# File xuất ra: crossimple_x4-classic_v0.29.bin, crossimple_x4-pro_v0.29.bin, crossimple_metalio-eink4_v0.29.bin
 ```
 
 ---

@@ -1,6 +1,9 @@
 #include "Activity.h"
 
+#include <I18n.h>
+
 #include "ActivityManager.h"
+#include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "FilenameFontSystem.h"
 #include "GlobalActions.h"
@@ -9,6 +12,7 @@
 
 void Activity::onEnter() {
   LOG_DBG("ACT", "Entering activity: %s", name.c_str());
+  I18N.ensureLoaded(SETTINGS.languageCode, SETTINGS.languageCacheGeneration);
   // Load on the main task before the screen measures or renders translated
   // labels. The service is cache-first and refuses loads during SD handoff.
   filenameFontSystem.ensureLoaded(renderer);

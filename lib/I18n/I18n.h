@@ -4,6 +4,7 @@
 #include <I18nKeys.h>
 #include <LanguageCache.h>
 
+#include <atomic>
 #include <cstdint>
 
 #if defined(CROSSINK_LANGUAGE_BACKEND_PSRAM)
@@ -22,6 +23,7 @@ class I18n {
   bool hasTranslation(StrId id) const;
   // Called once before activities/rendering start. Mappings remain pinned until reboot.
   void begin(const char* preferredCode, uint64_t generation = 0);
+  void ensureLoaded(const char* preferredCode, uint64_t generation);
   Language getLanguage() const { return languageFromCode(active_.keyboard); }
   const char* getCode() const { return active_.code; }
   const char* getName() const { return active_.name; }
@@ -98,7 +100,7 @@ class I18n {
 #endif
   uint64_t generation_ = 0;
   int slot_ = -1;
-  bool begun_ = false;
+  std::atomic<bool> begun_{false};
   bool prepared_ = false;  // Successful slot mutation pins this boot until restart.
   // 2 bytes/key in internal RAM, no string copies or per-lookup allocation.
   uint16_t offsets_[static_cast<size_t>(StrId::_COUNT)] = {};

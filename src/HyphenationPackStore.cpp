@@ -16,6 +16,7 @@ AssetCacheStorage flash;
 AssetCacheStorage::Mapping mapping;
 hyphenation_pack::Store store;
 bool initialized = false;
+bool readOnlyInitAttempted = false;
 
 // Same partition, separate ownership: the last two slots belong to UI I18n.
 size_t capacity() {
@@ -37,6 +38,12 @@ bool initialize(bool create) {
   // Simulator read-only initialization can represent an erased, unprovisioned
   // image. Only an explicit install may create its backing storage later.
   if (initialized) return !create || flash.begin(true);
+  if (!create) {
+    if (readOnlyInitAttempted) return false;
+    readOnlyInitAttempted = true;
+  } else {
+    readOnlyInitAttempted = false;
+  }
   if (!flash.begin(create)) return false;
   AssetCacheReadSession reads(flash);
   if (!reads) {
@@ -66,15 +73,25 @@ bool readInput(void* context, size_t offset, void* bytes, size_t size) {
   auto* file = static_cast<FsFile*>(context);
   return file->seek(offset) && file->read(bytes, size) == static_cast<int>(size);
 }
+
+struct AutoRegisterLookup {
+  AutoRegisterLookup() { setExternalHyphenationLookup(lookup); }
+} autoRegisterLookup;
 }  // namespace
 
-bool begin() {
+bool ensureLoaded() {
   setExternalHyphenationLookup(lookup);
   return initialize(false);
 }
+
+bool begin() {
+  return ensureLoaded();
+}
+
 bool lookup(const char* code, ExternalHyphenationPatterns& out) {
+  if (!initialized && !ensureLoaded()) return false;
   hyphenation_pack::Entry entry;
-  if (!initialized || !mapping.data || !store.find(code, entry)) return false;
+  if (!mapping.data || !store.find(code, entry)) return false;
   out.patterns = {entry.rootOffset, mapping.data + entry.offset, entry.size};
   out.identity = hyphenation_pack::identity(entry);
   return true;

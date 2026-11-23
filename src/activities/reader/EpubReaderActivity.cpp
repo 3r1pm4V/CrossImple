@@ -2432,6 +2432,7 @@ void EpubReaderActivity::onEnter() {
   showOpeningFeedback();
   sdFontSystem.setSettingsPersistenceCallback(persistReaderSdFontSettingsForBook, this);
   ensureReaderSdFontLoaded(renderer);
+  HyphenationPackStore::ensureLoaded();
   showOpeningFeedback();
   ImageBlock::clearSessionRenderFailures();
   ImageBlock::setExtractor(

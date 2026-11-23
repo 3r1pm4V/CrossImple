@@ -53,14 +53,14 @@ static bool tryWriteString(FsFile& file, const std::string& s) {
 }
 
 static void readString(std::istream& is, std::string& s) {
-  uint32_t len;
+  uint32_t len = 0;
   readPod(is, len);
   s.resize(len);
   is.read(&s[0], len);
 }
 
 static void readString(FsFile& file, std::string& s) {
-  uint32_t len;
+  uint32_t len = 0;
   readPod(file, len);
   s.resize(len);
   file.read(&s[0], len);

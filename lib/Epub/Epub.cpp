@@ -1055,6 +1055,8 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss, const XLoc
   }
   if (!parseContentOpf(bookMetadata, /*writeSpineEntries=*/true, /*collectCssFiles=*/!skipLoadingCss)) {
     LOG_ERR("EBP", "Could not parse content.opf");
+    bookMetadataCache->endContentOpfPass();
+    bookMetadataCache->cleanupTmpFiles();
     return false;
   }
   if (!skipLoadingCss) {

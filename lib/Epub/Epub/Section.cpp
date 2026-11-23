@@ -621,6 +621,7 @@ bool Section::createSectionFile(const ReaderRenderSpec& spec, const std::functio
     cleanupTempHtml();
     return false;
   }
+  file.close();
   SectionPageIndex pageIndex;
   bool pageCompletionFailed = false;
 
@@ -785,6 +786,14 @@ bool Section::createSectionFile(const ReaderRenderSpec& spec, const std::functio
 
   const auto& anchors = visitor.getAnchors();
   SectionPageIndexOffsets pageIndexOffsets;
+  if (!ensureBuildFileOpen()) {
+    LOG_ERR("SCT", "Failed to reopen section temp file for page index");
+    Storage.remove(tmpSectionPath.c_str());
+    if (cssParser) {
+      cssParser->clear();
+    }
+    return false;
+  }
   const bool wrotePageIndex = writeSectionPageIndex(
       file, pageIndex,
       [&anchors](FsFile& output) {
@@ -799,6 +808,9 @@ bool Section::createSectionFile(const ReaderRenderSpec& spec, const std::functio
     LOG_ERR("SCT", "Failed to write section page index");
     file.close();
     Storage.remove(tmpSectionPath.c_str());
+    if (cssParser) {
+      cssParser->clear();
+    }
     return false;
   }
 
@@ -951,6 +963,7 @@ bool Section::startBuild(const ReaderRenderSpec& spec, const SectionBuildOptions
     cleanupTempHtml();
     return false;
   }
+  file.close();
 
   auto ctx = makeUniqueNoThrow<BuildContext>();
   if (!ctx) {

@@ -63,7 +63,7 @@ class BookMetadataCache {
   mutable uint32_t window[SIZE_WINDOW] = {};
   bool fillWindow(int first) const;
 
-  HalFile bookFile;
+  mutable HalFile bookFile;
   // Temp file handles during build
   HalFile spineFile;
   HalFile tocFile;

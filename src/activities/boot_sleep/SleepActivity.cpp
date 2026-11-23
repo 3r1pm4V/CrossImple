@@ -2,6 +2,7 @@
 
 #include <BitmapHelpers.h>
 #include <Epub.h>
+#include <FontCacheManager.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HalClock.h>
@@ -548,6 +549,13 @@ void SleepActivity::onEnter() {
 
   if (renderQuickResume) {
     return renderLastScreenSleepScreen();
+  }
+
+  // Release reader SD font cache and glyph caches before generating sleep screen assets
+  // (covers, stats, PNGs) to maximize available heap for image decoders.
+  renderer.releaseSdCardFontForLowMemory(SETTINGS.getReaderFontId());
+  if (auto* fontCache = renderer.getFontCacheManager()) {
+    fontCache->releaseSdFontCaches();
   }
 
   const auto sleepScreen = SETTINGS.sleepScreen;

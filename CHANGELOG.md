@@ -1,3 +1,16 @@
+## [v0.29] - 2026-11-23
+
+### Đã thêm & Tối ưu (Added & Improved)
+- **Tối ưu Hóa Tốc độ Khởi động, Thức dậy & Vào Ngủ (Boot / Wake / Sleep Lazy Loading)**:
+  - **Lazy Loading tài nguyên hệ thống (`I18n`, `HyphenationPackStore`, `filenameFontSystem`)**: Hoãn khởi tạo phân vùng ngôn ngữ (`I18N.ensureInitialized()`), gói ngắt từ (`hyphenationPacks.ensureLoaded()`) và font tên tệp (`filenameFontSystem.initialize()`) cho đến đúng thời điểm thực sự sử dụng, loại bỏ hàng loạt thao tác đọc Flash/SD không cần thiết trong `setup()`.
+  - **Tăng tốc Quick Resume khi thức dậy (`main.cpp`)**: Khi thức dậy vào thẳng trang đọc sách với trang được cache sẵn (`WakeAction::QuickResume`), bỏ qua bước nạp trước font đọc từ thẻ nhớ SD (`preloadActiveReaderFontFromSd()`), giúp hiển thị trang sách tức thì.
+  - **Giải phóng RAM Font SD trước khi vẽ Màn hình Ngủ & Gộp I/O (`SleepActivity.cpp`, `EpubReaderActivity.cpp`)**: Gọi `sdFontSystem.releaseFontCache()` trước khi render bìa ngủ (giải phóng bộ đệm `.cpfont` / `.ttf` tránh thiếu RAM khi giải mã ảnh bìa trên X3), đồng thời gộp lưu tiến độ đọc + thống kê trước khi vào `SleepActivity` để tránh tranh chấp I/O thẻ nhớ.
+- **Tối ưu Hóa Vòng đời Tệp & Đa luồng cho Trình đọc EPUB (`BookMetadataCache`, `Section`, `ReaderActivity`)**:
+  - **Chu trình 5 pha tuần tự trong `BookMetadataCache` (`BookMetadataCache.h`, `BookMetadataCache.cpp`)**: Tái cấu trúc quá trình dựng `book.bin` thành 5 pha tuần tự rõ ràng, đảm bảo tại mọi thời điểm chỉ mở tối đa **1 file handle** trên thẻ SD, kết hợp kiểm tra kích thước tối thiểu (`kMinBookBinSize = 37`) để phát hiện sớm file cache bị cụt/hỏng.
+  - **An toàn đa luồng tuyệt đối với `bookFileMutex`**: Bảo vệ toàn bộ các thao tác đọc `bookFile` (`getSpineEntry`, `getTocEntry`, `findContentOpfItemByHref`, v.v.) bằng khóa `std::lock_guard<std::mutex> lock(bookFileMutex)`, ngăn chặn xung đột seek/read giữa luồng dựng trang nền và luồng UI.
+  - **Đóng sớm File Handle khi dựng Section (`Section.cpp`)**: Tự động đóng tệp tạm `.section.bin.tmp` trước khi gọi parser HTML/EPUB giải nén chương sách (tránh giữ mở đồng thời file đích và file ZIP nguồn), chỉ mở lại ở chế độ append khi ghi footer.
+  - **Bỏ qua đọc lại tệp `.xlocation` khi Resume (`ReaderActivity.h`, `ReaderActivity.cpp`)**: Bổ sung `XLocationLoadMode::Skip` khi mở sách ở chế độ `Resume` (vị trí trang/chương đã có sẵn trong `APP_STATE`), giảm thêm lượt truy cập thẻ nhớ SD khi mở lại sách đang đọc.
+
 ## [v0.28] - 2026-11-20
 
 ### Đã thêm & Tối ưu (Added & Improved)

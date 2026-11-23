@@ -38,7 +38,7 @@ class BufferedFileWriter {
       flushBuffer();
     }
     if (len >= cap) {  // also the cap == 0 passthrough
-      okFlag &= file.write(p, len) == len;
+      okFlag &= isFileOpen(file, 0) && file.write(p, len) == len;
       return;
     }
     // Typed local: cppcheck misreads unique_ptr<uint8_t[]>::get() arithmetic as void*.
@@ -50,6 +50,12 @@ class BufferedFileWriter {
   // Logical write position (bytes written since the file was opened).
   size_t position() const { return pos; }
 
+  // Discard buffered bytes without writing to the underlying file (for error/abort paths).
+  void discard() {
+    fill = 0;
+    okFlag = false;
+  }
+
   // Flush buffered bytes; returns false if any write so far has failed short.
   bool flush() {
     flushBuffer();
@@ -57,8 +63,22 @@ class BufferedFileWriter {
   }
 
  private:
+  template <typename F>
+  static auto isFileOpen(const F& f, int) -> decltype(static_cast<bool>(f)) {
+    return static_cast<bool>(f);
+  }
+  template <typename F>
+  static bool isFileOpen(const F&, long) {
+    return true;
+  }
+
   void flushBuffer() {
     if (fill == 0) return;
+    if (!isFileOpen(file, 0)) {
+      fill = 0;
+      okFlag = false;
+      return;
+    }
     okFlag &= file.write(buf.get(), fill) == fill;
     fill = 0;
   }
@@ -150,7 +170,7 @@ inline void writeString(BufferedFileWriter& out, const std::string& s) {
 }
 
 inline void readString(BufferedFileReader& in, std::string& s) {
-  uint32_t len;
+  uint32_t len = 0;
   readPod(in, len);
   s.resize(len);
   if (len > 0) {

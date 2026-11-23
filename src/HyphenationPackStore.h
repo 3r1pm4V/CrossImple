@@ -6,6 +6,7 @@
 namespace HyphenationPackStore {
 constexpr char DIRECTORY[] = "/.crossink/hyphenation";
 bool begin();
+bool ensureLoaded();
 bool lookup(const char* code, ExternalHyphenationPatterns& out);
 bool isInstalled(const char* code);
 bool hasSource(const char* code);

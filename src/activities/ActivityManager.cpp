@@ -10,6 +10,7 @@
 #include <FsHelpers.h>
 #include <HalPowerManager.h>
 #include <HalStorage.h>
+#include <I18n.h>
 #if defined(CROSSINK_LANGUAGE_BENCHMARK)
 #include <LanguageBenchmark.h>
 #endif
@@ -493,6 +494,7 @@ void ActivityManager::renderTaskLoop() {
     TouchRegistry::getInstance().setEnabled(mappedInput.hasTouch());
     TouchRegistry::getInstance().beginFrame();
     if (currentActivity) {
+      I18N.ensureLoaded(SETTINGS.languageCode, SETTINGS.languageCacheGeneration);
       HalPowerManager::Lock powerLock;  // Ensure we don't go into low-power mode while rendering
       // Apply Night Mode to each activity's normal-polarity frame. SleepActivity
       // preserves it only for Quick Resume and clears it for other sleep screens.
@@ -646,6 +648,7 @@ void ActivityManager::loop() {
 
         // A file-transfer child may have released UI fonts. Restore them for
         // any parent (including Settings) before its first measurement/redraw.
+        I18N.ensureLoaded(SETTINGS.languageCode, SETTINGS.languageCacheGeneration);
         filenameFontSystem.ensureLoaded(renderer);
 
         if (closedFrontlightPanel) currentActivity->onFrontlightPanelClosed();
@@ -1075,12 +1078,14 @@ bool ActivityManager::goToOpdsServer(const uint32_t serverIndex, const bool netw
 }
 
 void ActivityManager::goToReader(std::string path, const bool suppressBackRelease, const bool allowFastInitialRefresh,
-                                 const bool cleanImageBaseOnEntry, const bool keepWakeFrame) {
+                                 const bool cleanImageBaseOnEntry, const bool keepWakeFrame,
+                                 const bool skipXLocations) {
   // OPDS credentials are unrelated to local reading and may contain several
   // heap-backed strings. Home reloads them lazily when it becomes active.
   OPDS_STORE.release();
   replaceActivity(std::make_unique<ReaderActivity>(renderer, mappedInput, std::move(path), suppressBackRelease,
-                                                   allowFastInitialRefresh, cleanImageBaseOnEntry, keepWakeFrame));
+                                                   allowFastInitialRefresh, cleanImageBaseOnEntry, keepWakeFrame,
+                                                   skipXLocations));
 }
 
 void ActivityManager::goToReaderAndRunMenuAction(std::string path, const uint8_t action) {
