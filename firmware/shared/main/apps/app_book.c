@@ -5482,7 +5482,13 @@ static bool open_book_impl(app_ctx_t* ctx, const char* path) {
     // faces need exactly this PSRAM, and the system face's cache is the easiest part to
     // reclaim. The faces stay loaded and re-cache on demand.
     size_t psram_before = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    size_t reclaimed = ttf_font_cache_clear_all();
+    char target_font[TTF_FONT_PATH_MAX] = {0};
+    app_settings_book_font_path_for(path, (uint32_t)st.st_size, target_font, sizeof(target_font));
+    const char *sys_font = app_settings_system_font_path();
+    bool is_builtin_or_sys = ttf_font_path_is_builtin(target_font) ||
+                            (sys_font && sys_font[0] && !strcmp(target_font, sys_font));
+    bool should_clear = !is_builtin_or_sys || !metalio_cache_can_grow(0);
+    size_t reclaimed = should_clear ? ttf_font_cache_clear_all() : 0;
     size_t psram_after = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     ESP_LOGI(TAG, "open start wifi=%d internal=%u/%u psram=%u/%u cache=%uK freed=%uK",
              network.network_ready,

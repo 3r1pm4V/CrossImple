@@ -1022,29 +1022,19 @@ static void draw_vertical_column(uint8_t* fb, EpdRect rect, int left, int pitch,
                 epd_fill_rect((EpdRect){guide_x, rect.y, 2, rect.height}, 0x88, fb);
             } else if (s_reading_line == 7) { // 7. Ô ly chấm (Grid Dotted)
                 int cell_step = pitch;
-                int num_rows = rect.height / cell_step;
-                if (num_rows < 1) num_rows = 1;
-                int grid_h = num_rows * cell_step;
-                int grid_y0 = rect.y + (rect.height - grid_h) / 2;
-                int grid_y1 = grid_y0 + grid_h;
-                for (int dy = 0; dy <= grid_h; dy += 4) {
-                    epd_fill_rect((EpdRect){guide_x, grid_y0 + dy, 1, 1}, 0x78, fb);
+                for (int dy = 0; dy < rect.height; dy += 4) {
+                    epd_fill_rect((EpdRect){guide_x, rect.y + dy, 1, 1}, 0x78, fb);
                 }
-                for (int gy = grid_y0; gy <= grid_y1; gy += cell_step) {
+                for (int gy = rect.y; gy <= rect.y + rect.height; gy += cell_step) {
                     for (int gx = left; gx <= guide_x; gx += 4) {
                         epd_fill_rect((EpdRect){gx, gy, 1, 1}, 0x78, fb);
                     }
                 }
             } else if (s_reading_line == 8) { // 8. Ô ly vuông (Grid Square 100%)
                 int cell_step = pitch;
-                int num_rows = rect.height / cell_step;
-                if (num_rows < 1) num_rows = 1;
-                int grid_h = num_rows * cell_step;
-                int grid_y0 = rect.y + (rect.height - grid_h) / 2;
-                int grid_y1 = grid_y0 + grid_h;
-                epd_fill_rect((EpdRect){guide_x, grid_y0, 1, grid_h}, 0x88, fb);
-                epd_fill_rect((EpdRect){left, grid_y0, 1, grid_h}, 0x88, fb);
-                for (int gy = grid_y0; gy <= grid_y1; gy += cell_step) {
+                epd_fill_rect((EpdRect){guide_x, rect.y, 1, rect.height}, 0x88, fb);
+                epd_fill_rect((EpdRect){left, rect.y, 1, rect.height}, 0x88, fb);
+                for (int gy = rect.y; gy <= rect.y + rect.height; gy += cell_step) {
                     epd_fill_rect((EpdRect){left, gy, guide_x - left + 1, 1}, 0x88, fb);
                 }
             }
@@ -1247,31 +1237,21 @@ void book_layout_draw_page(uint8_t* fb, size_t page, EpdRect rect, int px) {
                         epd_fill_rect((EpdRect){rect.x, guide_y - 1, rect.width, 2}, 0x88, fb);
                     } else if (s_reading_line == 7) { // 7. Ô ly chấm (Grid Dotted)
                         int cell_step = line_height;
-                        int num_cols = rect.width / cell_step;
-                        if (num_cols < 1) num_cols = 1;
-                        int grid_w = num_cols * cell_step;
-                        int grid_x0 = rect.x + (rect.width - grid_w) / 2;
-                        int grid_x1 = grid_x0 + grid_w;
-                        for (int dx = 0; dx <= grid_w; dx += 4) {
-                            epd_fill_rect((EpdRect){grid_x0 + dx, guide_y, 1, 1}, 0x78, fb);
+                        for (int dx = 0; dx < rect.width; dx += 4) {
+                            epd_fill_rect((EpdRect){rect.x + dx, guide_y, 1, 1}, 0x78, fb);
                         }
-                        for (int gx = grid_x0; gx <= grid_x1; gx += cell_step) {
+                        for (int gx = rect.x; gx <= rect.x + rect.width; gx += cell_step) {
                             for (int gy = line_top; gy <= guide_y; gy += 4) {
                                 epd_fill_rect((EpdRect){gx, gy, 1, 1}, 0x78, fb);
                             }
                         }
                     } else if (s_reading_line == 8) { // 8. Ô ly vuông (Grid Square 100%)
                         int cell_step = line_height;
-                        int num_cols = rect.width / cell_step;
-                        if (num_cols < 1) num_cols = 1;
-                        int grid_w = num_cols * cell_step;
-                        int grid_x0 = rect.x + (rect.width - grid_w) / 2;
-                        int grid_x1 = grid_x0 + grid_w;
                         if (used == 0 || (page == 0 && used == s_lead_height)) {
-                            epd_fill_rect((EpdRect){grid_x0, line_top, grid_w, 1}, 0x88, fb);
+                            epd_fill_rect((EpdRect){rect.x, line_top, rect.width, 1}, 0x88, fb);
                         }
-                        epd_fill_rect((EpdRect){grid_x0, guide_y, grid_w, 1}, 0x88, fb);
-                        for (int gx = grid_x0; gx <= grid_x1; gx += cell_step) {
+                        epd_fill_rect((EpdRect){rect.x, guide_y, rect.width, 1}, 0x88, fb);
+                        for (int gx = rect.x; gx <= rect.x + rect.width; gx += cell_step) {
                             epd_fill_rect((EpdRect){gx, line_top, 1, guide_y - line_top + 1}, 0x88, fb);
                         }
                     }

@@ -41,6 +41,11 @@ bool book_index_cache_prepare(const char* source, const char* tag, uint32_t vers
 FILE* book_index_cache_open_read(const char* path, const book_index_cache_header_t* expected) {
     if (!path || !expected) return NULL;
     FILE* file = fopen(path, "rb");
+    if (!file) {
+        char old[128];
+        int n = snprintf(old, sizeof(old), "%s.old", path);
+        if (n > 0 && (size_t)n < sizeof(old)) file = fopen(old, "rb");
+    }
     if (!file) return NULL;
     book_index_cache_header_t found;
     bool ok = fread(&found, 1, sizeof(found), file) == sizeof(found) &&
@@ -75,8 +80,16 @@ bool book_index_cache_finish_write(FILE* file, const char* temp, const char* pat
         remove(temp);
         return false;
     }
-    remove(path);
-    if (rename(temp, path) == 0) return true;
+    char old[128];
+    int n = snprintf(old, sizeof(old), "%s.old", path);
+    bool use_old = n > 0 && (size_t)n < sizeof(old);
+    if (use_old) remove(old);
+    bool had_old = use_old && (rename(path, old) == 0);
+    if (rename(temp, path) == 0) {
+        if (had_old) remove(old);
+        return true;
+    }
+    if (had_old) (void)rename(old, path);
     remove(temp);
     return false;
 }

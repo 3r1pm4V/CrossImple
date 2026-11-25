@@ -354,11 +354,13 @@ app_wake_source_t app_light_sleep_wait_timed(sc7a20h_handle_t acc,uint32_t timeo
     metalio_frontlight(0,50);
     app_wake_source_t wake=APP_WAKE_NONE;
     bool usb_was_blocked=metalio_usb_blocks_sleep();
-    const int64_t off_at=s_lock_sleep_touch&&!timeout_ms&&app_settings_sleep_off_hours()>0 ? start+(int64_t)app_settings_sleep_off_hours()*INT64_C(3600000000) : 0;
+    const int64_t off_at=!timeout_ms&&app_settings_sleep_off_hours()>0 ? start+(int64_t)app_settings_sleep_off_hours()*INT64_C(3600000000) : 0;
     int64_t off_retry_at=off_at;
     bool frame_marked=false;
     unsigned light_failures=0;
     int64_t light_retry_at=0,key_restore_retry_at=0;
+    bool wifi_stopped=false,ble_stopped=false;
+    int64_t radio_retry_at=0;
     ESP_LOGI(TAG,"S31 lock wait: light then configured hardware off; hours=%u usb=%u pickup=%u checkpoint=%u",
         (unsigned)app_settings_sleep_off_hours(),(unsigned)usb_was_blocked,(unsigned)pickup,(unsigned)s_lock_deep_ready);
     for(;;) {
@@ -373,9 +375,16 @@ app_wake_source_t app_light_sleep_wait_timed(sc7a20h_handle_t acc,uint32_t timeo
         lock_hint_service();
         // USB阻止浅睡时也必须停止BLE；失败继续有界重试，不带活动BLE进入低功耗。
         // Stop BLE even when USB prevents light sleep; retry failures without sleeping with an active host.
-        bool wifi_stopped=read_pico_transfer_pause_for_sleep();
-        bool ble_stopped=ble_pt_suspend_for_sleep()==ESP_OK;
-        if (wifi_stopped && ble_stopped && !s_lock_hint.pending_at && !s_lock_hint.until && s_lock_sleep_touch && !pickup && !metalio_usb_blocks_sleep()) {
+        if (!wifi_stopped && esp_timer_get_time() >= radio_retry_at) {
+            wifi_stopped = read_pico_transfer_pause_for_sleep();
+        }
+        if (!ble_stopped && esp_timer_get_time() >= radio_retry_at) {
+            ble_stopped = (ble_pt_suspend_for_sleep() == ESP_OK);
+            if (!wifi_stopped || !ble_stopped) {
+                radio_retry_at = esp_timer_get_time() + INT64_C(500000);
+            }
+        }
+        if (wifi_stopped && ble_stopped && !s_lock_hint.pending_at && !s_lock_hint.until && !pickup && !metalio_usb_blocks_sleep()) {
             if(off_at && esp_timer_get_time()>=off_retry_at && s_lock_deep_ready) {
                 if(s_lock_frame_cached && !lock_pin_enabled() && !frame_marked)
                     frame_marked=pico_boot_mark_frame_cached()==ESP_OK;
@@ -492,7 +501,7 @@ static uint64_t lock_light_sleep_slice_us(int64_t wake_by) {
 }
 static esp_err_t lock_light_sleep_once(sc7a20h_handle_t acc,cst836u_handle_t touch,bool *key_wake,int64_t wake_by) {
     *key_wake=false;
-    if (!touch || metalio_usb_blocks_sleep() || usb_storage_active() || pico_online_busy())
+    if (metalio_usb_blocks_sleep() || usb_storage_active() || pico_online_busy())
         return ESP_ERR_INVALID_STATE;
     read_pico_sd_info_t info={0};
     // 挂载/写卡事务仍需等待；无卡或已挂载失败不等于有活动I/O。
@@ -510,7 +519,7 @@ static esp_err_t lock_light_sleep_once(sc7a20h_handle_t acc,cst836u_handle_t tou
     s_lock_io_pending=true;
     esp_err_t err=book_suspend_io();
     if(err==ESP_OK) err=ttf_font_suspend_io();
-    if(err==ESP_OK) {
+    if(err==ESP_OK && touch) {
         err=cst836u_set_mode(touch,CST836U_MODE_DEEPSLEEP);
         touch_asleep=err==ESP_OK;
     }
@@ -953,6 +962,7 @@ void enter_lock_and_sleep(
 }
 
 void app_lock_boot_gate(EpdiyHighlevelState *hl, cst836u_handle_t touch, sc7a20h_handle_t acc) {
+    s_lock_sleep_touch = touch;
     lock_hint_begin(hl);
     s_boot_lock_draw=true;
     lock_resume_service();
@@ -964,10 +974,11 @@ void app_lock_boot_gate(EpdiyHighlevelState *hl, cst836u_handle_t touch, sc7a20h
             if(!s_boot_power_on || app_settings_wake_presses()==2) {
                 if(s_boot_power_wake && metalio_boot_power_key() && app_settings_wake_presses()==1)
                     read_pico_pmu_latch_power_wakeup();
-                lock_wait_for_unlock(NULL);
+                lock_wait_for_unlock(acc);
             }
         }
         lock_hint_end();
+        s_lock_sleep_touch = NULL;
         (void)app_lock_resume_frame(NULL);
         read_pico_transfer_resume_after_sleep();
         ble_pt_resume_after_sleep();
@@ -993,6 +1004,7 @@ void app_lock_boot_gate(EpdiyHighlevelState *hl, cst836u_handle_t touch, sc7a20h
     }
     lock_screen_authenticate(hl, touch, acc, true);
     lock_hint_end();
+    s_lock_sleep_touch = NULL;
     (void)app_lock_resume_frame(NULL);
     app_font_end_lock(&saved);
     read_pico_transfer_resume_after_sleep();

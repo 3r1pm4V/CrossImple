@@ -430,6 +430,12 @@ bool app_settings_set_reader_edge_brightness(bool on);
 bool app_settings_reader_edge_warmth(void);
 bool app_settings_set_reader_edge_warmth(bool on);
 
+// 封面与壁纸滤镜 (0..3) / Cover & wallpaper filter (0: 16-gray, 1: 1-bit, 2: inverted, 3: 4-gray)
+uint8_t app_settings_cover_filter(void);
+void app_settings_set_cover_filter(uint8_t filter);
+
 /* Scope appearance to one book; hardware bindings stay global. */
 void app_settings_book_profile_enter(const char *path, uint32_t file_size);
 void app_settings_book_profile_leave(void);
+// 获取书籍特定外观设置的目标字体路径 / Resolve target font path for a specific book profile
+void app_settings_book_font_path_for(const char *path, uint32_t file_size, char *out, size_t cap);

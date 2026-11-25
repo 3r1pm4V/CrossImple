@@ -22,6 +22,8 @@
 #include "ui_kit.h"
 #include "ui/stock_wallpaper.h"
 #include "ui_wallpaper_crop.h"
+#include "metalio_memory.h"
+#include "ttf_font.h"
 
 static bool inside_rounded(EpdRect area, int radius, int x, int y) {
     if (radius <= 0) return true;
@@ -110,7 +112,11 @@ static bool image_pixels(uint8_t *fb, uint8_t *pixels, const char *path, EpdRect
         width = (width * 3u + 3u) / 4u;
         height = (height * 3u + 3u) / 4u;
     }
-    uint8_t *gray = ok ? heap_caps_malloc((size_t)width * height, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : NULL;
+    size_t alloc_sz = (size_t)width * height;
+    if (ok && !metalio_cache_can_grow(alloc_sz)) {
+        ttf_font_reclaim_optional_cache();
+    }
+    uint8_t *gray = (ok && metalio_cache_can_grow(alloc_sz)) ? heap_caps_malloc(alloc_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) : NULL;
     if (!gray) ok = false;
     if (ok) ok = book_image_file_grayscale(path, png, width, height, gray);
     if (!ok) { free(gray); return false; }

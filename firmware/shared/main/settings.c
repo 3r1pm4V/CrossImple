@@ -188,6 +188,7 @@ static esp_err_t backup_nvs_set_str(nvs_handle_t h, const char *key, const char 
 #define NVS_KEY_FONTS_DIR "fonts_dir"
 #define NVS_KEY_BOOK_FONTS "bk_fonts"
 #define NVS_KEY_BOOK_VERTICAL "bk_vert"
+#define NVS_KEY_COVER_FILTER "cov_filter"
 #define NVS_KEY_KOSYNC_URL "ks_url"
 #define NVS_KEY_KOSYNC_USER "ks_user"
 #define NVS_KEY_KOSYNC_KEY "ks_key"
@@ -298,6 +299,7 @@ static const char *s_reader_key_names[] = {"rd_key_l", "rd_key_m", "rd_key_r"};
 static uint8_t s_reader_hold_action = APP_READER_KEY_HOME;
 static uint8_t s_reader_keys[3] = {APP_READER_KEY_PREV, APP_READER_KEY_TOOLS, APP_READER_KEY_NEXT};
 static uint8_t s_reader_turn_mode = 0;
+static uint8_t s_cover_filter = 0;
 static uint8_t s_volume_keys[2] = {APP_READER_KEY_PREV, APP_READER_KEY_NEXT};
 static uint8_t s_control_holds[7]={255,APP_READER_KEY_NONE,APP_READER_KEY_NONE,255,255,APP_READER_KEY_NONE,APP_READER_KEY_NONE};
 static const char *const s_control_hold_names[]={"hold_ai","hold_vup","hold_vdown","hold_power","hold_mid","hold_left","hold_right"};
@@ -773,6 +775,8 @@ void app_settings_init(void) {
     bool migrate_shelf = nvs_get_u8(h, NVS_KEY_SHELF_V22, &shelf_v22) != ESP_OK || shelf_v22 != 1;
     bool retired_shelf = shelf_style == 3 || shelf_style == 4;
     if (migrate_shelf) s_shelf_style = 2;
+    uint8_t cov_f = 0;
+    if (nvs_get_u8(h, NVS_KEY_COVER_FILTER, &cov_f) == ESP_OK && cov_f <= 3) s_cover_filter = cov_f;
     // 固定媒体根目录；忽略旧版自定义目录键。/ Fixed media roots ignore retired custom-directory keys.
     nvs_close(h);
     if ((migrate_shelf || retired_shelf) && backup_nvs_open(NVS_NS, NVS_READWRITE, &h) == ESP_OK) {
@@ -1153,7 +1157,16 @@ uint8_t app_settings_last_wake(void) {
 void app_settings_set_last_wake(uint8_t src) {
     if (src == s_last_wake) return;
     s_last_wake = src;
-    nvs_put_u8(NVS_KEY_WAKE, src);
+    // 仅在真实外部事件唤醒且非NONE时持久化，避免锁屏-解锁日常往复磨损Flash
+    // Persist only meaningful wake sources; avoid rapid Flash wear on every lock/unlock toggle
+    if (src != 0) {
+        nvs_handle_t h;
+        if (backup_nvs_open(NVS_NS, NVS_READWRITE, &h) == ESP_OK) {
+            backup_nvs_set_u8(h, NVS_KEY_WAKE, src);
+            (void)nvs_commit(h);
+            nvs_close(h);
+        }
+    }
 }
 
 uint8_t app_settings_last_boot(void) {
@@ -2049,13 +2062,35 @@ static bool book_profile_string(const char *key,const char *value) {
     else strlcpy(candidate.appearance.background,value,sizeof(candidate.appearance.background));
     return profile_save(&candidate);
 }
+static book_profile_t s_preloaded_profile;
+static char s_preloaded_path[256];
+static uint32_t s_preloaded_size;
+static bool s_has_preloaded;
+static bool s_preloaded_valid;
+
 void app_settings_book_profile_leave(void) {
+    s_has_preloaded = false;
     if(!book_profile_active())return;
     profile_apply(&s_book_defaults);s_profile_path[0]=0;
 }
 void app_settings_book_profile_enter(const char *path,uint32_t file_size) {
+    if(!path||strnlen(path,sizeof(s_profile_path))>=sizeof(s_profile_path)) {
+        app_settings_book_profile_leave();
+        return;
+    }
+    bool used_preloaded = false;
+    book_profile_t loaded = {0};
+    esp_err_t err = ESP_OK;
+    if (s_has_preloaded && s_preloaded_size == file_size && !strcmp(s_preloaded_path, path)) {
+        used_preloaded = true;
+        if (s_preloaded_valid) {
+            loaded = s_preloaded_profile;
+            err = ESP_OK;
+        } else {
+            err = ESP_ERR_NOT_FOUND;
+        }
+    }
     app_settings_book_profile_leave();
-    if(!path||strnlen(path,sizeof(s_profile_path))>=sizeof(s_profile_path))return;
     memset(&s_book_defaults,0,sizeof(s_book_defaults));
     s_book_defaults.version=1;s_book_defaults.file_size=file_size;
     s_book_defaults.reserved[0]=!strcmp(s_font,"builtin");
@@ -2063,9 +2098,11 @@ void app_settings_book_profile_enter(const char *path,uint32_t file_size) {
     s_book_defaults.footer=s_book_footer_enabled;s_book_defaults.status_hidden=s_book_status_hidden;
     s_book_profile=s_book_defaults;
     strlcpy(s_profile_path,path,sizeof(s_profile_path));
-    book_profile_t loaded={0};size_t size=sizeof(loaded);
-    esp_err_t err=book_state_read(book_state_root(path),path,"profile",&loaded,&size);
-    if(err==ESP_OK&&size==sizeof(loaded)&&loaded.version==1&&loaded.file_size==file_size&&
+    size_t size = sizeof(loaded);
+    if (!used_preloaded) {
+        err = book_state_read(book_state_root(path),path,"profile",&loaded,&size);
+    }
+    if(err==ESP_OK&&loaded.version==1&&loaded.file_size==file_size&&
        loaded.footer<=1&&loaded.status_hidden<=1&&loaded.reserved[0]<=1&&reader_backup_valid(&loaded.appearance))s_book_profile=loaded;
     else if(err!=ESP_ERR_NOT_FOUND&&!(err==ESP_OK&&(!size||loaded.file_size!=file_size)))
         ESP_LOGW(TAG,"book appearance load: %s",esp_err_to_name(err));
@@ -2079,6 +2116,33 @@ static void profile_global_backup(reader_backup_t *v) {
     memcpy(v->background,s_book_defaults.appearance.background,sizeof(v->background));
     profile_seal(v);
 }
+void app_settings_book_font_path_for(const char *path, uint32_t file_size, char *out, size_t cap) {
+    if (!out || cap == 0) return;
+    const char *default_font = app_settings_font_path();
+    if (!path || !path[0]) {
+        strlcpy(out, default_font ? default_font : "builtin", cap);
+        return;
+    }
+    if (book_profile_active() && !strcmp(s_profile_path, path)) {
+        strlcpy(out, default_font ? default_font : "builtin", cap);
+        return;
+    }
+    book_profile_t loaded = {0};
+    size_t size = sizeof(loaded);
+    esp_err_t err = book_state_read(book_state_root(path), path, "profile", &loaded, &size);
+    s_has_preloaded = true;
+    strlcpy(s_preloaded_path, path, sizeof(s_preloaded_path));
+    s_preloaded_size = file_size;
+    if (err == ESP_OK && size == sizeof(loaded) && loaded.version == 1 && loaded.file_size == file_size &&
+        loaded.reserved[0] <= 1 && reader_backup_valid(&loaded.appearance)) {
+        s_preloaded_profile = loaded;
+        s_preloaded_valid = true;
+        strlcpy(out, loaded.reserved[0] ? "builtin" : loaded.appearance.font, cap);
+        return;
+    }
+    s_preloaded_valid = false;
+    strlcpy(out, default_font ? default_font : "builtin", cap);
+}
 #else
 static bool book_profile_active(void){return false;}
 static bool book_profile_key(const char *key){(void)key;return false;}
@@ -2086,6 +2150,7 @@ static bool book_profile_u8(const char *key,uint8_t value){(void)key;(void)value
 static bool book_profile_string(const char *key,const char *value){(void)key;(void)value;return false;}
 void app_settings_book_profile_enter(const char *path,uint32_t size){(void)path;(void)size;}
 void app_settings_book_profile_leave(void){}
+void app_settings_book_font_path_for(const char *path, uint32_t file_size, char *out, size_t cap){(void)path;(void)file_size;if(out&&cap>0){const char *def=app_settings_font_path();strlcpy(out,def?def:"builtin",cap);}}
 static void profile_global_backup(reader_backup_t *v){(void)v;}
 #endif
 
@@ -3160,4 +3225,13 @@ bool app_settings_set_book_footer_enabled(bool on) {
 bool app_settings_book_status_enabled(void) { return !s_book_status_hidden; }
 bool app_settings_set_book_status_enabled(bool on) {
     return reader_edge_setting(&s_book_status_hidden, "rd_status_off", !on);
+}
+
+uint8_t app_settings_cover_filter(void) {
+    return s_cover_filter;
+}
+void app_settings_set_cover_filter(uint8_t filter) {
+    if (filter > 3 || filter == s_cover_filter) return;
+    s_cover_filter = filter;
+    nvs_put_u8(NVS_KEY_COVER_FILTER, filter);
 }

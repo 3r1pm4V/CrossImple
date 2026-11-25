@@ -10,11 +10,13 @@
 #include "book_index_cache.h"
 #include "gbk.h"
 #include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "../font/vn_diacritics.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+static const char* TAG = "book_txt";
 #define READ_BLOCK (64 * 1024)
 #define PART_TARGET (48 * 1024)
 #if DPREADER_BOARD_METALIO47
@@ -157,9 +159,27 @@ static bool add(book_txt_t *b, uint32_t offset, const char *title) {
 }
 static esp_err_t index_book(reader_t *r, book_txt_t *b) {
     esp_err_t err = reset(r, b, b->bom); if (err) return err;
+    uint32_t *fallback_offsets = heap_caps_malloc(sizeof(uint32_t) * BOOK_CHAPTER_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    size_t fallback_count = 0;
+    size_t fallback_dropped = 0;
+    uint32_t part = 0;
+    if (fallback_offsets) {
+        fallback_offsets[fallback_count++] = 0;
+    }
     char line[41] = {0}; size_t len = 0; bool overflow = false, too_many = false;
     uint32_t start = b->bom, cp;
     while (next(r, &cp)) {
+        if (fallback_offsets) {
+            uint32_t size = r->offset - part;
+            if (r->offset < b->total && ((size >= PART_TARGET && cp == '\n') || size >= BOOK_CHAPTER_BYTES_MAX - 4)) {
+                if (fallback_count < BOOK_CHAPTER_MAX) {
+                    fallback_offsets[fallback_count++] = r->offset;
+                } else {
+                    fallback_dropped++;
+                }
+                part = r->offset;
+            }
+        }
         if (cp == '\n') {
             if (!overflow && heading(line) && !add(b, start, line)) too_many = true;
             start = r->offset; len = 0; line[0] = 0; overflow = false;
@@ -169,7 +189,7 @@ static esp_err_t index_book(reader_t *r, book_txt_t *b) {
             else overflow = true;
         }
     }
-    if (ferror(b->file)) return ESP_FAIL;
+    if (ferror(b->file)) { free(fallback_offsets); return ESP_FAIL; }
     if (!overflow && heading(line) && !add(b, start, line)) too_many = true;
     bool fallback = b->count < 2 || too_many;
     if (b->count) b->entries[0].offset = 0;
@@ -177,16 +197,31 @@ static esp_err_t index_book(reader_t *r, book_txt_t *b) {
         uint32_t end = i + 1 < b->count ? b->entries[i + 1].offset : b->total;
         if (end - b->entries[i].offset > BOOK_CHAPTER_BYTES_MAX) fallback = true;
     }
-    if (!fallback) return ESP_OK;
+    if (!fallback) { free(fallback_offsets); return ESP_OK; }
+    if (fallback_offsets) {
+        if (fallback_dropped > 0) {
+            ESP_LOGW(TAG, "fallback chapter count capped at %u (%u dropped)", (unsigned)BOOK_CHAPTER_MAX, (unsigned)fallback_dropped);
+        }
+        b->count = 0;
+        for (size_t i = 0; i < fallback_count; ++i) {
+            if (!add(b, fallback_offsets[i], NULL)) break;
+        }
+        free(fallback_offsets);
+        return ESP_OK;
+    }
     b->count = 0; add(b, 0, NULL); err = reset(r, b, b->bom); if (err) return err;
-    uint32_t part = 0;
+    part = 0;
+    size_t pass2_dropped = 0;
     while (next(r, &cp)) {
         uint32_t size = r->offset - part;
         // 目标后首个换行切段；无换行时在硬上限前按字符切。/ Split at the first newline after the target, or before the hard cap at a character boundary.
         if (r->offset < b->total && ((size >= PART_TARGET && cp == '\n') || size >= BOOK_CHAPTER_BYTES_MAX - 4)) {
-            if (!add(b, r->offset, NULL)) return ESP_ERR_INVALID_SIZE;
+            if (!add(b, r->offset, NULL)) pass2_dropped++;
             part = r->offset;
         }
+    }
+    if (pass2_dropped > 0) {
+        ESP_LOGW(TAG, "fallback chapter count capped at %u (%u dropped)", (unsigned)BOOK_CHAPTER_MAX, (unsigned)pass2_dropped);
     }
     return ferror(b->file) ? ESP_FAIL : ESP_OK;
 }

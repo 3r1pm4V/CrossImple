@@ -1,3 +1,9 @@
+## dpReader 0.29.0-vn / 0.29.0-love-vn · 2026-11-23
+
+- Wake vào màn hình khóa nhanh hơn khi thẻ không khôi phục được khung cũ.
+- Bỏ bước kiểm tra thừa khi đọc cache chỉ số sách; mở sách/khôi phục metadata không làm thêm I/O thẻ.
+- Log tắt nguồn phản ánh đúng kết quả bàn giao phần cứng.
+
 ## dpReader 1.4.0-vn / 1.4.0-love-vn · 2026-11-09
 
 - Khắc phục lỗi NVS đầy làm đổi font thất bại hoặc chặn mở sách.

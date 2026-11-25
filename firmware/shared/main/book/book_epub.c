@@ -986,8 +986,8 @@ esp_err_t book_epub_open(const char *path, book_epub_t **out) {
         if (ncx[0]) (void)navigation_parse(book, ncx, true);
         if (nav[0] && !book->authored_count) (void)navigation_parse(book, nav, false);
         // 小书也核对同一正文文件内的多个锚点；大书仅在 NCX 缺正文文件时额外解析 NAV。
-        // Check intra-file anchors for small books; avoid a second full TOC parse on large complete books.
-        else if (nav[0] && (book->count <= 256 || navigation_coverage(book) < book->count)) {
+        // Check intra-file anchors for small books; avoid a second full TOC parse on complete books.
+        else if (nav[0] && (navigation_coverage(book) < book->count || (book->count <= 256 && book->authored_count < book->count))) {
             book_epub_t *nav_book = psram(sizeof(*nav_book));
             if (nav_book) {
                 memset(nav_book, 0, sizeof(*nav_book));
@@ -1398,8 +1398,8 @@ static bool body_headings_scan(book_epub_t *book, body_headings_t *found) {
 
 static void body_headings_prepare(book_epub_t *book) {
     if (book->body_scanned) return;
-    // 大书已有正式目录时不在第一次绘制阅读页前解压数千章；当前章节仍按需加载。
-    // With a large authored TOC, do not inflate thousands of chapters before the first page.
+    // 已有正式目录时不在第一次绘制阅读页前解压所有章节；章节按需加载。
+    // With an authored TOC, do not inflate chapters synchronously before the first page.
     if (book->count > 256 && book->authored_count) return;
     body_headings_t found = {0};
     if (!body_headings_scan(book, &found)) {

@@ -1820,6 +1820,10 @@ static uint8_t* build_working_font(const uint8_t* header, size_t header_len) {
                 ESP_LOGW(TAG, "CFF face size invalid: %ld", (long)sz);
                 return NULL;
             }
+            if (!metalio_cache_can_grow((size_t)sz)) {
+                ESP_LOGW(TAG, "CFF face exceeds available PSRAM cache budget: %ld", (long)sz);
+                return NULL;
+            }
             uint8_t* mem = heap_caps_malloc((size_t)sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
             if (!mem) {
                 ESP_LOGE(TAG, "Failed to allocate %ld bytes for CFF face in PSRAM", (long)sz);
