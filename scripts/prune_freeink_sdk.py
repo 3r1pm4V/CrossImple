@@ -181,7 +181,7 @@ def _prune_freeink_sdk(build_env):
     if pioenv in ("default", "debug"):
         # Pure X3 target only selects UC8253 or UC8279d.
         skip_drivers.extend(["Ssd1677Driver.cpp", "Uc8179Driver.cpp", "Uc8279X4Driver.cpp"])
-    elif pioenv in ("x4-classic", "x4-classic-debug", "x4-pro", "x4-pro-debug"):
+    elif pioenv in ("x4-classic", "x4-classic-noel", "x4-classic-debug", "x4-pro", "x4-pro-debug"):
         # X4 Classic / X4 Pro only select SSD1677, UC8179 or UC8279 (X4 variant).
         skip_drivers.extend(["Uc8253X3Driver.cpp", "Uc8279Driver.cpp"])
 

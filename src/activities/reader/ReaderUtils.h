@@ -144,8 +144,8 @@ inline void drawPageBackground(const GfxRenderer& renderer, const int startX, co
   int firstTopY = startY;
   if (lines != nullptr && lineCount > 0) {
     firstTopY = lines[0].topY;
-    // 1. Phía trên dòng đầu tiên (nếu có khoảng trống ở đầu trang)
-    for (int y = firstTopY - pitch; y >= startY; y -= pitch) {
+    // 1. Phía trên dòng đầu tiên: lùi từng bước pitch từ đáy dòng đầu tiên lên đến y >= 0
+    for (int y = lines[0].bottomY - pitch; y >= 0; y -= pitch) {
       addUnderline(y);
     }
 
@@ -189,60 +189,37 @@ inline void drawPageBackground(const GfxRenderer& renderer, const int startX, co
   underlineCount = writeIdx;
 
   // Chế độ Lưới ô ly tập vở (Modes 7 & 8): Đảm bảo các ô là HÌNH VUÔNG 100% (cellWidth == cellHeight == pitch)
-  // và TUYỆT ĐỐI không có đường kẻ ngang nào cắt ngang qua giữa thân chữ.
+  // và các đường kẻ / chấm chạy thẳng qua toàn bộ chiều rộng màn hình tới mép viền (không dừng sớm / không bị bó hẹp).
   if (mode == CrossPointSettings::PAGE_BG_GRID_SMALL || mode == CrossPointSettings::PAGE_BG_GRID_LARGE) {
     const int cellStep = pitch;
-
-    // Căn chỉnh lưới ô ly theo lề trang
-    const int contentW = endX - startX + 1;
-    const int numCols = std::max(1, contentW / cellStep);
-    const int gridW = numCols * cellStep;
-    const int gridStartX = startX;
-    const int gridEndX = gridStartX + gridW;
-
-    int topBorderY = firstTopY;
-    while (topBorderY - cellStep >= startY) {
-      topBorderY -= cellStep;
-    }
-    const int gridTopY = std::max(startY, topBorderY);
-    const int gridBottomY = (underlineCount == 0) ? endY : std::min(endY, underlineYs[underlineCount - 1]);
-
+    const int screenW = renderer.getScreenWidth();
     const bool isDottedGrid = (mode == CrossPointSettings::PAGE_BG_GRID_SMALL);
 
-    // 1. Kẻ các đường ngang
-    // Đường ngang viền đỉnh lưới
-    if (gridTopY >= startY && gridTopY <= endY && !isInsideImage(gridTopY)) {
-      if (isDottedGrid) {
-        for (int x = gridStartX; x <= gridEndX; x += 4) {
-          renderer.drawPixel(x, gridTopY, foregroundBlack);
-        }
-      } else {
-        renderer.drawLine(gridStartX, gridTopY, gridEndX, gridTopY, 1, foregroundBlack);
-      }
-    }
+    // 1. Kẻ các đường ngang (chạy thẳng từ mép trái x = 0 sang mép phải x = screenW - 1)
     for (size_t i = 0; i < underlineCount; ++i) {
       const int y = underlineYs[i];
-      if (y >= startY && y <= endY && !isInsideImage(y)) {
+      if (y >= 0 && y <= endY && !isInsideImage(y)) {
         if (isDottedGrid) {
-          for (int x = gridStartX; x <= gridEndX; x += 4) {
+          for (int x = 0; x < screenW; x += 4) {
             renderer.drawPixel(x, y, foregroundBlack);
           }
         } else {
-          renderer.drawLine(gridStartX, y, gridEndX, y, 1, foregroundBlack);
+          renderer.drawLine(0, y, screenW - 1, y, 1, foregroundBlack);
         }
       }
     }
 
-    // 2. Kẻ các đường dọc (bước bằng cellStep -> tạo thành các ô vuông tuyệt đối)
-    for (int x = gridStartX; x <= gridEndX; x += cellStep) {
-      int segTop = gridTopY;
-      while (segTop <= gridBottomY) {
+    // 2. Kẻ các đường dọc (bước bằng cellStep, chạy thẳng qua toàn bộ chiều rộng từ x = 0 đến screenW - 1, từ đỉnh màn
+    // hình y = 0 đến endY)
+    auto drawVerticalLine = [&](int x) {
+      int segTop = 0;
+      while (segTop <= endY) {
         if (isInsideImage(segTop)) {
           segTop++;
           continue;
         }
         int segBottom = segTop;
-        while (segBottom + 1 <= gridBottomY && !isInsideImage(segBottom + 1)) {
+        while (segBottom + 1 <= endY && !isInsideImage(segBottom + 1)) {
           segBottom++;
         }
         if (isDottedGrid) {
@@ -254,6 +231,15 @@ inline void drawPageBackground(const GfxRenderer& renderer, const int startX, co
         }
         segTop = segBottom + 1;
       }
+    };
+
+    // Tiến về bên phải từ startX đến hết mép phải màn hình
+    for (int x = startX; x < screenW; x += cellStep) {
+      drawVerticalLine(x);
+    }
+    // Lùi về bên trái từ startX - cellStep đến hết mép trái màn hình (x >= 0)
+    for (int x = startX - cellStep; x >= 0; x -= cellStep) {
+      drawVerticalLine(x);
     }
     return;
   }

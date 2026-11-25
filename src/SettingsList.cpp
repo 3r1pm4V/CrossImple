@@ -35,6 +35,18 @@ const std::vector<SettingInfo>& getBaseSettingsList() {
                                 CrossPointSettings::REFRESH_30, CrossPointSettings::REFRESH_NEVER}));
     add(SettingInfo::Toggle(StrId::STR_READER_DARK_MODE, &CrossPointSettings::screenInverted, "screenInverted",
                             StrId::STR_CAT_DISPLAY));
+#if defined(CROSSINK_NOEL_EDITION)
+    add(SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme,
+                          {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_MINIMAL, StrId::STR_THEME_DASHBOARD,
+                           StrId::STR_THEME_NOEL, StrId::STR_THEME_DESKTOP, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED,
+                           StrId::STR_THEME_LYRA_CAROUSEL, StrId::STR_THEME_ROUNDEDRAFF, StrId::STR_THEME_COVER_GRID},
+                          "uiTheme", StrId::STR_CAT_DISPLAY)
+            .withEnumRawValues({CrossPointSettings::UI_THEME::CLASSIC, CrossPointSettings::UI_THEME::MINIMAL,
+                                CrossPointSettings::UI_THEME::DASHBOARD, CrossPointSettings::UI_THEME::DASHBOARD_NOEL,
+                                CrossPointSettings::UI_THEME::DESKTOP, CrossPointSettings::UI_THEME::LYRA,
+                                CrossPointSettings::UI_THEME::LYRA_3_COVERS, CrossPointSettings::UI_THEME::LYRA_CAROUSEL,
+                                CrossPointSettings::UI_THEME::ROUNDEDRAFF, CrossPointSettings::UI_THEME::COVER_GRID}));
+#else
     add(SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme,
                           {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_MINIMAL, StrId::STR_THEME_DASHBOARD,
                            StrId::STR_THEME_DESKTOP, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED,
@@ -45,6 +57,7 @@ const std::vector<SettingInfo>& getBaseSettingsList() {
                                 CrossPointSettings::UI_THEME::LYRA, CrossPointSettings::UI_THEME::LYRA_3_COVERS,
                                 CrossPointSettings::UI_THEME::LYRA_CAROUSEL, CrossPointSettings::UI_THEME::ROUNDEDRAFF,
                                 CrossPointSettings::UI_THEME::COVER_GRID}));
+#endif
     add(SettingInfo::Enum(StrId::STR_DESKTOP_WALLPAPER_MODE, &CrossPointSettings::desktopWallpaperMode,
                           {StrId::STR_DESKTOP_WALLPAPER_1BIT, StrId::STR_DESKTOP_WALLPAPER_4GRAY},
                           "desktopWallpaperMode", StrId::STR_CAT_DISPLAY));

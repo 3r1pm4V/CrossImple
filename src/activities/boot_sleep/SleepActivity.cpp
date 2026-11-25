@@ -955,7 +955,7 @@ void SleepActivity::renderReadingStatsSleepScreen() const {
   } else {
     renderPerBookStatsPage(renderer, nullptr, bookTitle, bookStats, progressPercent, false, 0, false, false, false);
   }
-  if (!sleepCoverFilterInvertsGeneratedScreen()) {
+  if (sleepCoverFilterInvertsGeneratedScreen()) {
     renderer.invertScreen();
   }
   renderer.displayBuffer(HalDisplay::HALF_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);

@@ -19,6 +19,9 @@
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "components/themes/BaseTheme.h"
+#if defined(CROSSINK_NOEL_EDITION)
+#include "components/themes/dashboard/DashboardNoelTheme.h"
+#endif
 #include "components/themes/dashboard/DashboardTheme.h"
 #include "components/themes/desktop/DesktopTheme.h"
 #include "components/themes/lyra/Lyra3CoversTheme.h"
@@ -143,6 +146,13 @@ void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
       currentTheme = std::make_unique<DashboardTheme>();
       currentMetrics = &DashboardMetrics::values;
       break;
+#if defined(CROSSINK_NOEL_EDITION)
+    case CrossPointSettings::UI_THEME::DASHBOARD_NOEL:
+      LOG_DBG("UI", "Using Dashboard Noel theme");
+      currentTheme = std::make_unique<DashboardNoelTheme>();
+      currentMetrics = &DashboardNoelMetrics::values;
+      break;
+#endif
     case CrossPointSettings::UI_THEME::DESKTOP:
       LOG_DBG("UI", "Using Desktop theme");
       currentTheme = std::make_unique<DesktopTheme>();

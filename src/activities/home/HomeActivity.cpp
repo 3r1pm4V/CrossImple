@@ -322,7 +322,12 @@ bool isMinimalTheme() {
 }
 
 bool isDashboardTheme() {
+#if defined(CROSSINK_NOEL_EDITION)
+  return static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::DASHBOARD ||
+         static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::DASHBOARD_NOEL;
+#else
   return static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::DASHBOARD;
+#endif
 }
 
 bool isDesktopTheme() {
@@ -348,6 +353,9 @@ bool exactHomeCoverDimensions(int& outW, int& outH) {
       outH = MinimalMetrics::homeCoverImageHeight;
       return true;
     case CrossPointSettings::UI_THEME::DASHBOARD:
+#if defined(CROSSINK_NOEL_EDITION)
+    case CrossPointSettings::UI_THEME::DASHBOARD_NOEL:
+#endif
       outW = DashboardMetrics::homeCoverImageWidth;
       outH = DashboardMetrics::homeCoverImageHeight;
       return true;
@@ -874,8 +882,7 @@ void HomeActivity::onEnter() {
     selectInitialBook(APP_STATE.openEpubPath);
   }
 
-  const bool needsGlobalStats =
-      static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::DASHBOARD;
+  const bool needsGlobalStats = isDashboardTheme();
   if (needsGlobalStats) {
     globalStats = GlobalReadingStats::load();
     showAllDevicesStats = GlobalReadingStats::hasSyncedStats();

@@ -389,7 +389,12 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     DASHBOARD = 6,
     COVER_GRID = 7,
     DESKTOP = 8,
+#if defined(CROSSINK_NOEL_EDITION)
+    DASHBOARD_NOEL = 9,
+    UI_THEME_COUNT = 10
+#else
     UI_THEME_COUNT = 9
+#endif
   };
   enum RECENT_BOOKS_VIEW { RECENT_BOOKS_LIST = 0, RECENT_BOOKS_GRID = 1, RECENT_BOOKS_VIEW_COUNT };
 
@@ -649,7 +654,11 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t frontButtonRightLong = IGNORE;
   // UI Theme
   enum DESKTOP_WALLPAPER_MODE { DESKTOP_WALLPAPER_1BIT = 0, DESKTOP_WALLPAPER_4GRAY = 1 };
+#if defined(CROSSINK_NOEL_EDITION)
+  uint8_t uiTheme = DASHBOARD_NOEL;
+#else
   uint8_t uiTheme = LYRA;
+#endif
   uint8_t desktopWallpaperMode = DESKTOP_WALLPAPER_1BIT;
   uint8_t vibration = VIBRATION_TOUCH_PAGE;
   uint8_t hapticIntensity = HAPTIC_HIGH;
@@ -658,7 +667,11 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t aiButtonAction = FORCE_REFRESH;
   uint8_t swapLibraryFileBrowser = 0;
   bool supportsLibraryFileBrowserSwap() const {
+#if defined(CROSSINK_NOEL_EDITION)
+    return uiTheme == MINIMAL || uiTheme == DASHBOARD || uiTheme == DESKTOP || uiTheme == DASHBOARD_NOEL;
+#else
     return uiTheme == MINIMAL || uiTheme == DASHBOARD || uiTheme == DESKTOP;
+#endif
   }
   bool isLibraryFileBrowserSwapped() const { return supportsLibraryFileBrowserSwap() && swapLibraryFileBrowser; }
   // Recently Opened layout in Library; keep the original raw values for older settings.
