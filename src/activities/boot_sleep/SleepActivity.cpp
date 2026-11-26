@@ -40,6 +40,9 @@
 #include "activities/reader/ReaderUtils.h"
 #include "components/UITheme.h"
 #include "components/themes/dashboard/DashboardTheme.h"
+#if defined(CROSSINK_NOEL_EDITION)
+#include "components/themes/dashboard/DashboardNoelTheme.h"
+#endif
 #include "components/themes/minimal/MinimalTheme.h"
 #include "fontIds.h"
 #include "images/Logo120.h"
@@ -432,7 +435,7 @@ bool selectRandomSleepImage(SleepImageMode mode, SleepImageSelection& selection,
     selection.path = std::move(indexedSelection.path);
     selection.isPng = indexedSelection.isPng;
     APP_STATE.pushRecentSleep(indexedSelection.index);
-    APP_STATE.saveToFile();
+    // enterDeepSleep() persists APP_STATE once after the sleep screen completes.
     selection.rotation = std::move(indexedSelection);
     return true;
   }
@@ -528,12 +531,29 @@ bool selectRandomSleepImage(SleepImageMode mode, SleepImageSelection& selection,
   // recent. Fall back to the all-candidates reservoir so a custom sleep screen
   // still renders.
   APP_STATE.pushRecentSleep(selectedIndex);
-  APP_STATE.saveToFile();
   selection.isPng = FsHelpers::hasPngExtension(selection.path);
   return true;
 }
 
 }  // namespace
+
+const std::string& SleepActivity::resolveCachedCoverPath(const std::string& path, const bool cropped,
+                                                         const ImageToneProfile toneProfile, const bool oneBit,
+                                                         bool* const sourceBitmap) const {
+  if (!cachedCoverLookup.valid || cachedCoverLookup.bookPath != path || cachedCoverLookup.cropped != cropped ||
+      cachedCoverLookup.toneProfile != toneProfile || cachedCoverLookup.oneBit != oneBit) {
+    cachedCoverLookup.sourceBitmap = false;
+    cachedCoverLookup.coverPath =
+        SleepCoverAssets::cachedCoverPathFor(path, cropped, toneProfile, &cachedCoverLookup.sourceBitmap, oneBit);
+    cachedCoverLookup.bookPath = path;
+    cachedCoverLookup.cropped = cropped;
+    cachedCoverLookup.toneProfile = toneProfile;
+    cachedCoverLookup.oneBit = oneBit;
+    cachedCoverLookup.valid = true;
+  }
+  if (sourceBitmap) *sourceBitmap = cachedCoverLookup.sourceBitmap;
+  return cachedCoverLookup.coverPath;
+}
 
 void SleepActivity::onEnter() {
   Activity::onEnter();
@@ -575,19 +595,18 @@ void SleepActivity::onEnter() {
   // transient update beneath the final OEM-style sleep refresh. Render only
   // the final sleep frame on that panel family. On X3, only show the popup when
   // the sleep screen must decode an uncached cover image from the EPUB/ZIP.
+  const bool canShowSleepPopup = !BoardConfig::isX4Pro() && !CROSSINK_APP_DEVICE_X4CLASSIC;
   bool sleepRequiresUncachedCoverDecode = false;
-  if (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER ||
-      (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM && APP_STATE.lastSleepFromReader)) {
+  if (canShowSleepPopup &&
+      (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER ||
+       (sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM && APP_STATE.lastSleepFromReader))) {
     if (!recentBookPath.empty()) {
       const bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
       sleepRequiresUncachedCoverDecode =
-          SleepCoverAssets::cachedCoverPathFor(recentBookPath, cropped, bookCoverToneProfile(renderer), nullptr,
-                                               useOneBitBookCover())
-              .empty();
+          resolveCachedCoverPath(recentBookPath, cropped, bookCoverToneProfile(renderer), useOneBitBookCover()).empty();
     }
   }
-  const bool showSleepPopup =
-      !BoardConfig::isX4Pro() && !CROSSINK_APP_DEVICE_X4CLASSIC && sleepRequiresUncachedCoverDecode;
+  const bool showSleepPopup = canShowSleepPopup && sleepRequiresUncachedCoverDecode;
   if (showSleepPopup) {
     // Show the popup in the orientation that was visible before reader exit restores
     // global settings. Reset to portrait afterwards so sleep screen layout stays unchanged.
@@ -632,9 +651,6 @@ void SleepActivity::onEnter() {
 }
 
 bool SleepActivity::rendersBeforeExit() const {
-  // Keep the reader's cleanup first on devices without PSRAM. Covers and custom
-  // images can otherwise compete with the reader for scarce internal memory.
-  if (!psramHeapAvailable()) return false;
   if (fromTimeout &&
       SETTINGS.quickResumeSleepScreen == CrossPointSettings::QUICK_RESUME_SLEEP_SCREEN::QUICK_RESUME_AFTER_TIMEOUT) {
     return false;
@@ -643,21 +659,23 @@ bool SleepActivity::rendersBeforeExit() const {
     case CrossPointSettings::SLEEP_SCREEN_MODE::DARK:
     case CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT:
     case CrossPointSettings::SLEEP_SCREEN_MODE::BLANK:
-    case CrossPointSettings::SLEEP_SCREEN_MODE::CUSTOM:
       return true;
+    case CrossPointSettings::SLEEP_SCREEN_MODE::CUSTOM:
+      // Custom image decoders need the reader's memory released on non-PSRAM.
+      return psramHeapAvailable();
     case CrossPointSettings::SLEEP_SCREEN_MODE::COVER:
     case CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM: {
       if (SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM &&
           !APP_STATE.lastSleepFromReader) {
-        return true;
+        return psramHeapAvailable();
       }
       const std::string& path = currentBookPath.empty() ? APP_STATE.openEpubPath : currentBookPath;
       if (path.empty()) return true;
+      // Cached BMP covers stream directly into the framebuffer without unpacking
+      // archives or decoders, so they are safe to render before reader exit even on C3.
       // Uncached covers still need the memory and file handles released on exit.
       const bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
-      return !SleepCoverAssets::cachedCoverPathFor(path, cropped, bookCoverToneProfile(renderer), nullptr,
-                                                   useOneBitBookCover())
-                  .empty();
+      return !resolveCachedCoverPath(path, cropped, bookCoverToneProfile(renderer), useOneBitBookCover()).empty();
     }
     default:
       // Stats and overlay screens need the latest persisted reader state.
@@ -899,11 +917,11 @@ void SleepActivity::renderCoverSleepScreen() const {
   const bool oneBit = useOneBitBookCover();
   bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
   bool sourceBitmap = false;
-  std::string coverBmpPath =
-      SleepCoverAssets::cachedCoverPathFor(path, cropped, toneProfile, &sourceBitmap, oneBit);
+  std::string coverBmpPath = resolveCachedCoverPath(path, cropped, toneProfile, oneBit, &sourceBitmap);
   if (coverBmpPath.empty() &&
       SleepCoverAssets::prepareFullCoverForPath(path, cropped, &renderer, toneProfile, oneBit)) {
-    coverBmpPath = SleepCoverAssets::cachedCoverPathFor(path, cropped, toneProfile, &sourceBitmap, oneBit);
+    cachedCoverLookup.valid = false;
+    coverBmpPath = resolveCachedCoverPath(path, cropped, toneProfile, oneBit, &sourceBitmap);
   }
   if (coverBmpPath.empty()) {
     return renderNoCoverSleepScreen();
@@ -1023,9 +1041,18 @@ void SleepActivity::renderDashboardSleepScreen() const {
   const GlobalReadingStats globalStats = GlobalReadingStats::load();
   const float progressPercent = RecentBookProgress::loadPercent(book);
   const std::string chapterTitle = loadChapterTitleForPath(path);
-  DashboardTheme theme;
-  theme.drawSleepScreen(renderer, book, &bookStats, &globalStats, progressPercent, chapterTitle.c_str(),
-                        sleepCoverFilterInvertsGeneratedScreen());
+#if defined(CROSSINK_NOEL_EDITION)
+  if (SETTINGS.uiTheme == CrossPointSettings::UI_THEME::DASHBOARD_NOEL) {
+    DashboardNoelTheme theme;
+    theme.drawSleepScreen(renderer, book, &bookStats, &globalStats, progressPercent, chapterTitle.c_str(),
+                          sleepCoverFilterInvertsGeneratedScreen());
+  } else
+#endif
+  {
+    DashboardTheme theme;
+    theme.drawSleepScreen(renderer, book, &bookStats, &globalStats, progressPercent, chapterTitle.c_str(),
+                          sleepCoverFilterInvertsGeneratedScreen());
+  }
   renderer.displayBuffer(HalDisplay::HALF_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);
 }
 

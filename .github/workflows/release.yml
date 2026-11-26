@@ -165,10 +165,8 @@ jobs:
             --version "${{ env.RELEASE_VERSION }}" \
             --repo "${{ github.repository }}" \
             --firmware "release-firmware/firmware-x3-x4-v${{ env.RELEASE_VERSION }}.bin" \
-            --firmware "release-firmware/firmware-sticky-v${{ env.RELEASE_VERSION }}.bin" \
             --firmware "release-firmware/firmware-x4-pro-v${{ env.RELEASE_VERSION }}.bin" \
             --firmware "release-firmware/firmware-x4-classic-v${{ env.RELEASE_VERSION }}.bin" \
-            --firmware "release-firmware/firmware-picco-v${{ env.RELEASE_VERSION }}.bin" \
             --output ".pio/build/catalog"
 
       - name: Package SD language files and editor template
@@ -226,7 +224,5 @@ jobs:
             release-firmware/language-template/english_template.yaml
             release-firmware/language-template/language-template.json
             release-firmware/firmware-x3-x4-v${{ env.RELEASE_VERSION }}.bin
-            release-firmware/firmware-sticky-v${{ env.RELEASE_VERSION }}.bin
             release-firmware/firmware-x4-pro-v${{ env.RELEASE_VERSION }}.bin
             release-firmware/firmware-x4-classic-v${{ env.RELEASE_VERSION }}.bin
-            release-firmware/firmware-picco-v${{ env.RELEASE_VERSION }}.bin

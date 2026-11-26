@@ -19,14 +19,10 @@ jobs:
         include:
           - environment: default
             firmware: firmware-x3-x4
-          - environment: sticky
-            firmware: firmware-sticky
           - environment: x4-pro
             firmware: firmware-x4-pro
           - environment: x4-classic
             firmware: firmware-x4-classic
-          - environment: picco
-            firmware: firmware-picco
     env:
       RC_BRANCH: ${{ github.ref_name }}
       RC_HASH: ${{ github.sha }}
@@ -170,7 +166,5 @@ jobs:
             release-candidate-firmware/language-template/english_template.yaml
             release-candidate-firmware/language-template/language-template.json
             release-candidate-firmware/firmware-x3-x4-${{ env.RC_BRANCH_SAFE }}-${{ env.RC_HASH_SHORT }}-RC.bin
-            release-candidate-firmware/firmware-sticky-${{ env.RC_BRANCH_SAFE }}-${{ env.RC_HASH_SHORT }}-RC.bin
             release-candidate-firmware/firmware-x4-pro-${{ env.RC_BRANCH_SAFE }}-${{ env.RC_HASH_SHORT }}-RC.bin
             release-candidate-firmware/firmware-x4-classic-${{ env.RC_BRANCH_SAFE }}-${{ env.RC_HASH_SHORT }}-RC.bin
-            release-candidate-firmware/firmware-picco-${{ env.RC_BRANCH_SAFE }}-${{ env.RC_HASH_SHORT }}-RC.bin

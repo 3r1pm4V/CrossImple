@@ -117,6 +117,23 @@ def _is_rc_artifact_build(env):
     return str(flag).strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
+def _get_base_version(env):
+    ver = _get_project_option(env, 'crossink.version')
+    if not ver:
+        try:
+            import configparser
+            config = configparser.ConfigParser()
+            config.read(os.path.join(env['PROJECT_DIR'], 'platformio.ini'))
+            if config.has_option('crossink', 'version'):
+                ver = config.get('crossink', 'version')
+        except Exception:
+            ver = None
+    ver = ver or '2.0.0'
+    if not ver.startswith('v'):
+        ver = f'v{ver}'
+    return ver
+
+
 def _get_release_version(env):
     version = _get_project_option(env, 'custom_release_version') or os.environ.get('CROSSINK_RELEASE_VERSION')
     if not version:
@@ -150,10 +167,20 @@ def rename_firmware(source, target, env):
     # CrossImple standardized binary export: <firmware>_<model>_<version>.bin
     # Gated by CROSSIMPLE_EXPORT_BIN=1 so .bin files are only exported to root upon explicit approval.
     if os.environ.get('CROSSIMPLE_EXPORT_BIN') == '1':
-        dev_name = 'x3' if env['PIOENV'] == 'default' else ('x4-classic' if env['PIOENV'] == 'x4-classic' else device_type)
-        ver = _get_release_version(env) or 'v0.29'
+        if env['PIOENV'] == 'default':
+            dev_name = 'x3'
+        elif env['PIOENV'] == 'x4-classic-noel':
+            dev_name = 'x4-classic-noel'
+        elif env['PIOENV'] == 'x4-classic':
+            dev_name = 'x4-classic'
+        else:
+            dev_name = device_type
+        ver = _get_release_version(env) or _get_base_version(env)
         root_dst = os.path.abspath(os.path.join(project_dir, '..', '..', f'crossimple_{dev_name}_{ver}.bin'))
         _copy_artifact(src, root_dst)
+        if env['PIOENV'] == 'x4-classic-noel':
+            noel_dst = os.path.abspath(os.path.join(project_dir, '..', '..', 'noel_firmware-x4-classic.bin'))
+            _copy_artifact(src, noel_dst)
 
 
 try:

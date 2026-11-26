@@ -110,12 +110,13 @@ std::string buildReadFolderDestination(const std::string& srcPath) {
   const size_t dotPos = filename.rfind('.');
   const std::string base = (dotPos != std::string::npos) ? filename.substr(0, dotPos) : filename;
   const std::string ext = (dotPos != std::string::npos) ? filename.substr(dotPos) : "";
-  int suffix = 2;
-  do {
+  for (int suffix = 2; suffix <= 99; ++suffix) {
     dstPath = std::string(READ_FOLDER) + "/" + base + " (" + std::to_string(suffix) + ")" + ext;
-    suffix++;
-  } while (Storage.exists(dstPath.c_str()) && suffix < 100);
-  return dstPath;
+    if (!Storage.exists(dstPath.c_str())) {
+      return dstPath;
+    }
+  }
+  return "";
 }
 
 RenameMigrationResult migrateRenamedBookState(const std::string& oldPath, const std::string& newPath,

@@ -219,10 +219,10 @@ void drawMissingBookCoverNoel(const GfxRenderer& renderer, const Rect& coverRect
     textY += lineH;
   }
 
-  const char* tag = "CHRISTMAS EDITION";
+  const char* tag = tr(STR_THEME_CHRISTMAS_EDITION);
   const int tagW = renderer.getTextWidth(SMALL_FONT_ID, tag);
-  renderer.drawText(SMALL_FONT_ID, coverRect.x + (coverRect.width - tagW) / 2, coverRect.y + coverRect.height - 20,
-                    tag, true);
+  renderer.drawText(SMALL_FONT_ID, coverRect.x + (coverRect.width - tagW) / 2, coverRect.y + coverRect.height - 20, tag,
+                    true);
 }
 
 void drawBookCoverNoel(const GfxRenderer& renderer, const Rect& coverRect, const RecentBook& book,
@@ -282,6 +282,37 @@ void formatCompactDuration(const uint32_t seconds, char* buf, const size_t len) 
   }
 }
 
+bool fallbackEstimatedTimeLeft(const BookReadingStats& stats, const float progressPercent, uint32_t& seconds) {
+  seconds = 0;
+  if (progressPercent <= 0.0f || progressPercent >= 100.0f || stats.totalReadingSeconds < 120) {
+    return false;
+  }
+  const float progress = progressPercent / 100.0f;
+  const float estimate = (static_cast<float>(stats.totalReadingSeconds) * (1.0f - progress)) / progress;
+  if (estimate <= 0.0f) {
+    return false;
+  }
+  seconds = static_cast<uint32_t>(estimate + 0.5f);
+  return seconds > 0;
+}
+
+bool estimatedTimeLeft(const BookReadingStats& stats, const float progressPercent, uint32_t& seconds) {
+  if (stats.estimatedTimeLeftSeconds > 0) {
+    seconds = stats.estimatedTimeLeftSeconds;
+    return true;
+  }
+  return fallbackEstimatedTimeLeft(stats, progressPercent, seconds);
+}
+
+bool showBookStatsForPath(const std::string& path) {
+  if (!SETTINGS.shouldTrackReadingStats()) return false;
+  if (FsHelpers::hasEpubExtension(path))
+    return BookStatsTracking::isBookEnabled(Epub::cachePathForFilePath(path, "/.crosspoint"));
+  if (FsHelpers::hasXtcExtension(path))
+    return BookStatsTracking::isBookEnabled(Xtc(path, "/.crosspoint").getCachePath());
+  return false;
+}
+
 int statsBlockHeight(const GfxRenderer& renderer) {
   const int valueLineH = renderer.getLineHeight(UI_12_FONT_ID);
   const int labelLineH = renderer.getLineHeight(SMALL_FONT_ID);
@@ -323,14 +354,25 @@ void drawDashboardStatsNoel(const GfxRenderer& renderer, const Rect& coverRect, 
   char label[40];
   char startedDate[24];
   uint32_t estimatedSeconds = 0;
-  const bool hasEstimate = (stats != nullptr && stats->estimatedTimeLeftSeconds > 0)
-                               ? (estimatedSeconds = stats->estimatedTimeLeftSeconds, true)
-                               : false;
+  const bool hasEstimate = !bookStats.isCompleted && estimatedTimeLeft(bookStats, progressPercent, estimatedSeconds);
+  if (!showStats) {
+    if (hasEstimate) {
+      formatCompactDuration(estimatedSeconds, value, sizeof(value));
+      drawStatsRowNoel(renderer, rightX, coverRect.y + coverRect.height / 2 - blockH, value, tr(STR_TIME_LEFT_SHORT),
+                       black, false, colW);
+    }
+    if (progressPercent >= 0.0f) {
+      snprintf(value, sizeof(value), "%d%%", static_cast<int>(progressPercent + 0.5f));
+      const int progressY = hasEstimate ? coverRect.y + coverRect.height / 2 + blockH : coverRect.y;
+      drawStatsRowNoel(renderer, rightX, progressY, value, tr(STR_STATS_PROGRESS_LBL), black, false, colW);
+    }
+    return;
+  }
 
   int rowIndex = 0;
   int rowY = statsBlockTop(coverRect, rowIndex, blockH, rowCount);
   BookReadingStats::formatDuration(bookStats.totalReadingSeconds, value, sizeof(value));
-  drawStatsRowNoel(renderer, rightX, rowY, value, "Reading Time", black, true, colW);
+  drawStatsRowNoel(renderer, rightX, rowY, value, tr(STR_STATS_TIME_LBL), black, true, colW);
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
   if (hasEstimate) {
@@ -338,7 +380,7 @@ void drawDashboardStatsNoel(const GfxRenderer& renderer, const Rect& coverRect, 
   } else {
     snprintf(value, sizeof(value), "-");
   }
-  drawStatsRowNoel(renderer, rightX, rowY, value, "Time Left", black, true, colW);
+  drawStatsRowNoel(renderer, rightX, rowY, value, tr(STR_TIME_LEFT_SHORT), black, true, colW);
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
   if (progressPercent >= 0.0f) {
@@ -346,7 +388,7 @@ void drawDashboardStatsNoel(const GfxRenderer& renderer, const Rect& coverRect, 
   } else {
     snprintf(value, sizeof(value), "-");
   }
-  drawStatsRowNoel(renderer, rightX, rowY, value, "Progress", black, true, colW);
+  drawStatsRowNoel(renderer, rightX, rowY, value, tr(STR_STATS_PROGRESS_LBL), black, true, colW);
 
   if (showRtcStats) {
     rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
@@ -357,7 +399,7 @@ void drawDashboardStatsNoel(const GfxRenderer& renderer, const Rect& coverRect, 
     } else {
       snprintf(value, sizeof(value), "-");
     }
-    drawStatsRowNoel(renderer, rightX, rowY, value, "Daily Avg", black, true, colW);
+    drawStatsRowNoel(renderer, rightX, rowY, value, tr(STR_STATS_DAILY_AVG_LBL), black, true, colW);
   }
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
@@ -365,16 +407,17 @@ void drawDashboardStatsNoel(const GfxRenderer& renderer, const Rect& coverRect, 
                         ? (static_cast<float>(bookStats.totalPagesTurned) * 60.0f / bookStats.totalReadingSeconds)
                         : 0.0f;
   snprintf(value, sizeof(value), "%.1f", ppm);
-  drawStatsRowNoel(renderer, rightX, rowY, value, "Pages/Min", black, true, colW);
+  drawStatsRowNoel(renderer, rightX, rowY, value, tr(STR_STATS_PAGES_PER_MIN), black, true, colW);
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
   formatReadingStatsShortDate(bookStats.startDate, startedDate, sizeof(startedDate));
-  snprintf(label, sizeof(label), "Started %s", startedDate[0] != '\0' ? startedDate : "--");
+  snprintf(label, sizeof(label), tr(STR_STATS_STARTED_FORMAT), startedDate[0] != '\0' ? startedDate : "--");
   snprintf(value, sizeof(value), "%u days", static_cast<unsigned>(bookStats.sessionCount));
   drawStatsRowNoel(renderer, rightX, rowY, value, label, black, true, colW);
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
-  drawStatsRowNoel(renderer, rightX, rowY, "Dec 24", tr(STR_FINISH_BEFORE_CHRISTMAS), black, false, colW);
+  drawStatsRowNoel(renderer, rightX, rowY, tr(STR_CHRISTMAS_EVE_SHORT), tr(STR_FINISH_BEFORE_CHRISTMAS), black, false,
+                   colW);
 }
 
 int drawBookTextNoel(const GfxRenderer& renderer, const Rect& coverRect, const RecentBook& book,
@@ -511,10 +554,8 @@ void drawFooterStatsNoel(const GfxRenderer& renderer, const Rect& coverRect, con
   const int W = renderer.getScreenWidth();
 
   // Streak on Left
-  char streakBuf[48] = "14 day streak";
-  if (globalStats != nullptr) {
-    formatStreakStat(globalStats, streakBuf, sizeof(streakBuf));
-  }
+  char streakBuf[48];
+  formatStreakStat(globalStats, streakBuf, sizeof(streakBuf));
   const int maxTextW = (W - inset * 2) / 2 - kFooterIconSize - kFooterIconTextGap;
   drawIconLabel(renderer, StreakIcon, inset, centerY, streakBuf, maxTextW, inverted);
 
@@ -529,7 +570,7 @@ void DashboardNoelTheme::drawHeader(const GfxRenderer& renderer, Rect rect, cons
                                     const bool readerContext, const bool showStatus, const bool filenameTitle) const {
   MinimalTheme::drawHeader(renderer, rect, title, subtitle, readerContext, showStatus, filenameTitle);
   if (!readerContext) {
-    const char* headerText = "CHRISTMAS IS COMING";
+    const char* headerText = tr(STR_CHRISTMAS_IS_COMING);
     const int fontId = UITheme::getDisplayStatusBarFontId();
     const int textW = renderer.getTextWidth(fontId, headerText, EpdFontFamily::BOLD);
     const int textX = (renderer.getScreenWidth() - textW) / 2;
@@ -539,49 +580,16 @@ void DashboardNoelTheme::drawHeader(const GfxRenderer& renderer, Rect rect, cons
   }
 }
 
-void DashboardNoelTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect,
-                                             const std::vector<RecentBook>& recentBooks, int selectorIndex,
-                                             bool& coverRendered, bool& coverBufferStored, bool& bufferRestored,
-                                             const std::function<bool()>& storeCoverBuffer,
-                                             const BookReadingStats* stats, const float progressPercent,
-                                             const GlobalReadingStats* globalStats,
-                                             const char* currentChapterTitle) const {
-  (void)selectorIndex;
-  (void)bufferRestored;
-
-  const int W = renderer.getScreenWidth();
-  const int H = renderer.getScreenHeight();
-  const int inset = contentInset(renderer) + (gpio.deviceIsX3() ? kPairInwardShiftX3 : 0);
-
-  // 1. TOP FAIRY LIGHTS GARLAND (Placed just below status bar, above cover)
-  const int topGarlandY = std::max(28, rect.y - 12);
-  drawGarland(renderer, inset, W - inset, topGarlandY, isWideScreen(renderer) ? 7 : 5, true);
-
-  // 2. BOOK COVER & STATS
-  const Rect coverRect = coverRectForScreen(renderer, rect);
-  if (recentBooks.empty()) {
-    renderer.drawRoundedRect(coverRect.x, coverRect.y, coverRect.width, coverRect.height, 1, kCoverCornerRadius, true);
-    coverRendered = false;
-    coverBufferStored = false;
-    return;
-  }
-
-  if (!coverRendered) {
-    drawBookCoverNoel(renderer, coverRect, recentBooks[0], Color::White);
-    coverBufferStored = storeCoverBuffer();
-    coverRendered = coverBufferStored;
-  }
-  TouchRegistry::getInstance().add(coverRect, 0, TouchRegistry::Cover);
-
-  drawDashboardStatsNoel(renderer, coverRect, stats, progressPercent, true, true);
-  const int textBottomY = drawBookTextNoel(renderer, coverRect, recentBooks[0], currentChapterTitle, true);
-
-  // 3. BULLETPROOF BALANCED VERTICAL FLOW
-  // Button hints bounds: X4 Classic bottom hints are at ~752..792.
-  // In the original Dashboard, footer stats are placed with a generous 54-57px gap above button hints.
+int footerCenterYForScreen(const GfxRenderer& renderer) {
   const int buttonReserve = UITheme::getButtonHintsReserve(renderer);
-  const int buttonTop = H - std::max(48, buttonReserve);
-  const int footerCenterY = buttonTop - 54;
+  const int buttonTop = renderer.getScreenHeight() - std::max(48, buttonReserve);
+  return buttonTop - 54;
+}
+
+void drawNoelDecorativeElements(const GfxRenderer& renderer, const Rect& coverRect, const int textBottomY,
+                                const int footerCenterY, const bool black = true) {
+  const int W = renderer.getScreenWidth();
+  const int inset = contentInset(renderer);
   const int footerTop = footerCenterY - 14;
 
   // Space between book text bottom and footer top
@@ -630,29 +638,72 @@ void DashboardNoelTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect,
   // Top tier
   const int t1X[3] = {treeX + 5, treeX + 1, treeX + 9};
   const int t1Y[3] = {treeTopY, treeTopY + 6, treeTopY + 6};
-  renderer.fillPolygon(t1X, t1Y, 3, true);
+  renderer.fillPolygon(t1X, t1Y, 3, black);
 
   // Bottom tier
   const int t2X[3] = {treeX + 5, treeX - 1, treeX + 11};
   const int t2Y[3] = {treeTopY + 4, treeBaseY, treeBaseY};
-  renderer.fillPolygon(t2X, t2Y, 3, true);
+  renderer.fillPolygon(t2X, t2Y, 3, black);
 
   // Trunk
-  renderer.fillRect(treeX + 4, treeBaseY, 3, 3, true);
+  renderer.fillRect(treeX + 4, treeBaseY, 3, 3, black);
 
   // Text
-  renderer.drawText(UI_12_FONT_ID, treeX + treeW + 6, countdownY, countdownBuf, true, EpdFontFamily::BOLD);
+  renderer.drawText(UI_12_FONT_ID, treeX + treeW + 6, countdownY, countdownBuf, black, EpdFontFamily::BOLD);
 
   // 3B. Mid Garland (Cleanly below countdown text)
   const int midGarlandY = countdownY + 16 + gap;
-  drawGarland(renderer, inset, W - inset, midGarlandY, isWideScreen(renderer) ? 7 : 5, true);
+  drawGarland(renderer, inset, W - inset, midGarlandY, isWideScreen(renderer) ? 7 : 5, black);
 
   // 3C. Pine Forest (Cleanly below garland, trees standing on pineGroundY)
   const int pineGroundY = midGarlandY + 8 + gap + 18;
-  drawPineForest(renderer, inset, W - inset, pineGroundY, true);
+  drawPineForest(renderer, inset, W - inset, pineGroundY, black);
+}
+
+void DashboardNoelTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect,
+                                             const std::vector<RecentBook>& recentBooks, int selectorIndex,
+                                             bool& coverRendered, bool& coverBufferStored, bool& bufferRestored,
+                                             const std::function<bool()>& storeCoverBuffer,
+                                             const BookReadingStats* stats, const float progressPercent,
+                                             const GlobalReadingStats* globalStats,
+                                             const char* currentChapterTitle) const {
+  (void)selectorIndex;
+  (void)bufferRestored;
+
+  const int W = renderer.getScreenWidth();
+  const int inset = contentInset(renderer) + (gpio.deviceIsX3() ? kPairInwardShiftX3 : 0);
+
+  // 1. TOP FAIRY LIGHTS GARLAND (Placed just below status bar, above cover)
+  const int topGarlandY = std::max(28, rect.y - 12);
+  drawGarland(renderer, inset, W - inset, topGarlandY, isWideScreen(renderer) ? 7 : 5, true);
+
+  // 2. BOOK COVER & STATS
+  const Rect coverRect = coverRectForScreen(renderer, rect);
+  if (recentBooks.empty()) {
+    renderer.drawRoundedRect(coverRect.x, coverRect.y, coverRect.width, coverRect.height, 1, kCoverCornerRadius, true);
+    coverRendered = false;
+    coverBufferStored = false;
+    return;
+  }
+
+  if (!coverRendered) {
+    drawBookCoverNoel(renderer, coverRect, recentBooks[0], Color::White);
+    coverBufferStored = storeCoverBuffer();
+    coverRendered = coverBufferStored;
+  }
+  TouchRegistry::getInstance().add(coverRect, 0, TouchRegistry::Cover);
+
+  drawDashboardStatsNoel(renderer, coverRect, stats, progressPercent, showBookStatsForPath(recentBooks[0].path), true);
+  const int textBottomY = drawBookTextNoel(renderer, coverRect, recentBooks[0], currentChapterTitle, true);
+
+  // 3. BULLETPROOF BALANCED VERTICAL FLOW
+  const int footerCenterY = footerCenterYForScreen(renderer);
+  drawNoelDecorativeElements(renderer, coverRect, textBottomY, footerCenterY, true);
 
   // 4. Footer stats (Streak & Reader Type)
-  drawFooterStatsNoel(renderer, coverRect, globalStats, footerCenterY);
+  if (SETTINGS.shouldTrackReadingStats()) {
+    drawFooterStatsNoel(renderer, coverRect, globalStats, footerCenterY, false);
+  }
 }
 
 void DashboardNoelTheme::drawSleepScreen(const GfxRenderer& renderer, const RecentBook& book,
@@ -662,12 +713,17 @@ void DashboardNoelTheme::drawSleepScreen(const GfxRenderer& renderer, const Rece
   renderer.clearScreen(inverted ? 0xFF : 0x00);
   const Rect contentRect{0, DashboardMetrics::values.homeTopPadding, renderer.getScreenWidth(),
                          DashboardMetrics::values.homeCoverTileHeight};
-  std::vector<RecentBook> books = {book};
-  bool rendered = false;
-  bool stored = false;
-  bool restored = false;
-  drawRecentBookCover(const_cast<GfxRenderer&>(renderer), contentRect, books, 0, rendered, stored, restored,
-                      [] { return false; }, stats, progressPercent, globalStats, currentChapterTitle);
+  const Rect coverRect = coverRectForScreen(renderer, contentRect);
+  drawBookCoverNoel(renderer, coverRect, book, inverted ? Color::White : Color::Black);
+  drawDashboardStatsNoel(renderer, coverRect, stats, progressPercent, showBookStatsForPath(book.path), inverted);
+  const int textBottomY = drawBookTextNoel(renderer, coverRect, book, currentChapterTitle, inverted);
+
+  const int footerCenterY = footerCenterYForScreen(renderer);
+  drawNoelDecorativeElements(renderer, coverRect, textBottomY, footerCenterY, inverted);
+
+  if (SETTINGS.shouldTrackReadingStats()) {
+    drawFooterStatsNoel(renderer, coverRect, globalStats, footerCenterY, !inverted);
+  }
 }
 
 #endif  // CROSSINK_NOEL_EDITION

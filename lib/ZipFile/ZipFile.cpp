@@ -7,6 +7,7 @@
 #include <Memory.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 
 struct ZipInflateCtx {
@@ -830,8 +831,17 @@ uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const boo
   file.seek(fileOffset);
 
   const auto deflatedDataSize = fileStat.compressedSize;
-  const auto inflatedDataSize = fileStat.uncompressedSize;
-  const auto dataSize = trailingNullByte ? inflatedDataSize + 1 : inflatedDataSize;
+  const size_t inflatedSize = fileStat.uncompressedSize;
+  const auto inflatedDataSize = inflatedSize;
+  if (trailingNullByte && (inflatedSize == SIZE_MAX || inflatedSize == 0xFFFFFFFFU)) {
+    LOG_ERR("ZIP", "Failed to allocate memory for output buffer: size overflow (%zu bytes)", inflatedSize);
+    return nullptr;
+  }
+  const size_t dataSize = inflatedSize + (trailingNullByte ? 1u : 0u);
+  if (dataSize == 0) {
+    LOG_ERR("ZIP", "Failed to allocate memory for output buffer (0 bytes)");
+    return nullptr;
+  }
   const auto data = static_cast<uint8_t*>(malloc(dataSize));
   if (data == nullptr) {
     LOG_ERR("ZIP", "Failed to allocate memory for output buffer (%zu bytes)", dataSize);

@@ -1,4 +1,6 @@
 #pragma once
+#include <ImageToneProfile.h>
+
 #include <string>
 #include <utility>
 
@@ -41,6 +43,18 @@ class SleepActivity final : public Activity {
   void renderLastScreenSleepScreen() const;
   void renderBlankSleepScreen() const;
   void renderOverlaySleepScreen(Bitmap* cover = nullptr) const;
+  const std::string& resolveCachedCoverPath(const std::string& path, bool cropped, ImageToneProfile toneProfile,
+                                            bool oneBit, bool* sourceBitmap = nullptr) const;
+  struct CachedCoverLookup {
+    bool valid = false;
+    std::string bookPath;
+    bool cropped = false;
+    ImageToneProfile toneProfile = ImageToneProfile::Legacy;
+    bool oneBit = false;
+    std::string coverPath;
+    bool sourceBitmap = false;
+  };
+  mutable CachedCoverLookup cachedCoverLookup;
   bool canSnapshotOverlayBackground = false;
   bool overlayBackgroundBufferStored = false;
   std::string currentBookPath;

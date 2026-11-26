@@ -1,12 +1,15 @@
 #include "OtaUpdateActivity.h"
 
 #include <GfxRenderer.h>
-#include "HalGPIO.h"
 #include <HalPowerManager.h>
 #include <I18n.h>
 #include <WiFi.h>
 
+#include <algorithm>
+#include <cmath>
+
 #include "AppVersion.h"
+#include "HalGPIO.h"
 #include "MappedInputManager.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
@@ -141,9 +144,15 @@ void OtaUpdateActivity::render(RenderLock&&) {
   const auto height = renderer.getLineHeight(UI_10_FONT_ID);
   const auto top = safe.y + (pageHeight - height) / 2;
 
-  float updaterProgress = 0;
+  float updaterProgress = 0.0f;
   if (state == UPDATE_IN_PROGRESS) {
-    updaterProgress = static_cast<float>(updater.getProcessedSize()) / static_cast<float>(updater.getTotalSize());
+    const size_t total = updater.getTotalSize();
+    updaterProgress = total > 0 ? static_cast<float>(updater.getProcessedSize()) / static_cast<float>(total) : 0.0f;
+    if (std::isnan(updaterProgress) || updaterProgress < 0.0f) {
+      updaterProgress = 0.0f;
+    } else if (updaterProgress > 1.0f) {
+      updaterProgress = 1.0f;
+    }
     // Only update every 2% at the most
     if (static_cast<int>(updaterProgress * 50) == lastUpdaterPercentage / 2) {
       return;

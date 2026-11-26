@@ -68,13 +68,14 @@ void ClockSyncActivity::runSync() {
   }
 
   const bool ok = halClock.syncFromNTP();
-  trustedtime::note();
-  trustedtime::startSync();
   if (!ok) {
     state = FAILED;
     requestUpdate();
     return;
   }
+
+  trustedtime::startSync();
+  trustedtime::note();
 
   // Mark as synced so the auto-sync hook stops firing on future WiFi connects.
   SETTINGS.clockHasBeenSynced = 1;

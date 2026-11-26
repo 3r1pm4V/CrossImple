@@ -1157,16 +1157,17 @@ bool shouldClearX4WakeGhosting() {
 constexpr char WAKE_NVS_NAMESPACE[] = "crosspoint";
 constexpr char WAKE_SHORT_PRESS_KEY[] = "wakeShortPr";
 
-bool readWakeShortPressFromNvs() {
+int8_t readWakeShortPressFromNvs() {
 #ifdef SIMULATOR
-  return false;
+  return -1;
 #else
   nvs_handle_t handle;
-  if (nvs_open(WAKE_NVS_NAMESPACE, NVS_READONLY, &handle) != ESP_OK) return false;
+  if (nvs_open(WAKE_NVS_NAMESPACE, NVS_READONLY, &handle) != ESP_OK) return -1;
   uint8_t value = 0;
   const esp_err_t result = nvs_get_u8(handle, WAKE_SHORT_PRESS_KEY, &value);
   nvs_close(handle);
-  return result == ESP_OK && value != 0;
+  if (result != ESP_OK) return -1;
+  return value != 0 ? 1 : 0;
 #endif
 }
 
@@ -1235,11 +1236,6 @@ void enterDeepSleep(bool fromTimeout) {
   // Mirror wake setting to NVS before peripheral shutdown so flash writes don't
   // delay chip sleep after display is powered off.
   mirrorWakeShortPressToNvs();
-
-  // Ensure remaining font caches are released before deep sleep.
-  if (auto* fcm = renderer.getFontCacheManager()) {
-    fcm->releaseSdFontCaches();
-  }
 
   Storage.shutdown();
   putTiltSensorToSleepForDeepSleep();
@@ -1370,7 +1366,8 @@ void setup() {
 
   const auto wakeupReason = usbSleepWake ? HalGPIO::WakeupReason::PowerButton : gpio.getWakeupReason();
 #ifndef SIMULATOR
-  const bool shortPressWakes = readWakeShortPressFromNvs();
+  const int8_t nvsWakeShortPress = readWakeShortPressFromNvs();
+  const bool shortPressWakes = nvsWakeShortPress == 1;
   if (wakeupReason == HalGPIO::WakeupReason::PowerButton && !usbSleepWake &&
       !gpio.verifyPowerButtonWakeup(shortPressWakes, CrossPointSettings::POWER_BUTTON_LONG_PRESS_MS)) {
     LOG_DBG("MAIN", "Power-button wake not held through verification, sleeping");
@@ -1467,7 +1464,12 @@ void setup() {
 #ifdef SIMULATOR
   prepareSimulatorSmokeState();
 #endif
-  mirrorWakeShortPressToNvs();
+#ifndef SIMULATOR
+  const int8_t expectedWakeShortPress = SETTINGS.shortPowerPressWakes() ? 1 : 0;
+  if (nvsWakeShortPress != expectedWakeShortPress) {
+    mirrorWakeShortPressToNvs();
+  }
+#endif
   // Needs SETTINGS for the clock's UTC offset, so it cannot run any earlier.
   BatteryDiagnosticLog::record(BatteryDiagnosticLog::Event::Wake, BoardConfig::ACTIVE.name,
                                wakeupRouteName(wakeupReason));

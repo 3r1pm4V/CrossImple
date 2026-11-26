@@ -1,3 +1,17 @@
+## [v0.30] - 2026-11-26
+
+### Đã thêm & Tối ưu (Added & Improved)
+- **Tối ưu Tức thì Màn hình Ngủ Cover trên Xteink X3 (ESP32-C3)**:
+  - **Phản hồi Sleep Cover < 100ms (`SleepActivity.cpp`)**: Cho phép `rendersBeforeExit` an toàn trên chip C3 khi ảnh bìa sách đã có cache `.bmp`. Màn hình đổi sang bìa sách ngay lập tức khi bấm nút nguồn (nhanh như dòng S3), các tác vụ lưu tiến độ và dọn dẹp Reader sẽ chạy ngầm ở phía sau.
+- **Cắt giảm I/O Thẻ nhớ SD & Tối ưu Boot/Wake/Sleep**:
+  - **Schema Cache cho `BatteryDiagnosticLog` (`BatteryDiagnosticLog.cpp`)**: Cache trạng thái header CSV (`static bool schemaVerified`), loại bỏ hoàn toàn 2 chu kỳ mở file và đọc header lặp lại ở mỗi lần Wake và Sleep trên tất cả các máy.
+  - **`CachedCoverLookup` (`SleepActivity.h`, `SleepActivity.cpp`)**: Giảm số lượt tra cứu và kiểm tra file bìa trên thẻ nhớ SD từ 4 lần xuống còn 1 lần duy nhất trong `SleepActivity`.
+  - **Tri-state NVS Wake Policy (`main.cpp`)**: Hàm `readWakeShortPressFromNvs()` trả về giá trị 3 trạng thái (-1/0/1), loại bỏ việc đọc/ghi đè NVS 2 lần lúc boot.
+  - **Loại bỏ ghi đè `APP_STATE` dư thừa (`SleepActivity.cpp`, `main.cpp`)**: Cắt bỏ các lệnh `saveToFile()` thừa trong `selectRandomSleepImage()` và lược bỏ giải phóng font cache thừa trước Deep Sleep.
+- **Cải tiến Trình Đọc & Giao diện**:
+  - Nền trang Lưới ô ly tràn viền (Edge-to-Edge Grid) cho trình đọc EPUB/TXT.
+  - Sửa triệt để lỗi đảo màu nền đen màn hình ngủ Reading Stats.
+
 ## [v0.29] - 2026-11-23
 
 ### Đã thêm & Tối ưu (Added & Improved)

@@ -73,11 +73,28 @@ BookMetadataCache::TocEntry readTocEntryFrom(F& file) {
 }
 
 bool readSpineCumulativeSizeAt(HalFile& file, const uint32_t lutOffset, const uint16_t index, uint32_t& outSize) {
+  const uint64_t fileSize = file.size();
+  const uint64_t lutPos = static_cast<uint64_t>(lutOffset) + static_cast<uint64_t>(index) * sizeof(uint32_t);
+  if (lutPos + sizeof(uint32_t) > fileSize || !file.seek(lutPos)) {
+    return false;
+  }
   uint32_t entryPos = 0;
+  if (!serialization::tryReadPod(file, entryPos)) {
+    return false;
+  }
+  const uint64_t entryPos64 = entryPos;
+  if (entryPos64 + sizeof(uint32_t) > fileSize || !file.seek(entryPos64)) {
+    return false;
+  }
   uint32_t hrefLen = 0;
-  return file.seek(lutOffset + static_cast<uint32_t>(index) * sizeof(uint32_t)) &&
-         serialization::tryReadPod(file, entryPos) && file.seek(entryPos) && serialization::tryReadPod(file, hrefLen) &&
-         file.seek(entryPos + sizeof(uint32_t) + hrefLen) && serialization::tryReadPod(file, outSize);
+  if (!serialization::tryReadPod(file, hrefLen)) {
+    return false;
+  }
+  const uint64_t sizePos = entryPos64 + sizeof(uint32_t) + static_cast<uint64_t>(hrefLen);
+  if (sizePos + sizeof(uint32_t) > fileSize || !file.seek(sizePos)) {
+    return false;
+  }
+  return serialization::tryReadPod(file, outSize);
 }
 
 bool validateTocEntryAt(HalFile& file, const uint32_t lutOffset, const uint16_t spineCount, const uint16_t index) {
@@ -469,6 +486,11 @@ void BookMetadataCache::createSpineEntry(const std::string& href) {
     return;
   }
 
+  if (spineCount == std::numeric_limits<uint16_t>::max()) {
+    LOG_ERR("BMC", "Spine count limit reached (%u), dropping entry: %s", spineCount, href.c_str());
+    return;
+  }
+
   const SpineEntry entry(href, 0, -1);
   if (passOut) {
     writeSpineEntryTo(*passOut, entry);
@@ -482,6 +504,11 @@ void BookMetadataCache::createTocEntry(const std::string& title, const std::stri
                                        const uint8_t level) {
   if (!buildMode || !tocFile || !spineFile) {
     LOG_DBG("BMC", "createTocEntry called but not in build mode");
+    return;
+  }
+
+  if (tocCount == std::numeric_limits<uint16_t>::max()) {
+    LOG_ERR("BMC", "TOC count limit reached (%u), dropping entry: %s", tocCount, title.c_str());
     return;
   }
 
@@ -593,9 +620,12 @@ bool BookMetadataCache::load() {
   windowStarts.reserve((spineCount + SIZE_WINDOW - 1) / SIZE_WINDOW);
   if (spineCount > 0) {
     windowStarts.push_back(0);
-    for (uint16_t i = SIZE_WINDOW; i < spineCount; i += SIZE_WINDOW) {
+    for (uint32_t i = SIZE_WINDOW; i < spineCount; i += SIZE_WINDOW) {
+      if (i >= spineCount) {
+        break;
+      }
       uint32_t cumSize = 0;
-      if (!readSpineCumulativeSizeAt(bookFile, lutOffset, i - 1, cumSize)) {
+      if (!readSpineCumulativeSizeAt(bookFile, lutOffset, static_cast<uint16_t>(i - 1), cumSize)) {
         LOG_DBG("BMC", "Cache spine LUT/entry is truncated at %u", static_cast<unsigned>(i - 1));
         bookFile.close();
         Storage.remove(bookBinPath.c_str());

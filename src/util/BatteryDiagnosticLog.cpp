@@ -114,6 +114,9 @@ bool preserveLegacyLog(unsigned version) {
 // silently put the new values in unlabeled columns. Preserve the original
 // diagnostic evidence and begin a clean v3 log instead.
 bool prepareLogSchema() {
+  static bool schemaVerified = false;
+  if (schemaVerified) return true;
+
   if (!Storage.exists(LOG_PATH)) return true;
 
   HalFile file = Storage.open(LOG_PATH, O_RDONLY);
@@ -123,6 +126,7 @@ bool prepareLogSchema() {
   }
   if (file.size() == 0) {
     file.close();
+    schemaVerified = true;
     return true;
   }
 
@@ -139,12 +143,17 @@ bool prepareLogSchema() {
   }
   file.close();
 
-  if (currentSchema) return true;
+  if (currentSchema) {
+    schemaVerified = true;
+    return true;
+  }
   if (legacyVersion == 0) {
     LOG_ERR("BATLOG", "%s has an unknown header; refusing to append", LOG_PATH);
     return false;
   }
-  return preserveLegacyLog(legacyVersion);
+  const bool preserved = preserveLegacyLog(legacyVersion);
+  if (preserved) schemaVerified = true;
+  return preserved;
 }
 
 }  // namespace

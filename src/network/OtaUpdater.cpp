@@ -359,6 +359,10 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   otaUrl = releaseParser.getFirmwareUrl();
   otaSha256 = releaseParser.getFirmwareSha256();
   otaSize = releaseParser.getFirmwareSize();
+  if (otaSize == 0) {
+    LOG_ERR("OTA", "Firmware asset for release %s has size 0, rejecting", latestVersion.c_str());
+    return NO_UPDATE;
+  }
   totalSize = otaSize;
   updateAvailable = true;
 

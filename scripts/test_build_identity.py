@@ -4,6 +4,7 @@ import runpy
 import unittest
 import os
 import re
+import shutil
 import subprocess
 from unittest.mock import patch
 
@@ -25,6 +26,8 @@ class Env(dict):
 
 class BuildIdentityTest(unittest.TestCase):
     def test_asset_download_channel_overrides_version(self):
+        if not shutil.which("c++"):
+            self.skipTest("C++ compiler 'c++' not found on PATH")
         versions = ("", "RC", "1.6.1", "1.6.1-x4-pro", "1.6.1-abc1234-RC",
                     "2.0.0-local-development+abc1234", "2.0.0-RC-local-development+abc1234")
         for channel in (None, "rc", "stable"):
@@ -43,6 +46,8 @@ class BuildIdentityTest(unittest.TestCase):
                 subprocess.run(command, input=source, text=True, check=True, capture_output=True)
 
     def test_asset_download_channel_rejects_invalid_override(self):
+        if not shutil.which("c++"):
+            self.skipTest("C++ compiler 'c++' not found on PATH")
         for channel in ("", "RC", "beta"):
             with self.subTest(channel=channel):
                 result = subprocess.run(
@@ -91,6 +96,8 @@ class BuildIdentityTest(unittest.TestCase):
                              ["ASSET_DOWNLOAD_BASE_URL", "FONT_DOWNLOAD_BASE_URL"])
 
     def test_font_manifest_url_matches_build_configuration_and_format(self):
+        if not shutil.which("c++"):
+            self.skipTest("C++ compiler 'c++' not found on PATH")
         header = (ROOT / "src/activities/settings/FontDownloadActivity.h").read_text()
         macros = header[header.index("#define FONTS_MANIFEST_VERSION"):header.index("class FontDownloadActivity")]
         font_header = (ROOT / "lib/EpdFont/SdCardFont.h").read_text()

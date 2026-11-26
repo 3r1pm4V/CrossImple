@@ -1563,6 +1563,16 @@ bool isInReadFolder(const std::string& path) {
 void moveFinishedBookToReadFolder(const std::string& srcPath, const std::string& dstPath,
                                   const std::string& oldCachePath, const std::string& title,
                                   const std::string& author) {
+  if (dstPath.empty()) {
+    LOG_ERR("ERS", "No available destination slot in 'Read' folder for %s", srcPath.c_str());
+    snprintf(APP_STATE.pendingAlertTitle, sizeof(APP_STATE.pendingAlertTitle), "%s", tr(STR_MOVE_TO_READ_FAILED_TITLE));
+    snprintf(APP_STATE.pendingAlertBody, sizeof(APP_STATE.pendingAlertBody), tr(STR_MOVE_TO_READ_FAILED_BODY),
+             title.c_str());
+    APP_STATE.pendingAlertGoHomeOnBack.store(false, std::memory_order_relaxed);
+    APP_STATE.hasPendingAlert.store(true, std::memory_order_release);
+    return;
+  }
+
   LOG_INF("ERS", "Moving finished epub: %s -> %s", srcPath.c_str(), dstPath.c_str());
   if (!bookkey::moveFile(srcPath, dstPath)) {
     LOG_ERR("ERS", "Failed to move finished book to '/Read' folder");
@@ -2644,7 +2654,17 @@ void EpubReaderActivity::onExit() {
     const std::string author = epub->getAuthor();
     const std::string dstPath = BookMoveUtils::buildReadFolderDestination(srcPath);
     epub.reset();  // release the Epub (and any open handles) before renaming on the SD card
-    moveFinishedBookToReadFolder(srcPath, dstPath, oldCachePath, title, author);
+    if (dstPath.empty()) {
+      LOG_ERR("ERS", "No available destination slot in 'Read' folder for %s", srcPath.c_str());
+      snprintf(APP_STATE.pendingAlertTitle, sizeof(APP_STATE.pendingAlertTitle), "%s",
+               tr(STR_MOVE_TO_READ_FAILED_TITLE));
+      snprintf(APP_STATE.pendingAlertBody, sizeof(APP_STATE.pendingAlertBody), tr(STR_MOVE_TO_READ_FAILED_BODY),
+               title.c_str());
+      APP_STATE.pendingAlertGoHomeOnBack.store(false, std::memory_order_relaxed);
+      APP_STATE.hasPendingAlert.store(true, std::memory_order_release);
+    } else {
+      moveFinishedBookToReadFolder(srcPath, dstPath, oldCachePath, title, author);
+    }
   } else {
     epub.reset();
   }

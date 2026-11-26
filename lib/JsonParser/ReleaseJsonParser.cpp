@@ -1,5 +1,7 @@
 #include "ReleaseJsonParser.h"
 
+#include <Logging.h>
+
 #include <cstdlib>
 #include <cstring>
 
@@ -60,10 +62,14 @@ void ReleaseJsonParser::commitAsset() {
   const bool matchesFirmware =
       assetMatcher != nullptr ? assetMatcher(currentAssetName) : strcmp(currentAssetName, "firmware.bin") == 0;
   if (!firmwareFound && matchesFirmware) {
-    memcpy(firmwareUrl, currentAssetUrl, sizeof(firmwareUrl));
-    memcpy(firmwareSha256, currentAssetSha256, sizeof(firmwareSha256));
-    firmwareSize = currentAssetSize;
-    firmwareFound = true;
+    if (currentAssetSize == 0) {
+      LOG_ERR("RJP", "Firmware asset %s has size 0, rejecting", currentAssetName);
+    } else {
+      memcpy(firmwareUrl, currentAssetUrl, sizeof(firmwareUrl));
+      memcpy(firmwareSha256, currentAssetSha256, sizeof(firmwareSha256));
+      firmwareSize = currentAssetSize;
+      firmwareFound = true;
+    }
   }
   currentAssetName[0] = '\0';
   currentAssetUrl[0] = '\0';

@@ -149,7 +149,6 @@ bool hasClearableBookCache(const std::string& path) {
   return FsHelpers::hasEpubExtension(path) || FsHelpers::hasXtcExtension(path);
 }
 
-
 void clearFileMetadata(const std::string& fullPath) {
   if (FsHelpers::hasEpubExtension(fullPath)) {
     Epub(fullPath, "/.crosspoint").clearCache();
@@ -342,6 +341,17 @@ bool toggleBookCompleted(const std::string& fullPath, const std::string& display
   if (isEpub && completed && SETTINGS.moveFinishedToReadFolder && fullPath.rfind("/Read/", 0) != 0) {
     const std::string oldCachePath = epub.getCachePath();
     const std::string dstPath = BookMoveUtils::buildReadFolderDestination(fullPath);
+    if (dstPath.empty()) {
+      LOG_ERR("BookActions", "No available destination slot in 'Read' folder for %s", fullPath.c_str());
+      snprintf(APP_STATE.pendingAlertTitle, sizeof(APP_STATE.pendingAlertTitle), "%s",
+               tr(STR_MOVE_TO_READ_FAILED_TITLE));
+      snprintf(APP_STATE.pendingAlertBody, sizeof(APP_STATE.pendingAlertBody), tr(STR_MOVE_TO_READ_FAILED_BODY),
+               displayName.c_str());
+      APP_STATE.pendingAlertGoHomeOnBack.store(false, std::memory_order_relaxed);
+      APP_STATE.hasPendingAlert.store(true, std::memory_order_release);
+      return true;
+    }
+
     LOG_INF("BookActions", "Moving completed epub: %s -> %s", fullPath.c_str(), dstPath.c_str());
     if (!bookkey::moveFile(fullPath, dstPath)) {
       LOG_ERR("BookActions", "Failed to move book to 'Read' folder");

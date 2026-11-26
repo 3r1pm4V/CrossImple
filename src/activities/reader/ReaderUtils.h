@@ -141,9 +141,7 @@ inline void drawPageBackground(const GfxRenderer& renderer, const int startX, co
     }
   };
 
-  int firstTopY = startY;
   if (lines != nullptr && lineCount > 0) {
-    firstTopY = lines[0].topY;
     // 1. Phía trên dòng đầu tiên: lùi từng bước pitch từ đáy dòng đầu tiên lên đến y >= 0
     for (int y = lines[0].bottomY - pitch; y >= 0; y -= pitch) {
       addUnderline(y);
@@ -172,7 +170,6 @@ inline void drawPageBackground(const GfxRenderer& renderer, const int startX, co
     }
   } else {
     // Fallback khi không có danh sách dòng (trang rỗng / preview)
-    firstTopY = startY;
     for (int y = startY + pitch; y <= endY; y += pitch) {
       addUnderline(y);
     }
