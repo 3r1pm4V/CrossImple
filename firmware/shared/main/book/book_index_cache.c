@@ -38,21 +38,37 @@ bool book_index_cache_prepare(const char* source, const char* tag, uint32_t vers
     return n > 0 && (size_t)n < cap;
 }
 
-FILE* book_index_cache_open_read(const char* path, const book_index_cache_header_t* expected) {
-    if (!path || !expected) return NULL;
-    FILE* file = fopen(path, "rb");
-    if (!file) {
-        char old[128];
-        int n = snprintf(old, sizeof(old), "%s.old", path);
-        if (n > 0 && (size_t)n < sizeof(old)) file = fopen(old, "rb");
+static FILE* try_open_read_header(const char* target_path, const book_index_cache_header_t* expected) {
+    if (!target_path || !expected) return NULL;
+    struct stat st;
+    if (stat(target_path, &st) != 0 || !S_ISREG(st.st_mode)) return NULL;
+    if ((size_t)st.st_size < sizeof(book_index_cache_header_t)) {
+        (void)remove(target_path);
+        return NULL;
     }
+    FILE* file = fopen(target_path, "rb");
     if (!file) return NULL;
     book_index_cache_header_t found;
     bool ok = fread(&found, 1, sizeof(found), file) == sizeof(found) &&
         found.magic == expected->magic && found.version == expected->version &&
         found.source_size == expected->source_size && found.modified == expected->modified &&
         found.path_hash == expected->path_hash;
-    if (!ok) { fclose(file); return NULL; }
+    if (!ok) {
+        fclose(file);
+        (void)remove(target_path);
+        return NULL;
+    }
+    return file;
+}
+
+FILE* book_index_cache_open_read(const char* path, const book_index_cache_header_t* expected) {
+    if (!path || !expected) return NULL;
+    FILE* file = try_open_read_header(path, expected);
+    if (!file) {
+        char old[128];
+        int n = snprintf(old, sizeof(old), "%s.old", path);
+        if (n > 0 && (size_t)n < sizeof(old)) file = try_open_read_header(old, expected);
+    }
     return file;
 }
 

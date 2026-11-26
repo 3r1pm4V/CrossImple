@@ -251,7 +251,10 @@ static bool txt_cache_load(const char* source, book_txt_t* b) {
 #endif
         previous = entry->offset;
     }
-    if (!ok) return false;
+    if (!ok) {
+        (void)remove(path);
+        return false;
+    }
     b->bom = payload.bom; b->gbk = payload.gbk != 0; b->count = payload.count;
 #if DPREADER_BOARD_METALIO47
     b->utf16=payload.reserved[0];

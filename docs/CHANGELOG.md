@@ -1,3 +1,10 @@
+## dpReader 0.30.0-vn / 0.30.0-love-vn · 2026-11-26
+
+- Tối ưu vòng đời file handle: Đóng EPUB handle và giải phóng bộ nhớ XML trước khi mở ghi cache metadata, duy trì nguyên tắc tối đa 1 file mở trên thẻ nhớ.
+- Tự động dọn dẹp cache chỉ số lỗi/cụt (kích thước nhỏ hơn header) và hỗ trợ fallback sang bản sao lưu `.old` khi cache chính bị lỗi.
+- Giải phóng sớm bộ đệm XML OPF trước khi cấp phát và trích xuất ảnh bìa sách để giảm áp lực đỉnh RAM/PSRAM.
+- Tự động xóa bỏ cache chỉ số EPUB/TXT khi xác thực nội dung payload thất bại, tránh lặp lại lỗi đọc ở các phiên sau.
+
 ## dpReader 0.29.0-vn / 0.29.0-love-vn · 2026-11-23
 
 - Wake vào màn hình khóa nhanh hơn khi thẻ không khôi phục được khung cũ.

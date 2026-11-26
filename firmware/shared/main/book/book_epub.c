@@ -287,6 +287,7 @@ static bool epub_cache_load(const char* source, book_epub_t* book) {
         free(book->navigation); book->navigation = NULL; book->navigation_capacity = 0;
         free(book->chapters); book->chapters = NULL; book->chapter_capacity = 0;
         text_pool_free(book);
+        (void)remove(path);
         return false;
     }
     book->count = payload.count; book->total = payload.total; book->authored_count = payload.authored_count;
@@ -2115,6 +2116,7 @@ esp_err_t book_epub_metadata_cached(const char *path, char *title, size_t title_
                 memcpy(title, payload.title, tn + 1); memcpy(author, payload.author, an + 1);
                 return ESP_OK;
             }
+            (void)remove(cache_path);
         }
     }
     return ESP_ERR_NOT_FOUND;
@@ -2166,7 +2168,9 @@ esp_err_t book_epub_metadata(const char *path, char *title, size_t title_cap, ch
             if (title[0] && author[0]) break;
         }
         if (!title[0]) err = ESP_ERR_NOT_FOUND;
-        else if (cacheable) {
+        free(text); text = NULL;
+        book_epub_close(book); book = NULL;
+        if (err == ESP_OK && cacheable) {
             epub_meta_cache_payload_t *payload = &scratch->payload;
             snprintf(payload->title, sizeof(payload->title), "%s", title);
             snprintf(payload->author, sizeof(payload->author), "%s", author);
@@ -2222,6 +2226,7 @@ esp_err_t book_epub_cover_bounded(const char *path, uint8_t **data, size_t *size
         }
         if (!scratch->cover_path[0]) err = ESP_ERR_NOT_FOUND;
         else {
+            free(xml_text); xml_text = NULL;
             int index = zip_find(book->zip, scratch->cover_path);
             size_t bytes = zip_entry_size(book->zip, index);
             if (index < 0) err = ESP_ERR_NOT_FOUND;
