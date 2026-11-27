@@ -1,3 +1,17 @@
+## [v0.31] - 2026-11-27
+
+### Đã thêm & Tối ưu (Added & Improved)
+- **Màn hình ngủ Cozy Cover (`SleepActivity`, `CozyCoverAssets.h`, `Bitmap.cpp`)**:
+  - Bổ sung chế độ màn hình ngủ nghệ thuật Cozy Cover (Hoàng tử bé / Mascot) vẽ dạng khung máy đọc sách cầm tay.
+  - Tích hợp bộ giải thuật hòa sắc 1-bit Atkinson dithering chuyên dụng cho ảnh bìa sách trong khung Cozy Cover.
+  - Hỗ trợ đầy đủ độ phân giải gốc cho cả dòng Xteink X3 (`528x792`) và dòng Xteink X4 (`800x480`).
+- **Tối ưu Tốc độ Wake & Sleep Toàn diện**:
+  - **Phản hồi Sleep < 100ms (`SleepActivity`, `ActivityManager`)**: Mở rộng cơ chế `rendersBeforeExit` cho các chế độ `READING_STATS_SLEEP`, `MINIMAL_SLEEP`, `MINIMAL_STATS_SLEEP`, `DASHBOARD_SLEEP`. Bổ sung hook `prepareForSleep()` trên `Activity` giúp Reader chốt phiên đọc và tiến độ ngay trong RAM trước khi render.
+  - **Tối ưu Dashboard Sleep**: Truyền trực tiếp `currentChapterTitle` từ Reader trong RAM sang `SleepActivity`, loại bỏ hoàn toàn việc mở lại file ZIP và đọc XML từ thẻ nhớ SD chỉ để lấy tên chương.
+  - **Tối ưu Reader Wake**: Kích hoạt `skipXLocations` khi thức dậy vào sách (`bootToReaderFromState`), kết hợp lazy loading `x-locations.json` trong `Epub.cpp` giúp mở sách tức thì không bị khựng CPU.
+  - **Orientation Lock**: Tự động cố định Portrait cho màn hình sleep, loại bỏ lỗi vỡ layout khi đang đọc sách ở chế độ Landscape mà máy vào sleep.
+  - **Anti-Aliasing Policy**: Khóa cứng chính sách Anti-Aliasing (`textAntiAliasing = 0`, `fastPageTurn = 1`) mặc định tự động tắt trên mọi máy để tối đa hóa tốc độ hiển thị E-ink 1-bit.
+
 ## [v0.30] - 2026-11-26
 
 ### Đã thêm & Tối ưu (Added & Improved)

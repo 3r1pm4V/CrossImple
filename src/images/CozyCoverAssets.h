@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #if defined(FREEINK_DEVICE_X3) && FREEINK_DEVICE_X3
-#define COZY_COVER_HAS_X3 1
+#define COZY_COVER_HAS_X3 0
 #define COZY_COVER_HAS_X4 0
 #elif (defined(FREEINK_DEVICE_X4CLASSIC) && FREEINK_DEVICE_X4CLASSIC) || \
       (defined(FREEINK_DEVICE_X4PRO) && FREEINK_DEVICE_X4PRO) || \
@@ -14,8 +14,8 @@
 #define COZY_COVER_HAS_X3 0
 #define COZY_COVER_HAS_X4 1
 #else
-// Simulator or multi-board target: compile both
-#define COZY_COVER_HAS_X3 1
+// Simulator or multi-board target: default to X4 profile only
+#define COZY_COVER_HAS_X3 0
 #define COZY_COVER_HAS_X4 1
 #endif
 
