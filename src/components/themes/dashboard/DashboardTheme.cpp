@@ -223,12 +223,7 @@ bool estimateFinishDateFromDailyPace(const BookReadingStats& stats, const Readin
   return outDate.isValid();
 }
 
-float pagesPerMinute(const uint32_t totalPagesTurned, const uint32_t totalReadingSeconds) {
-  if (totalReadingSeconds <= 60) {
-    return 0.0f;
-  }
-  return static_cast<float>(totalPagesTurned) * 60.0f / static_cast<float>(totalReadingSeconds);
-}
+// pagesPerMinute replaced by wordsPerMinute on BookReadingStats.
 
 const char* dayCountText(const uint16_t days) { return days == 1 ? tr(STR_STATS_DAY) : tr(STR_STATS_DAYS); }
 
@@ -321,8 +316,13 @@ void drawDashboardStats(const GfxRenderer& renderer, const Rect& coverRect, cons
   }
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
-  snprintf(value, sizeof(value), "%.1f", pagesPerMinute(bookStats.totalPagesTurned, bookStats.totalReadingSeconds));
-  drawStatsRow(renderer, rightX, rowY, value, tr(STR_STATS_PAGES_PER_MIN), black);
+  const uint16_t wpm = bookStats.wordsPerMinute();
+  if (wpm > 0) {
+    snprintf(value, sizeof(value), "%u", static_cast<unsigned>(wpm));
+  } else {
+    snprintf(value, sizeof(value), "--");
+  }
+  drawStatsRow(renderer, rightX, rowY, value, tr(STR_STATS_WORDS_PER_MIN), black);
 
   if (!showRtcStats) {
     rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);

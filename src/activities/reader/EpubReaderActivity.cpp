@@ -6283,9 +6283,15 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn, const char* source) {
         recordForwardPagePaceSample(forwardReadSeconds, source);
       }
       if (statsTrackingActive) {
+        if (!paceWarmup && currentPageWordCount > 0 && forwardReadSeconds >= MIN_READING_PACE_SAMPLE_SECONDS &&
+            forwardReadSeconds <= SETTINGS.getReadingIdleTimeThresholdSeconds()) {
+          stats.recordWordRead(currentPageWordCount, forwardReadSeconds);
+          globalStats.recordWordRead(currentPageWordCount, forwardReadSeconds);
+        }
         stats.totalPagesTurned++;
         globalStats.totalPagesTurned++;
       }
+      currentPageWordCount = 0;
     }
   } else {
     recordCurrentPageReadingTime(source, /*deferStorage=*/true);
@@ -7634,6 +7640,16 @@ void EpubReaderActivity::prepareCurrentSectionForRelayout(const bool preserveSta
 bool EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int fontId, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft, const bool updatePanel) {
+  if (activeFootnotePreview || !page) {
+    currentPageWordCount = 0;
+  } else {
+    uint16_t words = 0;
+    forEachVisiblePageWord(*page, [&](const uint16_t, const PageTextLine&, const TextBlock&, const uint16_t) {
+      if (words < UINT16_MAX) ++words;
+      return true;
+    });
+    currentPageWordCount = words;
+  }
 #if CROSSINK_APP_CAP_TOUCH
   if (mappedInput.hasTouchHardware()) {
     if (!touchReaderPreviewAllocationAttempted) {

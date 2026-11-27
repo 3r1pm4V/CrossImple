@@ -72,6 +72,9 @@ static constexpr uint8_t FLAG_START_DATE_MANUAL = 1u << 0;
 static constexpr uint8_t FLAG_FINISHED_DATE_MANUAL = 1u << 1;
 static constexpr uint8_t OLDEST_VERSIONED_STATS_FILE_VERSION = 4;
 static constexpr const char* LEGACY_STATS_FILE_NAME = "stats.bin";
+static constexpr const char* WORD_STATS_FILE_NAME = "word_stats.bin";
+static constexpr uint8_t WORD_STATS_VERSION = 1;
+static constexpr int WORD_STATS_FILE_SIZE = 9;
 
 std::string statsFileNameForVersion(const uint8_t version) {
   char buf[16];
@@ -177,6 +180,52 @@ void writeLe32(uint8_t* data, const int offset, const uint32_t value) {
   data[offset + 3] = (value >> 24) & 0xFF;
 }
 
+void loadWordStats(const std::string& cachePath, BookReadingStats& stats) {
+  const std::string path = cachePath + "/" + WORD_STATS_FILE_NAME;
+  const std::string backupPath = path + ".bak";
+  if (!Storage.exists(path.c_str()) && !Storage.exists(backupPath.c_str())) return;
+  const std::string selected = two_slot::preferredPath("STATS", path, WORD_STATS_FILE_SIZE, true);
+  for (const std::string& candidate : {selected, backupPath}) {
+    if (!Storage.exists(candidate.c_str())) continue;
+    FsFile f;
+    if (!Storage.openFileForRead("STATS", candidate, f)) continue;
+    uint8_t data[WORD_STATS_FILE_SIZE] = {};
+    const size_t fileSize = two_slot::payloadLength(f, WORD_STATS_FILE_SIZE);
+    const int n = f.read(data, WORD_STATS_FILE_SIZE);
+    f.close();
+    if (fileSize == WORD_STATS_FILE_SIZE && n == WORD_STATS_FILE_SIZE && data[0] == WORD_STATS_VERSION) {
+      stats.totalWordsRead = readLe32(data, 1);
+      stats.wordReadingSeconds = readLe32(data, 5);
+      return;
+    }
+  }
+}
+
+bool saveWordStats(const std::string& cachePath, const BookReadingStats& stats) {
+  if (stats.totalWordsRead == 0 && stats.wordReadingSeconds == 0) return true;
+  const std::string path = cachePath + "/" + WORD_STATS_FILE_NAME;
+  const std::string backupPath = path + ".bak";
+  uint8_t data[WORD_STATS_FILE_SIZE] = {};
+  data[0] = WORD_STATS_VERSION;
+  writeLe32(data, 1, stats.totalWordsRead);
+  writeLe32(data, 5, stats.wordReadingSeconds);
+  return two_slot::write("STATS", path.c_str(), backupPath.c_str(), data, sizeof(data),
+                         [](const uint8_t* bytes, const size_t size) {
+                           return size == WORD_STATS_FILE_SIZE && bytes[0] == WORD_STATS_VERSION;
+                         });
+}
+
+void removeWordStats(const std::string& cachePath, bool& ok) {
+  const std::string basePath = cachePath + "/" + WORD_STATS_FILE_NAME;
+  for (const char* suffix : {".tmp", ".bak", ""}) {
+    const std::string path = basePath + suffix;
+    if (Storage.exists(path.c_str()) && !Storage.remove(path.c_str())) {
+      LOG_ERR("STATS", "Could not delete %s", path.c_str());
+      ok = false;
+    }
+  }
+}
+
 ReadingStatsDate readDate(const uint8_t* data, const int offset) {
   ReadingStatsDate date;
   date.year = readLe16(data, offset);
@@ -222,7 +271,9 @@ bool BookReadingStats::peekCompleted(const std::string& cachePath) {
 
 BookReadingStats BookReadingStats::load(const std::string& cachePath) {
   BookReadingStats stats;
-  loadForUpload(cachePath, stats);
+  if (loadForUpload(cachePath, stats)) {
+    loadWordStats(cachePath, stats);
+  }
   return stats;
 }
 
@@ -338,6 +389,18 @@ void BookReadingStats::recordForwardPageRead(uint32_t seconds) {
   if (paceSampleCount < MAX_PACE_SAMPLE_COUNT) ++paceSampleCount;
 }
 
+void BookReadingStats::recordWordRead(const uint16_t words, const uint32_t seconds) {
+  if (words == 0 || seconds == 0) return;
+  totalWordsRead = totalWordsRead > UINT32_MAX - words ? UINT32_MAX : totalWordsRead + words;
+  wordReadingSeconds = wordReadingSeconds > UINT32_MAX - seconds ? UINT32_MAX : wordReadingSeconds + seconds;
+}
+
+uint16_t BookReadingStats::wordsPerMinute() const {
+  if (totalWordsRead == 0 || wordReadingSeconds == 0) return 0;
+  const uint64_t wpm = (static_cast<uint64_t>(totalWordsRead) * 60ULL + wordReadingSeconds / 2ULL) / wordReadingSeconds;
+  return static_cast<uint16_t>(std::min<uint64_t>(wpm, 9999ULL));
+}
+
 void BookReadingStats::recordReadingSpan(const ReadingStatsDateTime& localStart, const uint32_t seconds) {
   recordReadingSpanIntoBuckets(timeOfDaySeconds, dayOfWeekSeconds, localStart, seconds);
 }
@@ -386,10 +449,12 @@ bool BookReadingStats::save(const std::string& cachePath) const {
   writeLe32(data, 69, estimatedTimeLeftSeconds);
   writeLe16(data, 73, paceFractionMillis);
 
-  return two_slot::write("STATS", statsPath.c_str(), backupPath.c_str(), data, sizeof(data),
-                         [](const uint8_t* bytes, size_t size) {
-                           return size == STATS_FILE_SIZE && bytes[0] == STATS_FILE_VERSION && validPaceFraction(bytes);
-                         });
+  const bool saved = two_slot::write("STATS", statsPath.c_str(), backupPath.c_str(), data, sizeof(data),
+                                     [](const uint8_t* bytes, size_t size) {
+                                       return size == STATS_FILE_SIZE && bytes[0] == STATS_FILE_VERSION &&
+                                              validPaceFraction(bytes);
+                                     });
+  return saved && saveWordStats(cachePath, *this);
 }
 
 bool BookReadingStats::remove(const std::string& cachePath) {
@@ -429,5 +494,6 @@ bool BookReadingStats::remove(const std::string& cachePath) {
     LOG_ERR("STATS", "Could not delete %s", newest.c_str());
     ok = false;
   }
+  removeWordStats(cachePath, ok);
   return ok;
 }

@@ -16,6 +16,8 @@ struct GlobalReadingStats {
   uint32_t readingHistoryAnchorDay = 0;
   std::array<uint8_t, READING_HISTORY_BYTES> readingHistoryBits{};
   uint16_t longestReadingStreak = 0;
+  uint32_t totalWordsRead = 0;      // Accumulated words read across all books
+  uint32_t wordReadingSeconds = 0;  // Active reading seconds paired with totalWordsRead
 
   static constexpr uint8_t CURRENT_FILE_VERSION = 3;
   static constexpr size_t CURRENT_FILE_SIZE = 159;
@@ -52,6 +54,8 @@ struct GlobalReadingStats {
   static uint32_t localResetRevision();
 
   void recordReadingSpan(const ReadingStatsDateTime& localStart, uint32_t seconds);
+  void recordWordRead(uint16_t words, uint32_t seconds);
+  uint16_t wordsPerMinute() const;
   uint16_t currentReadingStreak(const ReadingStatsDate* today) const;
   uint16_t displayLongestReadingStreak() const;
 

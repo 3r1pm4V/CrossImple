@@ -56,6 +56,10 @@ static constexpr int GLOBAL_STATS_FILE_SIZE_V2 = 17;
 static constexpr int GLOBAL_STATS_FILE_SIZE = static_cast<int>(GlobalReadingStats::CURRENT_FILE_SIZE);
 static constexpr char GLOBAL_STATS_PATH[] = "/.crosspoint/global_stats.bin";
 static constexpr char GLOBAL_STATS_BAK_PATH[] = "/.crosspoint/global_stats.bin.bak";
+static constexpr char GLOBAL_WORD_STATS_PATH[] = "/.crosspoint/global_word_stats.bin";
+static constexpr char GLOBAL_WORD_STATS_BAK_PATH[] = "/.crosspoint/global_word_stats.bin.bak";
+static constexpr uint8_t GLOBAL_WORD_STATS_VERSION = 1;
+static constexpr int GLOBAL_WORD_STATS_FILE_SIZE = 9;
 static constexpr char SYNCED_STATS_DIR[] = "/.crosspoint/synced_stats";
 static bool s_blockDestructiveSave = false;
 
@@ -231,6 +235,44 @@ bool saveToFile(const GlobalReadingStats& stats, const char* path, const char* b
   });
 }
 
+void writeLe32Global(uint8_t* data, const int offset, const uint32_t value) {
+  data[offset] = value & 0xFF;
+  data[offset + 1] = (value >> 8) & 0xFF;
+  data[offset + 2] = (value >> 16) & 0xFF;
+  data[offset + 3] = (value >> 24) & 0xFF;
+}
+
+void loadGlobalWordStats(GlobalReadingStats& stats) {
+  if (!Storage.exists(GLOBAL_WORD_STATS_PATH) && !Storage.exists(GLOBAL_WORD_STATS_BAK_PATH)) return;
+  const std::string selected = two_slot::preferredPath("GSTATS", GLOBAL_WORD_STATS_PATH, GLOBAL_WORD_STATS_FILE_SIZE);
+  for (const std::string& candidate : {selected, std::string(GLOBAL_WORD_STATS_BAK_PATH)}) {
+    if (!Storage.exists(candidate.c_str())) continue;
+    FsFile f;
+    if (!Storage.openFileForRead("GSTATS", candidate, f)) continue;
+    uint8_t data[GLOBAL_WORD_STATS_FILE_SIZE] = {};
+    const size_t fileSize = two_slot::payloadLength(f, GLOBAL_WORD_STATS_FILE_SIZE);
+    const int n = f.read(data, GLOBAL_WORD_STATS_FILE_SIZE);
+    f.close();
+    if (fileSize == GLOBAL_WORD_STATS_FILE_SIZE && n == GLOBAL_WORD_STATS_FILE_SIZE &&
+        data[0] == GLOBAL_WORD_STATS_VERSION) {
+      stats.totalWordsRead = readLe32(data, 1);
+      stats.wordReadingSeconds = readLe32(data, 5);
+      return;
+    }
+  }
+}
+
+bool saveGlobalWordStats(const GlobalReadingStats& stats) {
+  uint8_t data[GLOBAL_WORD_STATS_FILE_SIZE] = {};
+  data[0] = GLOBAL_WORD_STATS_VERSION;
+  writeLe32Global(data, 1, stats.totalWordsRead);
+  writeLe32Global(data, 5, stats.wordReadingSeconds);
+  return two_slot::write("GSTATS", GLOBAL_WORD_STATS_PATH, GLOBAL_WORD_STATS_BAK_PATH, data, sizeof(data),
+                         [](const uint8_t* bytes, const size_t size) {
+                           return size == GLOBAL_WORD_STATS_FILE_SIZE && bytes[0] == GLOBAL_WORD_STATS_VERSION;
+                         });
+}
+
 }  // namespace
 
 static StatsLoadOutcome loadFromFile(const char* path, GlobalReadingStats& out) {
@@ -268,7 +310,10 @@ bool GlobalReadingStats::exportLocal(uint8_t* data, size_t capacity) {
 GlobalReadingStats GlobalReadingStats::load() {
   GlobalReadingStats stats;
   const StatsLoadOutcome primary = loadFromFile(GLOBAL_STATS_PATH, stats);
-  if (primary.result == StatsLoadResult::Ok) return stats;
+  if (primary.result == StatsLoadResult::Ok) {
+    loadGlobalWordStats(stats);
+    return stats;
+  }
   if (primary.result == StatsLoadResult::NewerFormat) {
     s_blockDestructiveSave = true;
     LOG_ERR("GSTATS", "On-disk stats are from a newer build (v%u, %u bytes); refusing to overwrite", primary.version,
@@ -278,6 +323,7 @@ GlobalReadingStats GlobalReadingStats::load() {
 
   const StatsLoadOutcome backup = loadFromFile(GLOBAL_STATS_BAK_PATH, stats);
   if (backup.result == StatsLoadResult::Ok) {
+    loadGlobalWordStats(stats);
     LOG_DBG("GSTATS", "Recovered global stats from backup");
     return stats;
   }
@@ -359,13 +405,15 @@ bool GlobalReadingStats::save() const {
   }
   // Keep the global snapshot even if the independent daily flush needs retrying.
   const bool globalSaved = saveToFile(*this, GLOBAL_STATS_PATH, GLOBAL_STATS_BAK_PATH);
-  return globalSaved && dailySaved;
+  const bool wordSaved = (totalWordsRead == 0 && wordReadingSeconds == 0) ? true : saveGlobalWordStats(*this);
+  return globalSaved && wordSaved && dailySaved;
 }
 
 static uint32_t s_localResetRevision = 0;
 
 bool GlobalReadingStats::resetLocal() {
   if (!saveToFile(GlobalReadingStats{}, GLOBAL_STATS_PATH, GLOBAL_STATS_BAK_PATH)) return false;
+  saveGlobalWordStats(GlobalReadingStats{});
   s_localResetRevision++;
   return true;
 }
@@ -380,6 +428,18 @@ void GlobalReadingStats::recordReadingSpan(const ReadingStatsDateTime& localStar
   if (historyLongest > longestReadingStreak) {
     longestReadingStreak = historyLongest;
   }
+}
+
+void GlobalReadingStats::recordWordRead(const uint16_t words, const uint32_t seconds) {
+  if (words == 0 || seconds == 0) return;
+  totalWordsRead = totalWordsRead > UINT32_MAX - words ? UINT32_MAX : totalWordsRead + words;
+  wordReadingSeconds = wordReadingSeconds > UINT32_MAX - seconds ? UINT32_MAX : wordReadingSeconds + seconds;
+}
+
+uint16_t GlobalReadingStats::wordsPerMinute() const {
+  if (totalWordsRead == 0 || wordReadingSeconds == 0) return 0;
+  const uint64_t wpm = (static_cast<uint64_t>(totalWordsRead) * 60ULL + wordReadingSeconds / 2ULL) / wordReadingSeconds;
+  return static_cast<uint16_t>(std::min<uint64_t>(wpm, 9999ULL));
 }
 
 uint16_t GlobalReadingStats::currentReadingStreak(const ReadingStatsDate* today) const {

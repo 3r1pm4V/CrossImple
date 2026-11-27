@@ -228,6 +228,7 @@ class EpubReaderActivity final : public Activity {
   uint16_t sessionStartPaceSampleCount = 0;
   uint32_t sessionPaceSampleSeconds = 0;
   uint16_t sessionPaceSampleCount = 0;
+  uint16_t currentPageWordCount = 0;
   BookPageEstimate bookPageEstimate;
   StableReadingPace stableReadingPace;
   // A display fallback while fresh text pace or chapter density is unavailable.

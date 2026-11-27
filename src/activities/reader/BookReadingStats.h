@@ -21,6 +21,8 @@ struct BookReadingStats {
   ReadingStatsDate finishedDate;          // Manual or auto-finished date on X3
   std::array<uint32_t, READING_TIME_BUCKET_COUNT> timeOfDaySeconds{};
   std::array<uint32_t, READING_DAY_OF_WEEK_COUNT> dayOfWeekSeconds{};
+  uint32_t totalWordsRead = 0;      // Accumulated words read on timed forward pages
+  uint32_t wordReadingSeconds = 0;  // Active reading seconds paired with totalWordsRead
 
   // Loads stats from cachePath/stats_v6.bin, with fallback reads from the
   // supported older versioned filenames and legacy cachePath/stats.bin. Returns
@@ -49,6 +51,10 @@ struct BookReadingStats {
 
   // Updates the running reading pace with one forward page dwell sample.
   void recordForwardPageRead(uint32_t seconds);
+
+  // Accumulates words read and active seconds for WPM calculation.
+  void recordWordRead(uint16_t words, uint32_t seconds);
+  uint16_t wordsPerMinute() const;
 
   // Attributes reading time to local date/time buckets when RTC data exists.
   void recordReadingSpan(const ReadingStatsDateTime& localStart, uint32_t seconds);

@@ -1,3 +1,15 @@
+## [v0.32] - 2026-11-27
+
+### Đã thêm & Tối ưu (Added & Improved)
+- **Đo tốc độ đọc WPM (Words/Min — Từ/phút) thay thế PPM (`BookReadingStats`, `GlobalReadingStats`, `EpubReaderActivity`)**:
+  - Đếm chính xác số từ hiển thị trên từng trang EPUB (`forEachVisiblePageWord`) kết hợp thời gian đọc trang hợp lệ (đã lọc warmup, lật nhầm, và thời gian treo máy) để tính **WPM** thực tế, không bị sai lệch theo cỡ chữ hay lề trang.
+  - Lưu trữ bền vững vào tệp phụ trợ `word_stats.bin` và `/.crosspoint/global_word_stats.bin` thông qua `two_slot::write` (an toàn khi mất điện, giữ nguyên hoàn toàn định dạng `stats_v6.bin` và `global_stats.bin` v3 để tương thích ngược, kèm kiểm tra `Storage.exists` tránh I/O thừa).
+- **Hiển thị WPM trên Giao diện Thống kê (`DashboardTheme`, `BookStatsView`, `SleepActivity`)**:
+  - Thay thế chỉ số **Pages/Min (PPM)** bằng **Words/Min (Từ/phút)** trên Dashboard, màn hình Reading Stats (theo từng sách & toàn bộ sách), và màn hình Sleep Reading Stats.
+  - Tự động hiển thị `--` đối với sách cũ chưa có dữ liệu từ hoặc truyện tranh XTC.
+- **Chính sách Anti-Aliasing & Hiệu năng E-Ink**:
+  - Duy trì mặc định `textAntiAliasing = 0` (Auto OFF) và `fastPageTurn = 1` (Auto ON) để bảo toàn tốc độ lật trang 1-bit tức thì.
+
 ## [v0.30] - 2026-11-26
 
 ### Đã thêm & Tối ưu (Added & Improved)

@@ -403,11 +403,13 @@ void drawDashboardStatsNoel(const GfxRenderer& renderer, const Rect& coverRect, 
   }
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
-  const float ppm = (bookStats.totalReadingSeconds > 60)
-                        ? (static_cast<float>(bookStats.totalPagesTurned) * 60.0f / bookStats.totalReadingSeconds)
-                        : 0.0f;
-  snprintf(value, sizeof(value), "%.1f", ppm);
-  drawStatsRowNoel(renderer, rightX, rowY, value, tr(STR_STATS_PAGES_PER_MIN), black, true, colW);
+  const uint16_t wpm = bookStats.wordsPerMinute();
+  if (wpm > 0) {
+    snprintf(value, sizeof(value), "%u", static_cast<unsigned>(wpm));
+  } else {
+    snprintf(value, sizeof(value), "--");
+  }
+  drawStatsRowNoel(renderer, rightX, rowY, value, tr(STR_STATS_WORDS_PER_MIN), black, true, colW);
 
   rowY = statsBlockTop(coverRect, ++rowIndex, blockH, rowCount);
   formatReadingStatsShortDate(bookStats.startDate, startedDate, sizeof(startedDate));

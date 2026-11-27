@@ -279,12 +279,7 @@ bool estimateFinishDateFromDailyPace(const BookReadingStats& stats, const Readin
   return outDate.isValid();
 }
 
-float pagesPerMinute(const uint32_t totalPagesTurned, const uint32_t totalReadingSeconds) {
-  if (totalReadingSeconds <= 60) {
-    return 0.0f;
-  }
-  return static_cast<float>(totalPagesTurned) * 60.0f / static_cast<float>(totalReadingSeconds);
-}
+// pagesPerMinute replaced by wordsPerMinute on BookReadingStats and GlobalReadingStats.
 
 void drawCenteredLabel(const GfxRenderer& renderer, const int fontId, const int x, const int w, const int y,
                        const char* text, const bool bold = false) {
@@ -401,9 +396,14 @@ void drawPerBookStatsCard(GfxRenderer& renderer, const int x, const int y, const
   }
   drawStatCell(renderer, x + thirdW, thirdW, y + layout.topCardTitleH + rowH, rowH, buf, tr(STR_TIME_LEFT));
 
-  snprintf(buf, sizeof(buf), "%.1f", pagesPerMinute(stats.totalPagesTurned, stats.totalReadingSeconds));
+  const uint16_t wpm = stats.wordsPerMinute();
+  if (wpm > 0) {
+    snprintf(buf, sizeof(buf), "%u", static_cast<unsigned>(wpm));
+  } else {
+    snprintf(buf, sizeof(buf), "--");
+  }
   drawStatCell(renderer, x + thirdW * 2, thirdW, y + layout.topCardTitleH + rowH, rowH, buf,
-               tr(STR_STATS_PAGES_PER_MIN));
+               tr(STR_STATS_WORDS_PER_MIN));
 
   if (!showRtcStats) {
     return;
@@ -479,8 +479,13 @@ void drawGlobalStatsCard(GfxRenderer& renderer, const int x, const int y, const 
   BookReadingStats::formatDuration(stats.totalReadingSeconds, buf, sizeof(buf));
   drawStatCell(renderer, x + thirdW, thirdW, y + layout.topCardTitleH, rowH, buf, tr(STR_STATS_TIME_LBL));
 
-  snprintf(buf, sizeof(buf), "%.1f", pagesPerMinute(stats.totalPagesTurned, stats.totalReadingSeconds));
-  drawStatCell(renderer, x + thirdW * 2, thirdW, y + layout.topCardTitleH, rowH, buf, tr(STR_STATS_PAGES_PER_MIN));
+  const uint16_t wpm = stats.wordsPerMinute();
+  if (wpm > 0) {
+    snprintf(buf, sizeof(buf), "%u", static_cast<unsigned>(wpm));
+  } else {
+    snprintf(buf, sizeof(buf), "--");
+  }
+  drawStatCell(renderer, x + thirdW * 2, thirdW, y + layout.topCardTitleH, rowH, buf, tr(STR_STATS_WORDS_PER_MIN));
 
   const uint32_t avgSecs = stats.totalSessions > 0 ? stats.totalReadingSeconds / stats.totalSessions : 0;
   BookReadingStats::formatDuration(avgSecs, buf, sizeof(buf));

@@ -8,9 +8,9 @@
 // Bump RELEASE_NOTES_REVISION whenever the notes table below changes for a new release.
 // Everyone whose saved revision is lower (including fresh installs) sees What's New once.
 // First published notes revision (v1.6.1 had no notes).
-constexpr uint16_t RELEASE_NOTES_REVISION = 3;
+constexpr uint16_t RELEASE_NOTES_REVISION = 4;
 // Label shown in the header. Deliberately not CROSSINK_VERSION, so a patch build keeps the notes' label.
-constexpr char RELEASE_NOTES_VERSION[] = "0.30";
+constexpr char RELEASE_NOTES_VERSION[] = "0.32";
 constexpr char RELEASE_NOTES_CHANGELOG_URL[] = "github.com/3r1pm4V/CrossImple/releases";
 
 constexpr size_t RELEASE_NOTES_MAX_PATH = 5;
