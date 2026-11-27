@@ -1756,7 +1756,7 @@ void setup() {
     stateDirty = false;
     APP_STATE.saveToFile();
     activityManager.goToReader(path, false, allowFastInitialReaderRefresh, false, quickResumeFrameVisible,
-                               /*skipXLocations=*/quickResumeFrameVisible);
+                               /*skipXLocations=*/bootToReaderFromState);
   }
 
   if (resume == BootResume::Silent || resume == BootResume::Network) {

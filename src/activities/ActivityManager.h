@@ -230,6 +230,7 @@ class ActivityManager {
   bool skipLoopDelay() const;
   uint8_t inputPollDelayMs() const;
   std::string getCurrentBookPath() const;
+  std::string getCurrentChapterTitle() const;
   ScreenshotInfo getScreenshotInfo() const;
 
   // If immediate is true, the update will be triggered immediately.

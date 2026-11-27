@@ -140,7 +140,8 @@ class XtcReaderActivity final : public Activity {
   void onEnter() override;
   void onExit() override;
   void prepareForSleep() override {
-    if (!flushQueuedProgress()) LOG_ERR("PEVT", "Reader progress save failed before sleep");
+    flushQueuedProgress();
+    finalizeReadingStatsOnExit();
   }
   void loop() override;
   void render(RenderLock&&) override;

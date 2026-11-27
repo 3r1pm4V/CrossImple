@@ -1097,8 +1097,10 @@ void ActivityManager::goToSleep(bool fromTimeout) {
   const bool canSnapshotOverlay = currentActivity && currentActivity->canSnapshotForSleepOverlay();
   const GfxRenderer::Orientation sleepPopupOrientation = renderer.getOrientation();
   std::string currentBookPath = getCurrentBookPath();
+  std::string currentChapterTitle = getCurrentChapterTitle();
   auto sleepActivity = makeUniqueNoThrow<SleepActivity>(renderer, mappedInput, canSnapshotOverlay,
-                                                        std::move(currentBookPath), fromTimeout, sleepPopupOrientation);
+                                                        std::move(currentBookPath), std::move(currentChapterTitle),
+                                                        fromTimeout, sleepPopupOrientation);
   const bool renderBeforeExit = currentActivity && sleepActivity && sleepActivity->rendersBeforeExit();
   if (!sleepActivity) {
     LOG_ERR("ACT", "Could not allocate sleep activity; saving outgoing activities before sleep");
@@ -1108,6 +1110,10 @@ void ActivityManager::goToSleep(bool fromTimeout) {
     // onExit() flushes progress, stats and bookmarks to the card.
     RenderLock lock;
     TouchRegistry::getInstance().clear();
+    if (currentActivity) currentActivity->prepareForSleep();
+    for (auto& act : stackActivities) {
+      if (act) act->prepareForSleep();
+    }
     if (sleepActivity) sleepActivity->onEnter();
     exitActivity(lock);
     while (!stackActivities.empty()) {
@@ -1355,6 +1361,26 @@ std::string ActivityManager::getCurrentBookPath() const {
       const std::string path = (*it)->getCurrentBookPath();
       if (!path.empty()) {
         return path;
+      }
+    }
+  }
+
+  return {};
+}
+
+std::string ActivityManager::getCurrentChapterTitle() const {
+  if (currentActivity) {
+    const std::string title = currentActivity->getCurrentChapterTitle();
+    if (!title.empty()) {
+      return title;
+    }
+  }
+
+  for (auto it = stackActivities.rbegin(); it != stackActivities.rend(); ++it) {
+    if (*it) {
+      const std::string title = (*it)->getCurrentChapterTitle();
+      if (!title.empty()) {
+        return title;
       }
     }
   }

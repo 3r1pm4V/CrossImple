@@ -2509,6 +2509,9 @@ float Epub::calculateSizeProgress(const int currentSpineIndex, const float curre
 
 // Calculate progress in book (returns 0.0-1.0)
 float Epub::calculateProgress(const int currentSpineIndex, const float currentSpineRead) const {
+  if (!xLocationsLoaded && !xLocationsChecked) {
+    const_cast<Epub*>(this)->loadXLocations();
+  }
   if (!xLocationsLoaded || totalLocations == 0 || currentSpineIndex < 0 ||
       currentSpineIndex >= static_cast<int>(locationSpineCount)) {
     return calculateSizeProgress(currentSpineIndex, currentSpineRead);
@@ -2526,6 +2529,9 @@ float Epub::calculateProgress(const int currentSpineIndex, const float currentSp
 }
 
 bool Epub::resolveLocationPercentToSpineProgress(const float percent, int& spineIndex, float& spineProgress) const {
+  if (!xLocationsLoaded && !xLocationsChecked) {
+    const_cast<Epub*>(this)->loadXLocations();
+  }
   if (!xLocationsLoaded || totalLocations == 0 || locationSpineCount == 0) {
     return false;
   }
@@ -2575,6 +2581,9 @@ bool Epub::resolveReferencePage(const int currentSpineIndex, const float current
                                 uint32_t& pageCount) const {
   currentPage = 0;
   pageCount = 0;
+  if (!xLocationsLoaded && !xLocationsChecked) {
+    const_cast<Epub*>(this)->loadXLocations();
+  }
   if (!xLocationsLoaded || totalWords == 0 || wordsPerReferencePage == 0 || totalReferencePages == 0 ||
       currentSpineIndex < 0 || currentSpineIndex >= static_cast<int>(locationSpineCount)) {
     return false;
@@ -2594,6 +2603,9 @@ bool Epub::resolveReferencePage(const int currentSpineIndex, const float current
 }
 
 bool Epub::hasStablePageNumbers() const {
+  if (!xLocationsLoaded && !xLocationsChecked) {
+    const_cast<Epub*>(this)->loadXLocations();
+  }
   return xLocationsLoaded && wordsPerReferencePage > 0 && totalReferencePages > 0 &&
          EpubNavigation::hasResolvableReferencePageRanges(totalWords, locationSpine.get(), locationSpineCount);
 }

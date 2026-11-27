@@ -61,6 +61,7 @@ SDK.
 - Justify new heap allocations or explain why stack/static storage is not suitable.
 - Explain fixes in plain language where possible, ideally in terms a Node / React developer would follow.
 - After proposing or making a fix, say how to verify it on hardware.
+- Anti-Aliasing Policy: TUYỆT ĐỐI KHÔNG tự động bật text anti-aliasing (`textAntiAliasing`). Anti-aliasing luôn luôn phải ở trạng thái auto-off (`textAntiAliasing = 0`, `fastPageTurn = 1`). Trên màn hình e-ink, khử răng cưa text đòi hỏi các pass quét grayscale đa tầng và tăng tải bộ đệm/bộ nhớ, làm chậm đáng kể tốc độ lật trang và chuyển cảnh; các tối ưu phải luôn bảo toàn chế độ 1-bit fast refresh.
 
 ## Persistent Context
 

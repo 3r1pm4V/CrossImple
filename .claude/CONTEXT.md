@@ -23,6 +23,7 @@ Refer to https://freeink.org/llms.txt for guidance.
 
 ## Rendering / Reader Pipeline
 
+- **Anti-aliasing policy**: `textAntiAliasing` must always remain AUTO-OFF (`textAntiAliasing = 0`, `fastPageTurn = 1`). Never auto-enable anti-aliasing in any flow or default profile. Keep 1-bit fast monochrome page turns as the primary behavior.
 - `lib/Epub/Epub/Page.cpp`: images must render only in `GfxRenderer::BW`; grayscale passes are text anti-aliasing passes only.
 - Kindle EPUBs may contain paired high-res and old-Kindle fallback images. `ChapterHtmlSlimParser` should skip `<img>` nodes with `data-AmznRemoved-M8` to avoid duplicate stacked images.
 - After image/layout pipeline changes that affect cached EPUB output, clear the affected `.crosspoint/epub_<hash>/` cache if behavior looks stale.

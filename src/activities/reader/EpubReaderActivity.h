@@ -596,6 +596,7 @@ class EpubReaderActivity final : public Activity {
   void onEnter() override;
   void onExit() override;
   void prepareForSleep() override {
+    finalizeReadingStatsOnExit();
     if (!saveReadingProgress()) LOG_ERR("PEVT", "Reader progress save failed before sleep");
   }
   void loop() override;
@@ -649,6 +650,7 @@ class EpubReaderActivity final : public Activity {
   bool handleShortcutAction(uint8_t action) override;
   std::string getCurrentBookPath() const override { return epub ? epub->getPath() : std::string{}; }
   std::string getCurrentBookTitle() const override { return epub ? epub->getTitle() : std::string{}; }
+  std::string getCurrentChapterTitle() const override { return currentChapterTitle(); }
   bool getFrontlightPanelBookDetails(FrontlightPanelBookDetails& details) override;
   std::unique_ptr<Activity> createFrontlightReadingStatsActivity() override;
   void onFrontlightPanelOpened() override;

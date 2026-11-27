@@ -11,11 +11,13 @@ class Bitmap;
 class SleepActivity final : public Activity {
  public:
   explicit SleepActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, bool canSnapshotOverlayBackground,
-                         std::string currentBookPath = {}, bool fromTimeout = false,
+                         std::string currentBookPath = {}, std::string currentChapterTitle = {},
+                         bool fromTimeout = false,
                          GfxRenderer::Orientation sleepPopupOrientation = GfxRenderer::Orientation::Portrait)
       : Activity("Sleep", renderer, mappedInput),
         canSnapshotOverlayBackground(canSnapshotOverlayBackground),
         currentBookPath(std::move(currentBookPath)),
+        currentChapterTitle(std::move(currentChapterTitle)),
         fromTimeout(fromTimeout),
         sleepPopupOrientation(sleepPopupOrientation) {}
   void onEnter() override;
@@ -29,6 +31,7 @@ class SleepActivity final : public Activity {
   void renderDefaultSleepScreen() const;
   void renderCustomSleepScreen() const;
   void renderCoverSleepScreen() const;
+  void renderCozyCoverSleepScreen() const;
   void renderReadingStatsSleepScreen() const;
   void renderMinimalSleepScreen() const;
   void renderMinimalStatsSleepScreen() const;
@@ -58,6 +61,7 @@ class SleepActivity final : public Activity {
   bool canSnapshotOverlayBackground = false;
   bool overlayBackgroundBufferStored = false;
   std::string currentBookPath;
+  std::string currentChapterTitle;
   bool fromTimeout = false;
   GfxRenderer::Orientation sleepPopupOrientation = GfxRenderer::Orientation::Portrait;
 };

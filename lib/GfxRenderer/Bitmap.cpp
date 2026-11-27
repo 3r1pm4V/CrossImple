@@ -188,7 +188,7 @@ BmpReaderError Bitmap::parseHeaders() {
   //  - High-color + dithering enabled → error-diffusion dithering (Atkinson or Floyd-Steinberg)
   //  - High-color + dithering disabled → simple quantization (no error diffusion)
   const bool convertSourceLevels = toneProfile == ImageToneProfile::PiccoCover && bpp > 1;
-  if (oneBitOutput && bpp > 1) {
+  if (oneBitOutput) {
     oneBitDitherer = new (std::nothrow) Atkinson1BitDitherer(width);
     if (!oneBitDitherer || !oneBitDitherer->isValid()) {
       delete oneBitDitherer;
@@ -218,28 +218,41 @@ BmpReaderError Bitmap::parseHeaders() {
 }
 
 bool Bitmap::setDitheredOutputSize(const int targetWidth, const int targetHeight) {
-  if (!dithering || !atkinsonDitherer || targetWidth <= 0 || targetHeight <= 0 || targetWidth > width ||
-      targetHeight > height || (targetWidth == width && targetHeight == height)) {
+  if (!dithering || (!atkinsonDitherer && !oneBitDitherer) || targetWidth <= 0 || targetHeight <= 0 ||
+      targetWidth > width || targetHeight > height || (targetWidth == width && targetHeight == height)) {
     return false;
   }
 
-  // The error buffers must use final-screen coordinates. Recreating this tiny
-  // helper costs about 3 KiB for an X3-wide custom sleep image, not a full BMP.
-  auto resizedDitherer = makeUniqueNoThrow<AtkinsonDitherer>(targetWidth, toneProfile);
-  // One reusable output row, not a framebuffer: 4 * targetWidth bytes (at most
-  // 8192 under the BMP width limit). Dynamic width and task stack limits rule
-  // out stack/static storage. Allocation failure preserves the existing path.
   auto sums = makeUniqueNoThrow<uint32_t[]>(targetWidth);
-  if (!resizedDitherer || !resizedDitherer->isValid() || !sums) {
+  if (!sums) {
     LOG_ERR("BMP", "Failed to allocate resampler for %d columns", targetWidth);
     return false;
   }
 
-  delete atkinsonDitherer;
-  atkinsonDitherer = resizedDitherer.release();
+  if (oneBitOutput) {
+    auto resizedDitherer = makeUniqueNoThrow<Atkinson1BitDitherer>(targetWidth);
+    if (!resizedDitherer || !resizedDitherer->isValid()) {
+      LOG_ERR("BMP", "Failed to allocate 1-bit resampler for %d columns", targetWidth);
+      return false;
+    }
+    delete oneBitDitherer;
+    oneBitDitherer = resizedDitherer.release();
+  } else {
+    auto resizedDitherer = makeUniqueNoThrow<AtkinsonDitherer>(targetWidth, toneProfile);
+    if (!resizedDitherer || !resizedDitherer->isValid()) {
+      LOG_ERR("BMP", "Failed to allocate resampler for %d columns", targetWidth);
+      return false;
+    }
+    delete atkinsonDitherer;
+    atkinsonDitherer = resizedDitherer.release();
+  }
+
   resampleSums = std::move(sums);
   outputWidth = targetWidth;
   outputHeight = targetHeight;
+  sourceRowsRead = 0;
+  outputRowsRead = 0;
+  file.seek(bfOffBits);
   return true;
 }
 

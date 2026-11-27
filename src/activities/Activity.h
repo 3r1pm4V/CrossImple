@@ -114,6 +114,7 @@ class Activity {
   virtual bool handleShortcutAction(CrossPointSettings::SHORT_PWRBTN) { return false; }
   virtual std::string getCurrentBookPath() const { return {}; }
   virtual std::string getCurrentBookTitle() const { return {}; }
+  virtual std::string getCurrentChapterTitle() const { return {}; }
   virtual bool getFrontlightPanelBookDetails(FrontlightPanelBookDetails&) { return false; }
   virtual bool isEpubReaderActivity() const { return false; }
   virtual std::unique_ptr<Activity> createFrontlightReadingStatsActivity() { return {}; }

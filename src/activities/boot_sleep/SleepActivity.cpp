@@ -38,6 +38,7 @@
 #include "RecentBooksStore.h"
 #include "SleepCoverAssets.h"
 #include "activities/reader/ReaderUtils.h"
+#include "components/CustomCoverResolver.h"
 #include "components/UITheme.h"
 #include "components/themes/dashboard/DashboardTheme.h"
 #if defined(CROSSINK_NOEL_EDITION)
@@ -47,6 +48,7 @@
 #include "fontIds.h"
 #include "images/Logo120.h"
 #include "images/MoonIcon.h"
+#include "images/CozyCoverAssets.h"
 
 namespace {
 
@@ -571,6 +573,10 @@ void SleepActivity::onEnter() {
     return renderLastScreenSleepScreen();
   }
 
+  // Non-QuickResume sleep screens (Cover, Stats, Dashboard, Minimal, Blank, Dark, Light)
+  // must always be rendered in Portrait orientation regardless of previous reader orientation.
+  renderer.setOrientation(GfxRenderer::Orientation::Portrait);
+
   // Release reader SD font cache and glyph caches before generating sleep screen assets
   // (covers, stats, PNGs) to maximize available heap for image decoders.
   renderer.releaseSdCardFontForLowMemory(SETTINGS.getReaderFontId());
@@ -582,7 +588,8 @@ void SleepActivity::onEnter() {
   const bool sleepScreenUsesRecentBooks = sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::READING_STATS_SLEEP ||
                                           sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::MINIMAL_SLEEP ||
                                           sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::MINIMAL_STATS_SLEEP ||
-                                          sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::DASHBOARD_SLEEP;
+                                          sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::DASHBOARD_SLEEP ||
+                                          sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COZY_COVER;
   const std::string& recentBookPath = currentBookPath.empty() ? APP_STATE.openEpubPath : currentBookPath;
   if (sleepScreenUsesRecentBooks && !recentBookPath.empty()) {
     RECENT_BOOKS.ensureLoaded();
@@ -627,6 +634,8 @@ void SleepActivity::onEnter() {
     case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER_OVERLAY):
     case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER):
       return renderCoverSleepScreen();
+    case (CrossPointSettings::SLEEP_SCREEN_MODE::COZY_COVER):
+      return renderCozyCoverSleepScreen();
     case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM):
       if (APP_STATE.lastSleepFromReader) {
         return renderCoverSleepScreen();
@@ -659,10 +668,25 @@ bool SleepActivity::rendersBeforeExit() const {
     case CrossPointSettings::SLEEP_SCREEN_MODE::DARK:
     case CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT:
     case CrossPointSettings::SLEEP_SCREEN_MODE::BLANK:
+    case CrossPointSettings::SLEEP_SCREEN_MODE::READING_STATS_SLEEP:
       return true;
+    case CrossPointSettings::SLEEP_SCREEN_MODE::MINIMAL_SLEEP:
+    case CrossPointSettings::SLEEP_SCREEN_MODE::MINIMAL_STATS_SLEEP: {
+      const std::string& path = currentBookPath.empty() ? APP_STATE.openEpubPath : currentBookPath;
+      if (path.empty()) return true;
+      if (psramHeapAvailable()) return true;
+      return !SleepCoverAssets::cachedMinimalCoverPathFor(path).empty();
+    }
+    case CrossPointSettings::SLEEP_SCREEN_MODE::DASHBOARD_SLEEP: {
+      const std::string& path = currentBookPath.empty() ? APP_STATE.openEpubPath : currentBookPath;
+      if (path.empty()) return true;
+      if (psramHeapAvailable()) return true;
+      return !SleepCoverAssets::cachedDashboardCoverPathFor(path).empty();
+    }
     case CrossPointSettings::SLEEP_SCREEN_MODE::CUSTOM:
       // Custom image decoders need the reader's memory released on non-PSRAM.
       return psramHeapAvailable();
+    case CrossPointSettings::SLEEP_SCREEN_MODE::COZY_COVER:
     case CrossPointSettings::SLEEP_SCREEN_MODE::COVER:
     case CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM: {
       if (SETTINGS.sleepScreen == CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM &&
@@ -949,6 +973,217 @@ void SleepActivity::renderCoverSleepScreen() const {
   return renderNoCoverSleepScreen();
 }
 
+namespace {
+void draw1BitBitmap(const GfxRenderer& renderer, const uint8_t* data, int x, int y, int w, int h) {
+  if (!data) return;
+  const int rowBytes = (w + 7) / 8;
+  for (int row = 0; row < h; ++row) {
+    const int py = y + row;
+    const uint8_t* rowData = &data[row * rowBytes];
+    for (int col = 0; col < w; ++col) {
+      const bool isWhite = (rowData[col >> 3] >> (7 - (col & 7))) & 1;
+      renderer.drawPixel(x + col, py, !isWhite);
+    }
+  }
+}
+
+void draw1BitMasked(const GfxRenderer& renderer, const uint8_t* data, const uint8_t* mask, int x, int y, int w, int h) {
+  if (!data || !mask) return;
+  const int rowBytes = (w + 7) / 8;
+  for (int row = 0; row < h; ++row) {
+    const int py = y + row;
+    const uint8_t* rowData = &data[row * rowBytes];
+    const uint8_t* rowMask = &mask[row * rowBytes];
+    for (int col = 0; col < w; ++col) {
+      const bool inMask = (rowMask[col >> 3] >> (7 - (col & 7))) & 1;
+      if (inMask) {
+        const bool isWhite = (rowData[col >> 3] >> (7 - (col & 7))) & 1;
+        renderer.drawPixel(x + col, py, !isWhite);
+      }
+    }
+  }
+}
+}  // namespace
+
+void SleepActivity::renderCozyCoverSleepScreen() const {
+  std::string path = currentBookPath.empty() ? APP_STATE.openEpubPath : currentBookPath;
+  if (path.empty()) {
+    RECENT_BOOKS.ensureLoaded();
+    const auto& books = RECENT_BOOKS.getBooks();
+    if (!books.empty()) {
+      path = books.front().path;
+    }
+  }
+  const auto screenWidth = renderer.getScreenWidth();
+
+#if COZY_COVER_HAS_X4 && (!COZY_COVER_HAS_X3)
+  const bool isX4 = true;
+#elif COZY_COVER_HAS_X3 && (!COZY_COVER_HAS_X4)
+  const bool isX4 = false;
+#else
+  const bool isX4 = (screenWidth == 480);
+#endif
+
+  const uint8_t* baseImage = nullptr;
+  const uint8_t* defaultImage = nullptr;
+  const uint8_t* thumbImage = nullptr;
+  const uint8_t* thumbMask = nullptr;
+  int screenX = 0, screenY = 0, screenW = 0, screenH = 0;
+  int thumbX = 0, thumbY = 0, thumbW = 0, thumbH = 0;
+  int totalW = 0, totalH = 0;
+
+  if (isX4) {
+#if COZY_COVER_HAS_X4
+    baseImage = CozyCover::X4_BASE;
+    defaultImage = CozyCover::X4_DEFAULT;
+    thumbImage = CozyCover::X4_THUMB;
+    thumbMask = CozyCover::X4_THUMB_MASK;
+    totalW = CozyCover::X4_WIDTH;
+    totalH = CozyCover::X4_HEIGHT;
+    screenX = CozyCover::X4_SCREEN_X;
+    screenY = CozyCover::X4_SCREEN_Y;
+    screenW = CozyCover::X4_SCREEN_WIDTH;
+    screenH = CozyCover::X4_SCREEN_HEIGHT;
+    thumbX = CozyCover::X4_THUMB_X;
+    thumbY = CozyCover::X4_THUMB_Y;
+    thumbW = CozyCover::X4_THUMB_WIDTH;
+    thumbH = CozyCover::X4_THUMB_HEIGHT;
+#endif
+  } else {
+#if COZY_COVER_HAS_X3
+    baseImage = CozyCover::X3_BASE;
+    defaultImage = CozyCover::X3_DEFAULT;
+    thumbImage = CozyCover::X3_THUMB;
+    thumbMask = CozyCover::X3_THUMB_MASK;
+    totalW = CozyCover::X3_WIDTH;
+    totalH = CozyCover::X3_HEIGHT;
+    screenX = CozyCover::X3_SCREEN_X;
+    screenY = CozyCover::X3_SCREEN_Y;
+    screenW = CozyCover::X3_SCREEN_WIDTH;
+    screenH = CozyCover::X3_SCREEN_HEIGHT;
+    thumbX = CozyCover::X3_THUMB_X;
+    thumbY = CozyCover::X3_THUMB_Y;
+    thumbW = CozyCover::X3_THUMB_WIDTH;
+    thumbH = CozyCover::X3_THUMB_HEIGHT;
+#endif
+  }
+
+  if (!baseImage) {
+    return renderDefaultSleepScreen();
+  }
+
+  // Draw base cozy scene (girl in blanket, bunny, hollow white screen)
+  renderer.clearScreen();
+  draw1BitBitmap(renderer, baseImage, 0, 0, totalW, totalH);
+
+  bool coverDrawn = false;
+  if (!path.empty()) {
+    std::string candidatePath;
+    bool sourceBitmap = false;
+    const auto toneProfile = bookCoverToneProfile(renderer);
+    const bool oneBit = useOneBitBookCover();
+
+    // 1. Check custom cover resolver
+    const std::string custom = CustomCoverResolver::resolveCustomCoverBmpPath(path);
+    if (!custom.empty() && Storage.exists(custom.c_str())) {
+      candidatePath = custom;
+    }
+
+    // 2. Check cached full covers across various crop modes and tone profiles
+    if (candidatePath.empty()) {
+      for (const bool cropped : {true, false}) {
+        std::string p = resolveCachedCoverPath(path, cropped, toneProfile, oneBit, &sourceBitmap);
+        if (p.empty()) {
+          p = resolveCachedCoverPath(path, cropped, ImageToneProfile::Legacy, true, &sourceBitmap);
+        }
+        if (p.empty()) {
+          p = resolveCachedCoverPath(path, cropped, ImageToneProfile::Legacy, false, &sourceBitmap);
+        }
+        if (p.empty()) {
+          p = resolveCachedCoverPath(path, cropped, ImageToneProfile::Even, false, &sourceBitmap);
+        }
+        if (!p.empty() && Storage.exists(p.c_str())) {
+          candidatePath = p;
+          break;
+        }
+      }
+    }
+
+    // 3. Check recent book cached thumbnail
+    if (candidatePath.empty()) {
+      const RecentBook recent = recentBookForPath(path);
+      if (!recent.coverBmpPath.empty() && Storage.exists(recent.coverBmpPath.c_str())) {
+        candidatePath = recent.coverBmpPath;
+      }
+    }
+
+    // 4. Check EPUB thumbnail path
+    if (candidatePath.empty() && FsHelpers::hasEpubExtension(path)) {
+      const std::string thumb = Epub(path, "/.crosspoint").getThumbBmpPath();
+      if (!thumb.empty() && Storage.exists(thumb.c_str())) {
+        candidatePath = thumb;
+      }
+    }
+
+    // 5. If still empty, prepare full cover
+    if (candidatePath.empty()) {
+      if (SleepCoverAssets::prepareFullCoverForPath(path, true, &renderer, toneProfile, oneBit)) {
+        cachedCoverLookup.valid = false;
+        candidatePath = resolveCachedCoverPath(path, true, toneProfile, oneBit, &sourceBitmap);
+      }
+    }
+
+    if (!candidatePath.empty()) {
+      FsFile file;
+      if (Storage.openFileForRead("SLP", candidatePath, file)) {
+        const bool useImageLevels = toneProfile != ImageToneProfile::Legacy;
+        Bitmap bitmap(file, true, sourceBitmap ? toneProfile : imageToneProfile(useImageLevels));
+        bitmap.setOneBitOutput(true);
+        if (bitmap.parseHeaders() == BmpReaderError::Ok) {
+          LOG_INF("SLP", "Rendering Cozy Cover for book: %s", candidatePath.c_str());
+          const int bWidth = bitmap.getWidth();
+          const int bHeight = bitmap.getHeight();
+          if (bWidth > 0 && bHeight > 0) {
+            const float scaleX = static_cast<float>(screenW) / bWidth;
+            const float scaleY = static_cast<float>(screenH) / bHeight;
+            const float scale = std::min(scaleX, scaleY);
+            const int drawW = std::max(1, static_cast<int>(bWidth * scale));
+            const int drawH = std::max(1, static_cast<int>(bHeight * scale));
+            const int drawX = screenX + (screenW - drawW) / 2;
+            const int drawY = screenY + (screenH - drawH) / 2;
+
+            // Clear mini-screen area to pure white first
+            renderer.fillRect(screenX, screenY, screenW, screenH, false);
+
+            // Resample with area-averaging and dither directly at target dimensions
+            if (drawW < bWidth || drawH < bHeight) {
+              bitmap.setDitheredOutputSize(drawW, drawH);
+            }
+
+            coverDrawn = renderer.drawBitmap(bitmap, drawX, drawY, drawW, drawH);
+          }
+        }
+        file.close();
+      }
+    }
+  }
+
+  if (!coverDrawn) {
+    // If no book is open or cover fails to draw, draw full default Cozy Cover with Little Prince / mascot
+    renderer.clearScreen();
+    draw1BitBitmap(renderer, defaultImage, 0, 0, totalW, totalH);
+  } else {
+    // Restore right thumb holding naturally on top of the screen using its contour mask
+    draw1BitMasked(renderer, thumbImage, thumbMask, thumbX, thumbY, thumbW, thumbH);
+  }
+
+#if FREEINK_DEVICE_METALIO_EINK4
+  renderer.displayBuffer(HalDisplay::FULL_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);
+#else
+  renderer.displayBuffer(HalDisplay::HALF_REFRESH, TURN_OFF_SCREEN_AFTER_SLEEP_REFRESH);
+#endif
+}
+
 void SleepActivity::renderReadingStatsSleepScreen() const {
   BookReadingStats bookStats;
   std::string bookTitle = tr(STR_READING_STATS);
@@ -1040,7 +1275,7 @@ void SleepActivity::renderDashboardSleepScreen() const {
   const BookReadingStats bookStats = loadBookStatsForPath(path);
   const GlobalReadingStats globalStats = GlobalReadingStats::load();
   const float progressPercent = RecentBookProgress::loadPercent(book);
-  const std::string chapterTitle = loadChapterTitleForPath(path);
+  const std::string chapterTitle = !currentChapterTitle.empty() ? currentChapterTitle : loadChapterTitleForPath(path);
 #if defined(CROSSINK_NOEL_EDITION)
   if (SETTINGS.uiTheme == CrossPointSettings::UI_THEME::DASHBOARD_NOEL) {
     DashboardNoelTheme theme;

@@ -1,6 +1,11 @@
 ## [v0.30] - 2026-11-26
 
 ### Đã thêm & Tối ưu (Added & Improved)
+- **Tối ưu Tức thì Màn hình Ngủ Reading Stats, Minimal & Dashboard Sleep (`SleepActivity`, `ActivityManager`, `EpubReaderActivity`)**:
+  - **Phản hồi Sleep < 100ms cho Reading Stats & Minimal**: Mở rộng `rendersBeforeExit` cho các chế độ `READING_STATS_SLEEP`, `MINIMAL_SLEEP`, `MINIMAL_STATS_SLEEP`, và `DASHBOARD_SLEEP`. Bổ sung hook `prepareForSleep()` trên `Activity` giúp Reader chốt phiên đọc và tiến độ ngay trong RAM trước khi render, cho phép màn hình E-ink đổi giao diện tức thì khi bấm nút nguồn.
+  - **Loại bỏ Nạp Lại EPUB trong Dashboard Sleep (`SleepActivity.cpp`, `ActivityManager.cpp`)**: Truyền trực tiếp `currentChapterTitle` từ Reader đang mở sang `SleepActivity`, loại bỏ hoàn toàn hàm `loadChapterTitleForPath()` từng phải mở lại file ZIP EPUB từ thẻ nhớ SD chỉ để lấy tên chương. Tiết kiệm ~1.5s - 2.5s khi vào sleep.
+  - **Tối ưu Tốc độ Wake - Bỏ qua Đọc `.xlocations` (`main.cpp`)**: Khi thức dậy tiếp tục đọc sách dở dang (`bootToReaderFromState`), tự động kích hoạt `skipXLocations = true` thay vì chỉ áp dụng riêng cho Quick Resume, giảm mạnh thời gian truy xuất thẻ nhớ SD khi mở lại trang sách.
+  - **Quy chuẩn Chính sách Anti-Aliasing**: Cố định chính sách Anti-Aliasing (`textAntiAliasing`) luôn tự động TẮT (`auto-off`) để bảo toàn tốc độ lật trang 1-bit và giảm độ trễ hiển thị.
 - **Tối ưu Tức thì Màn hình Ngủ Cover trên Xteink X3 (ESP32-C3)**:
   - **Phản hồi Sleep Cover < 100ms (`SleepActivity.cpp`)**: Cho phép `rendersBeforeExit` an toàn trên chip C3 khi ảnh bìa sách đã có cache `.bmp`. Màn hình đổi sang bìa sách ngay lập tức khi bấm nút nguồn (nhanh như dòng S3), các tác vụ lưu tiến độ và dọn dẹp Reader sẽ chạy ngầm ở phía sau.
 - **Cắt giảm I/O Thẻ nhớ SD & Tối ưu Boot/Wake/Sleep**:
